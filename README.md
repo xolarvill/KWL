@@ -1,12 +1,12 @@
 # README.md
 
-# Graduation Thesis Code Snippets
+## Graduation Thesis Code Snippets
 
 This project implements an economic model simulation using Python. The model is designed to analyze and simulate economic behaviors based on various parameters and data inputs.
 
 ## Project Structure
 
-```
+```bash
 economic-model
 ├── src
 │   ├── main.py               # Entry point for the economic model simulation
@@ -41,7 +41,7 @@ economic-model
 
 To run this project, ensure you have Python installed along with the required dependencies. You can install the dependencies using:
 
-```
+```bash
 pip install -r requirements.txt
 ```
 
@@ -49,7 +49,7 @@ pip install -r requirements.txt
 
 To execute the simulation, run the following command:
 
-```
+```bash
 python src/main.py
 ```
 

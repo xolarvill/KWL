@@ -1,4 +1,6 @@
 pandas
 numpy
-mpi4py
 scipy
+geopy
+sympy
+openpyxl
