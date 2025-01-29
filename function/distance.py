@@ -13,7 +13,10 @@ geodata = read_excel('geodata.xls')
 def locmatrix(geodata):
     '''
     根据输入的geodata获取一个按顺序的位置距离矩阵
-    基于 WGS84椭球模型，使用Vincenty算法迭代计算两点间的最短测地线距离。考虑地球的扁率（赤道半径6378.137 km，极半径6356.752 km），精度更高。
+    基于WGS84椭球模型，使用Vincenty算法迭代计算两点间的最短测地线距离。考虑地球的扁率精度更高。
+    
+    input:
+    geodata (pandas.DataFrame): geodata
     '''
     geodata.unique()
     N = geodata['省份'].nunique()
