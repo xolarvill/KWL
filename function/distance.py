@@ -16,10 +16,10 @@ def locmatrix(geodata):
     基于 WGS84椭球模型，使用Vincenty算法迭代计算两点间的最短测地线距离。考虑地球的扁率（赤道半径6378.137 km，极半径6356.752 km），精度更高。
     '''
     geodata.unique()
-    N = geodata['省会'].nunique()
+    N = geodata['省份'].nunique()
     matrix = np.zeros((N, N))
-    for i, city1 in enumerate(geodata['省会'].unique()):
-        for j, city2 in enumerate(geodata['省会'].unique()):
+    for i, city1 in enumerate(geodata['省份'].unique()):
+        for j, city2 in enumerate(geodata['省份'].unique()):
             if i != j:
                 geolocator = Nominatim(user_agent="geopythesis")
                 location_i = geolocator.geocode(city1)
@@ -44,4 +44,8 @@ def distance(loc1, loc2 , matrix):
     loc2_index = np.where(sorted_provcd == loc2)[0][0]
     distance = matrix[loc1_index, loc2_index]
     return distance
-    
+
+if __name__ == '__main__':
+    geolocator = Nominatim(user_agent="geopythesis")
+    location_i = geolocator.geocode('浙江省')
+    print(location_i.longitude, location_i.latitude)
