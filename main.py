@@ -26,35 +26,51 @@ def main():
     year = CfpsData['year'].unique() # 年份
     pid = CfpsData['pid'].unique() # 个体ID
     provcd = CfpsData['provcd'].unique() # 省份代码
-    adjmatrix = adjacent.matrix() # 邻近矩阵
-    location_matrix = distance.locmatrix()
+    adjacent_matrix = adjacent.matrix() # 邻近矩阵
+    location_matrix = distance.locmatrix() # 距离矩阵
+    
+    # 在GeoData中添加每个省份的距离位置
+    distance.distance(GeoData)
     
     T = len(year)
     J = len(provcd)
     I = len(pid)
     
     # 初始化代估参数
+    ## u(x,j)
     alpha0 = 0 # wage income parameter
-    alpha1 = 0 # amenity parameter 1
-    alpha2 = 0 # amenity parameter 2
-    alpha3 = 0 # amenity parameter 3
-    alpha4 = 0 # amenity parameter 4
-    alpha5 = 0 # amenity parameter 5
-    alpha6 = 0 # amenity parameter 6
+    alpha1 = 0 # houseprice
+    alpha2 = 0 # weather = hazard + temperature + air quality + water supply
+    alpha3 = 0 # education 
+    alpha4 = 0 # health
+    alpha5 = 0 # traffic = public transportation + road service
+    alpha6 = 0 # 
     alphaH = 0 # home premium parameter
+    xi = 0 # random permanent component
+    zeta = 0 # exogenous shock
+    ## wage
+    nu = 0 # location match effect
+    eta = 0 # individual effect
+    ## G(a)
     beta1 = 0 # first order age effect
     beta2 = 0 # second order age effect
+    ## delta
+    gammaF = 0 # mirgration friction parameter
     gamma0 = 0 # heterogenous migration cost parameter
     gamma1 = 0 # moving cost parameter
     gamma2 = 0 # cheaper adjacent location parameter
     gamma3 = 0 # cheaper previous location parameter
     gamma4 = 0 # age-moving cost parameter
     gamma5 = 0 # cheaper larger city parameter 
+    ## other
     beta = 0.95 # discount factor
+    
     theta = [alpha0, 
              alpha1, alpha2, alpha3, alpha4, alpha5, alpha6,
              alphaH,
+             xi, zeta, nu, eta,
              beta1, beta2,
+             gammaF,
              gamma0, gamma1, gamma2, gamma3, gamma4, gamma5
              ] # 代估参数向量
     
@@ -62,9 +78,6 @@ def main():
     description = descriptive.des(dataframe = CfpsData, geodata = GeoData)
     with open('description.txt', 'w') as f:
             f.write(f"{description}")
-    
-    # 在GeoData中添加每个省份的距离位置
-    distance.distance(GeoData)
     
     # 从个人轨迹的似然贡献得到个人所有年份的似然函数（包括工资似然和迁移似然）
     # 所有代估参数此时都用sympy.symbols格式占位
