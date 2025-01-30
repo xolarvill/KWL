@@ -35,10 +35,12 @@ def main():
     with open('description.txt', 'w') as f:
             f.write(f"{description}")
     
-    # 是否要使用子样本进行细分回归
+    # 是否要使用子样本进行分类回归
     cut_par = 1
     if cut_par == 1:
         CfpsData = subsample.cutout1(CfpsData)
+    elif cut_par == 2:
+        CfpsData = subsample.cutout2(CfpsData)
     
     # 获取基础参数
     year = CfpsData['year'].unique() # 年份
