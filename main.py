@@ -1,8 +1,9 @@
-from function import adjacent, data_readgeo, dataRC, houseprice, subsample, descriptive, nelder_mead, nelder_mead1, newton_line_search, compare_vec, distance, llh_individual, llh_log_sample
+from function import adjacent, data_readgeo, dataRC, houseprice, linguistic, subsample, descriptive, nelder_mead, nelder_mead1, newton_line_search, compare_vec, distance, llh_individual, llh_log_sample
 import numpy as np
 import sympy as sp
 import pandas as pd
 from time import time
+import json
 
 def main():
     '''
@@ -13,7 +14,9 @@ def main():
     ## 基础读取和清洗
     # CfpsData = dataRC.main_read('D:\\STUDY\\CFPS\\merged')
     # GeoData = data_readgeo.read_geo('D:\\STUDY\\CFPS\\geo')
-    
+    with open("D:\\STUDY\\CFPS\\merged\\KWL\\data\\linguistic.json", encoding='utf-8') as f:
+        linguistic_tree = json.load(f)
+        
     ## 添加房价
     # GeoData = houseprice(
         # raw_excel_loc = 'D:\\STUDY\\CFPS\\geo\\2000-2022年296个地级以上城市房价数据.xlsx', 
@@ -96,7 +99,7 @@ def main():
     # 所有代估参数此时都用sympy.symbols格式占位
     individual_likelihoods = []
     for i in pid:
-        llh_i = llh_individual.create_llh_individual(dataframe=CfpsData, geodata=GeoData, individual_index=i)
+        llh_i = llh_individual.create_llh_individual(dataframe=CfpsData, geodata=GeoData, individual_index=i, linguistic=linguistic_tree)
         individual_likelihoods.append(llh_i)
     
     # 给出类型权重向量

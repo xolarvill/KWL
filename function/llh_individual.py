@@ -3,7 +3,7 @@ import sympy as sp
 
 
 
-def create_llh_individual(individual_index, dataframe, geodata):
+def create_llh_individual(individual_index, dataframe, geodata, linguistic):
     """
     Calculate the likelihood of an individual history (including wages and migration decisions)
     
@@ -17,6 +17,9 @@ def create_llh_individual(individual_index, dataframe, geodata):
     -------
     llh_commitment (Matrix): 
     """
+    # 读取json
+    dialect_tree = linguistic
+    
     # 定义符号参数
     alpha0, alphaK, alphaH, beta1, beta2, gamma0_tau, gamma1, H = sp.symbols(
         'alpha0 alphaK alphaH beta1 beta2 gamma0_tau gamma1 H'

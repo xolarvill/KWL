@@ -56,7 +56,7 @@ def calculate_distance(node1, node2):
     return distance
 
 
-def dialect_distance(l1, l2):
+def dialect_distance(l1, l2, jsondata):
     """
     Calculate the distance between two dialects based on a linguistic tree.
     Args:
@@ -75,8 +75,7 @@ def dialect_distance(l1, l2):
     """
     
     # 加载JSON数据
-    with open("D:\\STUDY\\CFPS\\merged\\KWL\\data\\linguistic.json", encoding='utf-8') as f:
-        data = json.load(f)
+    data = jsondata
     root = build_tree(data)
 
     # 创建名称到节点的映射
@@ -92,3 +91,9 @@ def dialect_distance(l1, l2):
     dialect_b = nodes_dict[l2]
     distance = calculate_distance(dialect_a, dialect_b)
     print(f"亲疏距离: {distance}")  # 输出示例：亲疏距离: 3
+    
+
+if __name__ == '__main__':
+    with open("D:\\STUDY\\CFPS\\merged\\KWL\\data\\linguistic.json", encoding='utf-8') as f:
+        linguistic_tree = json.load(f)
+    print(dialect_distance('吴语','中原官话',linguistic_tree))
