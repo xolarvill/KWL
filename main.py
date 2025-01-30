@@ -1,4 +1,4 @@
-from function import adjacent, dataRC, read_geo, houseprice, subsample, descriptive, nelder_mead, nelder_mead1, newton_line_search, compare_vec, distance, llh_individual, llh_log_sample
+from function import adjacent, data_readgeo, dataRC, houseprice, subsample, descriptive, nelder_mead, nelder_mead1, newton_line_search, compare_vec, distance, llh_individual, llh_log_sample
 import numpy as np
 import sympy as sp
 import pandas as pd
@@ -12,7 +12,7 @@ def main():
     # 原始数据读取、清洗、添加新变量
     ## 基础读取和清洗
     # CfpsData = dataRC.main_read('D:\\STUDY\\CFPS\\merged')
-    # GeoData = read_geo.read_geo('D:\\STUDY\\CFPS\\geo')
+    # GeoData = data_readgeo.read_geo('D:\\STUDY\\CFPS\\geo')
     
     ## 添加房价
     # GeoData = houseprice(
