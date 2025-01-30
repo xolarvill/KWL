@@ -2,124 +2,128 @@ import pandas as pd
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from sklearn.impute import SimpleImputer
+from sklearn.exceptions import DataConversionWarning
+import os
+from factor_analyzer import calculate_kmo
 
-def pca_to_excel(file_path, variables, new_var_name, 
-                n_components=None, sheet_name=0, output_path=None):
+def pca_to_excel(
+    input_path,       # 输入文件路径
+    output_path,      # 输出文件路径
+    variables,        # 需要处理的变量列表
+    new_var_name,     # 新变量名称（可追加数字后缀如_PC1）
+    sheet_name=0,     # 处理的Sheet页（默认第一个）
+    n_components=None,# 主成分数量（默认自动选择解释80%方差的成分）
+    missing_strategy='mean',  # 缺失值处理策略：'drop'或'mean'
+    overwrite=False   # 是否允许覆盖原文件（需显式开启）
+):
     """
-    在Excel文件中为指定变量执行PCA分析，并将主成分添加到原数据
-    
-    参数：
-    file_path: str - 原始Excel文件路径
-    variables: list - 需要分析的变量列表
-    new_var_name: str - 主成分列名前缀
-    n_components: int/None - 主成分数量，None时自动确定
-    sheet_name: str/int - 工作表名称/索引
-    output_path: str - 输出文件路径(None时覆盖原文件)
-    
-    返回：
-    pd.DataFrame - 包含主成分的DataFrame
+    goal:
+    使用PCA处理Excel数据并生成新变量
+    ---
+    input:
+    input_path, 输入文件路径
+    output_path, 输出文件路径
+    variables, 需要处理的变量列表
+    new_var_name, 新变量名称（可追加数字后缀如_PC1）
+    sheet_name=0, 处理的Sheet页（默认第一个）
+    n_components=None,主成分数量（默认自动选择解释80%方差的成分）
+    missing_strategy='mean', 缺失值处理策略：'drop'或'mean'
+    overwrite=False, 是否允许覆盖原文件（需显式开启）
+    ---
+    note:
+    主成分分析是一种降维技术，通过线性变换将原始数据转换到新的坐标系中，使得新变量（主成分）是原始变量的线性组合，且彼此正交。第一个主成分解释了最大的方差，第二个次之，依此类推。`n_components`参数决定了保留多少个主成分。
     """
     
-    # ==================== 数据读取与校验 ====================
+    # 参数校验
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"输入文件 {input_path} 不存在")
+    if input_path == output_path and not overwrite:
+        raise ValueError("覆盖原文件需显式设置 overwrite=True")
+    
+    # 读取数据
     try:
-        # 读取整个Excel文件结构
-        with pd.ExcelFile(file_path) as excel:
-            # 保留所有工作表数据
-            sheets = {sheet: excel.parse(sheet) for sheet in excel.sheet_names}
-            original_df = sheets[sheet_name].copy()
+        df = pd.read_excel(input_path, sheet_name=sheet_name)
     except Exception as e:
-        raise ValueError(f"文件读取失败: {str(e)}")
-
+        raise RuntimeError(f"读取Excel文件失败：{str(e)}")
+    
     # 校验变量是否存在
-    missing_vars = [var for var in variables if var not in original_df.columns]
+    missing_vars = [v for v in variables if v not in df.columns]
     if missing_vars:
-        raise ValueError(f"以下变量不存在: {missing_vars}")
-
-    # ==================== 数据预处理 ====================
-    try:
-        # 提取目标变量并转换为数值型
-        X = original_df[variables].apply(pd.to_numeric, errors='coerce')
-        
-        # 检查无效列
-        invalid_cols = X.columns[X.isna().all()]
-        if not invalid_cols.empty:
-            raise ValueError(f"变量包含非数值数据: {invalid_cols.tolist()}")
-
-        # 缺失值处理 (保留行索引)
-        imputer = SimpleImputer(strategy='median')
-        X_imputed = pd.DataFrame(imputer.fit_transform(X),
-                                columns=X.columns,
-                                index=X.index)
-
-        # 数据标准化
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X_imputed)
-    except Exception as e:
-        raise RuntimeError(f"数据预处理失败: {str(e)}")
-
-    # ==================== PCA分析 ====================
-    # 自动确定主成分数量
+        raise KeyError(f"变量 {missing_vars} 不存在于数据中")
+    
+    # 预检验数据
+    kmo_all, kmo_model = calculate_kmo(df[variables])
+    print(f"KMO检验值：{kmo_model:.3f}")  # >0.6适合PCA
+    
+    corr_matrix = df[variables].corr()
+    print('预检验：相关系数矩阵',corr_matrix)
+    
+    # 提取目标数据
+    X = df[variables].copy()
+    
+    # 缺失值处理
+    if X.isnull().sum().sum() > 0:
+        if missing_strategy == 'drop':
+            X = X.dropna()
+            print(f"警告：删除包含缺失值的 {len(df) - len(X)} 行")
+        elif missing_strategy == 'mean':
+            X = X.fillna(X.mean())
+            print("警告：使用均值填充缺失值")
+        else:
+            raise ValueError("不支持的缺失值处理策略")
+    
+    # 数据标准化
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # 自动确定主成分数量（解释80%方差）
     if n_components is None:
-        pca = PCA()
-        pca.fit(X_scaled)
-        cumulative_var = np.cumsum(pca.explained_variance_ratio_)
-        
-        # 自动选择策略
-        n_components = np.argmax(cumulative_var >= 0.85) + 1  # 85%方差解释率
-        n_components = max(1, min(n_components, X_scaled.shape[1]))  # 确保至少1个
-        
-        # 重新拟合
-        pca = PCA(n_components=n_components)
-        pca.fit(X_scaled)
-
-    # 执行PCA转换
-    pca_components = pca.fit_transform(X_scaled)
+        pca = PCA().fit(X_scaled)
+        cum_var = np.cumsum(pca.explained_variance_ratio_)
+        n_components = np.argmax(cum_var >= 0.8) + 1
+        print(f"自动选择 {n_components} 个主成分（累计解释方差：{cum_var[n_components-1]:.1%}）")
     
-    # ==================== 结果整合 ====================
-    # 生成列名
-    pc_columns = [f"{new_var_name}_PC{i+1}" for i in range(n_components)]
+    # 执行PCA
+    pca = PCA(n_components=n_components)
+    components = pca.fit_transform(X_scaled)
     
-    # 创建结果DataFrame
-    df_pca = pd.DataFrame(pca_components, 
-                         columns=pc_columns,
-                         index=original_df.index)
+    # 生成新列名
+    suffix = "" if n_components == 1 else "_PC"
+    new_columns = [f"{new_var_name}{suffix}{i+1}" for i in range(n_components)]
     
-    # 合并到原始数据
-    merged_df = pd.concat([original_df, df_pca], axis=1)
-    sheets[sheet_name] = merged_df
-
-    # ==================== 结果保存 ====================
-    final_path = output_path if output_path else file_path
+    # 将结果合并到原始数据
+    # 注意处理可能的行数不一致（当使用'drop'策略时）
+    if len(df) == len(components):
+        df[new_columns] = components
+    else:
+        print("警告：因删除缺失值导致行数变化，新列将包含NaN")
+        for col in new_columns:
+            df[col] = np.nan
+        df.loc[X.index, new_columns] = components
     
+    # 保存结果
     try:
-        # 使用openpyxl保留原文件格式
-        with pd.ExcelWriter(final_path, engine='openpyxl') as writer:
-            # 写入所有工作表
-            for sheet in sheets:
-                # 处理原文件格式
-                if sheet == sheet_name:
-                    sheets[sheet].to_excel(writer, sheet_name=sheet, index=False)
-                else:
-                    # 直接写入原数据保持格式
-                    sheets[sheet].to_excel(writer, sheet_name=sheet, index=False)
+        if output_path.endswith('.xlsx'):
+            df.to_excel(output_path, index=False)
+        else:
+            df.to_csv(output_path, index=False)
+        print(f"处理完成，结果已保存至：{output_path}")
     except Exception as e:
-        raise RuntimeError(f"文件保存失败: {str(e)}")
-
-    # ==================== 分析报告 ====================
-    print(f"成功生成{n_components}个主成分")
-    print("各主成分方差解释率:")
-    for i, ratio in enumerate(pca.explained_variance_ratio_):
-        print(f"PC{i+1}: {ratio:.2%}")
+        raise RuntimeError(f"保存文件失败：{str(e)}")
     
-    return merged_df
+    # 检查KMO值（需安装factor_analyzer）
+    
 
-# 使用示例
+
 if __name__ == "__main__":
-    # 示例调用
-    df = pca_to_excel(
-        file_path="data.xlsx",
-        variables=["教育经费", "师生比", "升学率"],
-        new_var_name="Edu_PC",
-        sheet_name="教育数据"
+    # 示例用法
+    pca_to_excel(
+        input_path="D:\STUDY\CFPS\geo\geo.xlsx",
+        output_path="D:\STUDY\CFPS\geo\geo_updatedd.xlsx",
+        variables=['医疗卫生机构数','每万人医疗卫生机构床位数','每万人卫生技术人员','医院平均住院日','地方财政医疗支出 亿元'],  # 需替换为实际变量
+        new_var_name="医疗综合指标",
+        sheet_name=0,
+        n_components=1,
+        missing_strategy='mean',
+        overwrite=True
     )

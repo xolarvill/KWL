@@ -4,3 +4,6 @@ scipy
 geopy
 sympy
 openpyxl
+scikit-learn 
+sklearn
+factor_analyzer
