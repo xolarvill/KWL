@@ -1,4 +1,4 @@
-from function import adjacent, dataRC, read_geo, descriptive, nelder_mead, nelder_mead1, newton_line_search, compare_vec, distance, llh_individual, llh_log_sample, subsample
+from function import adjacent, dataRC, read_geo, houseprice, subsample, descriptive, nelder_mead, nelder_mead1, newton_line_search, compare_vec, distance, llh_individual, llh_log_sample
 import numpy as np
 import sympy as sp
 import pandas as pd
@@ -7,17 +7,35 @@ from time import time
 def main():
     '''
     基于动态最优居住地选择模型对影响10-22年中国劳动力流动的决定因素进行分析
-    数据选自CFPS、国家统计局等部门。
+    数据选自CFPS、国家统计局等部门
     '''
     # 原始数据读取、清洗、添加新变量
+    ## 基础读取和清洗
     # CfpsData = dataRC.main_read('D:\\STUDY\\CFPS\\merged')
     # GeoData = read_geo.read_geo('D:\\STUDY\\CFPS\\geo')
+    
+    ## 添加房价
+    # GeoData = houseprice(
+        # raw_excel_loc = 'D:\\STUDY\\CFPS\\geo\\2000-2022年296个地级以上城市房价数据.xlsx', 
+        # geodata_loc = 'D:\\STUDY\\CFPS\\geo\\geo.xlsx')
+    
+    ## 在GeoData中添加每个省份的距离位置
+    # distance.distance(GeoData)
+    
+    ## 使用PCA或者熵值法添加教育、医疗、公共交通等指数
+    # method_pca()
+    # method_entropy()
     
     # 直接使用已清洗的数据节省时间
     CfpsData = pd.read_stata('D:\\STUDY\\CFPS\\merged\\cfps10_22mc.dta')
     GeoData = pd.read_excel('D:\\STUDY\\CFPS\\geo\\geo.xls')
+
+    # 给出样本的描述性统计，并写入txt文件中
+    description = descriptive.des(dataframe = CfpsData, geodata = GeoData)
+    with open('description.txt', 'w') as f:
+            f.write(f"{description}")
     
-    # 子样本
+    # 是否要使用子样本进行细分回归
     cut_par = 1
     if cut_par == 1:
         CfpsData = subsample.cutout1(CfpsData)
@@ -28,9 +46,6 @@ def main():
     provcd = CfpsData['provcd'].unique() # 省份代码
     adjacent_matrix = adjacent.matrix() # 邻近矩阵
     location_matrix = distance.locmatrix() # 距离矩阵
-    
-    # 在GeoData中添加每个省份的距离位置
-    distance.distance(GeoData)
     
     T = len(year)
     J = len(provcd)
@@ -74,11 +89,7 @@ def main():
              gamma0, gamma1, gamma2, gamma3, gamma4, gamma5
              ] # 代估参数向量
     
-    # 给出样本的描述性统计，并写入txt文件中
-    description = descriptive.des(dataframe = CfpsData, geodata = GeoData)
-    with open('description.txt', 'w') as f:
-            f.write(f"{description}")
-    
+
     # 从个人轨迹的似然贡献得到个人所有年份的似然函数（包括工资似然和迁移似然）
     # 所有代估参数此时都用sympy.symbols格式占位
     individual_likelihoods = []
@@ -133,4 +144,3 @@ if __name__ == '__main__':
     end_time = time()
     execution_time = end_time - start_time
     print(f"Execution time: {execution_time} seconds")
-
