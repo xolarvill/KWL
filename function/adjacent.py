@@ -1,7 +1,7 @@
 import openpyxl
 import numpy as np
 
-def adjacent(excel_location_path):
+def adjmatrix(excel_location_path):
     '''
     NOTICE: pd.read_excel() cannot work properly here for some unknown reason.
     '''
@@ -39,5 +39,5 @@ if __name__ == '__main__':
     matrix = np.array(data)
     print(matrix.shape)
     
-    print(adjacent('D:\\STUDY\\CFPS\\geo\\adjacent\\adjacent.xlsx').shape)
+    print(adjmatrix('D:\\STUDY\\CFPS\\geo\\adjacent\\adjacent.xlsx').shape)
         

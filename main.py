@@ -1,9 +1,8 @@
-from function import adjacent, data_readgeo, dataRC, houseprice, linguistic, subsample, descriptive, nelder_mead, nelder_mead1, newton_line_search, compare_vec, distance, llh_individual, llh_log_sample
+from function import adjacent, distance, linguistic, descriptive, subsample , llh_individual, llh_log_sample, nelder_mead, nelder_mead1, newton_line_search, compare_vec
 import numpy as np
 import sympy as sp
 import pandas as pd
 from time import time
-import json
 
 def main():
     '''
@@ -12,22 +11,8 @@ def main():
     '''
     # 原始数据读取、清洗、添加新变量
     ## 基础读取和清洗
-    # CfpsData = dataRC.main_read('D:\\STUDY\\CFPS\\merged')
-    # GeoData = data_readgeo.read_geo('D:\\STUDY\\CFPS\\geo')
-    with open("D:\\STUDY\\CFPS\\merged\\KWL\\data\\linguistic.json", encoding='utf-8') as f:
-        linguistic_tree = json.load(f)
-        
-    ## 添加房价
-    # GeoData = houseprice(
-        # raw_excel_loc = 'D:\\STUDY\\CFPS\\geo\\2000-2022年296个地级以上城市房价数据.xlsx', 
-        # geodata_loc = 'D:\\STUDY\\CFPS\\geo\\geo.xlsx')
-    
-    ## 在GeoData中添加每个省份的距离位置
-    # distance.distance(GeoData)
-    
-    ## 使用PCA或者熵值法添加教育、医疗、公共交通等指数
-    # method_pca()
-    # method_entropy()
+    # CfpsData = data_person.main_read('D:\\STUDY\\CFPS\\merged')
+    # GeoData = data_geo.main_read('D:\\STUDY\\CFPS\\geo')
     
     # 直接使用已清洗的数据节省时间
     CfpsData = pd.read_stata('D:\\STUDY\\CFPS\\merged\\cfps10_22mc.dta')
@@ -49,12 +34,13 @@ def main():
     year = CfpsData['year'].unique() # 年份
     pid = CfpsData['pid'].unique() # 个体ID
     provcd = CfpsData['provcd'].unique() # 省份代码
-    adjacent_matrix = adjacent.matrix() # 邻近矩阵
-    location_matrix = distance.locmatrix() # 距离矩阵
-    
-    T = len(year)
-    J = len(provcd)
-    I = len(pid)
+    T = len(year) # 总期数
+    J = len(provcd) #地点数
+    I = len(pid) # 样本数
+    adjacent_matrix = adjacent.adjmatrix() # 邻近矩阵
+    location_matrix = distance.locmatrix() # 物理距离矩阵
+    linguistic_matrix = linguistic.linmatrix() # 文化距离矩阵
+
     
     # 初始化代估参数
     ## u(x,j)
@@ -99,7 +85,7 @@ def main():
     # 所有代估参数此时都用sympy.symbols格式占位
     individual_likelihoods = []
     for i in pid:
-        llh_i = llh_individual.create_llh_individual(dataframe=CfpsData, geodata=GeoData, individual_index=i, linguistic=linguistic_tree)
+        llh_i = llh_individual.create_llh_individual(dataframe=CfpsData, geodata=GeoData, individual_index=i)
         individual_likelihoods.append(llh_i)
     
     # 给出类型权重向量

@@ -91,8 +91,22 @@ def dialect_distance(l1, l2, jsondata):
     dialect_b = nodes_dict[l2]
     distance = calculate_distance(dialect_a, dialect_b)
     print(f"亲疏距离: {distance}")  # 输出示例：亲疏距离: 3
-    
 
+
+def linmatrix():
+    '''
+    读取省份的语言人口分布数据，计算各自的语言远近距离，输出矩阵
+    '''
+    #  ========================= 读取语言数据 ========================= 
+    
+    
+    # ========================= 计算数据 ========================= 
+    
+    
+    # ========================= 输出矩阵 ========================= 
+    matrix = []
+    return matrix
+    
 if __name__ == '__main__':
     with open("D:\\STUDY\\CFPS\\merged\\KWL\\data\\linguistic.json", encoding='utf-8') as f:
         linguistic_tree = json.load(f)
