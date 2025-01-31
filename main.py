@@ -32,16 +32,16 @@ def main():
         CfpsData = subsample.cutout2(CfpsData)
     
     # 获取基础参数
-    year = CfpsData['year'].unique() # 年份
-    pid = CfpsData['pid'].unique() # 个体ID
-    provcd = CfpsData['provcd'].unique() # 省份代码
-    T = len(year) # 总期数
-    J = len(provcd) #地点数
-    I = len(pid) # 样本数
+    year_list = CfpsData['year'].unique() # 年份列表
+    pid_list = CfpsData['pid'].unique() # 个体ID列表
+    provcd_list = CfpsData['provcd'].unique() # 省份代码列表
+    T = len(year_list) # 总期数
+    J = len(provcd_list) #地点数
+    I = len(pid_list) # 样本数
     adjacent_matrix = adjacent.adjmatrix(
         adj_path=''
         ) # 邻近矩阵
-    location_matrix = distance.locmatrix(
+    distance_matrix = distance.dismatrix(
         
         ) # 物理距离矩阵
     linguistic_matrix = linguistic.linmatrix(
@@ -92,7 +92,7 @@ def main():
     # 从个人轨迹的似然贡献得到个人所有年份的似然函数（包括工资似然和迁移似然）
     # 所有代估参数此时都用sympy.symbols格式占位
     individual_likelihoods = []
-    for i in pid:
+    for i in pid_list:
         llh_i = llh_individual.create_llh_individual(dataframe=CfpsData, geodata=GeoData, individual_index=i)
         individual_likelihoods.append(llh_i)
     

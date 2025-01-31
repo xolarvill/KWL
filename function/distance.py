@@ -4,13 +4,13 @@ from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 
 # example
-# location_matrix = locmatrix(geodata)
+# location_matrix = dismatrix(geodata)
 # sorted_provcd = np.sort(geodata['provcd'].unique())
 # distance = distance(loc1, loc2)
 
 geodata = read_excel('geodata.xls')
 
-def locmatrix(geodata):
+def dismatrix(geodata):
     """
     Generate a location distance matrix based on the input geodata.
     根据输入的geodata获取一个按顺序的位置距离矩阵。基于WGS84椭球模型，使用Vincenty算法迭代计算两点间的最短测地线距离。考虑地球的扁率精度更高。
@@ -44,7 +44,7 @@ def locmatrix(geodata):
 sorted_provcd = np.sort(geodata['provcd'].unique()) # 提前列出排序后的provcd避免每次都需要重新计算
 def distance(loc1, loc2 , matrix):
     '''
-    根据已经排序号的sorted_provcd和已经得到的locmatrix进一步直接获取两个地点的距离值
+    根据已经排序号的sorted_provcd和已经得到的dismatrix进一步直接获取两个地点的距离值
     ------------------------
     input:
     loc1 (int): 省份1provcd

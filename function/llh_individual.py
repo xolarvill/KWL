@@ -2,8 +2,7 @@ import numpy as np
 import sympy as sp
 
 
-
-def create_llh_individual(individual_index, dataframe, geodata):
+def create_llh_individual(individual_index, dataframe, geodata, adj, dis, lin, beta):
     """
     Calculate the likelihood of an individual history (including wages and migration decisions)
     
@@ -17,6 +16,12 @@ def create_llh_individual(individual_index, dataframe, geodata):
     -------
     llh_commitment (Matrix): 
     """
+    # ========================= 定义与预处理 ========================= 
+    adjacent_matrix = adj # 邻近矩阵
+    distance_matrix = dis # 距离矩阵
+    linguistic_matrix = lin # 方言距离矩阵
+    discount_factor = beta # 折现因子
+    
     # 定义符号参数
     alpha0, alphaK, alphaH, beta1, beta2, gamma0_tau, gamma1, H = sp.symbols(
         'alpha0 alphaK alphaH beta1 beta2 gamma0_tau gamma1 H'
@@ -26,8 +31,10 @@ def create_llh_individual(individual_index, dataframe, geodata):
     beta = sp.symbols('beta')  # 折现因子
     sig_eps = sp.symbols('sig_eps')  # 暂态效应标准差
     
-    # 提取个体数据
+    # 截断获取个体数据
     individual_data = dataframe[dataframe['pid'] == individual_index].sort_values('year')
+    
+    # 基本参数
     T = len(individual_data)
     ages = individual_data['age'].tolist()
     locations = individual_data['provcd'].tolist()
@@ -112,7 +119,4 @@ def create_llh_individual(individual_index, dataframe, geodata):
     
     return llh_commitment
 
-# 示例调用
-# dataframe = pd.DataFrame(...)  # 包含个体数据
-# geodata = pd.DataFrame(...)  # 包含地理数据
-# rho_vec, wage_vec = generate_likelihood_vectors(1, dataframe, geodata)
+

@@ -7,3 +7,4 @@ openpyxl
 scikit-learn 
 sklearn
 factor_analyzer
+torch
