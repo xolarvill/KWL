@@ -11,13 +11,18 @@ from geopy.distance import geodesic
 geodata = read_excel('geodata.xls')
 
 def locmatrix(geodata):
-    '''
-    根据输入的geodata获取一个按顺序的位置距离矩阵
-    基于WGS84椭球模型，使用Vincenty算法迭代计算两点间的最短测地线距离。考虑地球的扁率精度更高。
-    
-    input:
-    geodata (pandas.DataFrame): geodata
-    '''
+    """
+    Generate a location distance matrix based on the input geodata.
+    根据输入的geodata获取一个按顺序的位置距离矩阵。基于WGS84椭球模型，使用Vincenty算法迭代计算两点间的最短测地线距离。考虑地球的扁率精度更高。
+    -----------------
+    Parameters:
+    geodata (pandas.DataFrame): A DataFrame containing geographical data with a column named '省份' (province).
+    -----------------
+    Returns:
+    numpy.ndarray: A 2D array (matrix) where the element at [i, j] represents the distance between the i-th
+                   and j-th unique provinces in the input geodata. The diagonal elements are zero, indicating
+                   zero distance between the same locations.
+    """
     geodata.unique()
     N = geodata['省份'].nunique()
     matrix = np.zeros((N, N))
@@ -39,9 +44,15 @@ def locmatrix(geodata):
 sorted_provcd = np.sort(geodata['provcd'].unique()) # 提前列出排序后的provcd避免每次都需要重新计算
 def distance(loc1, loc2 , matrix):
     '''
-    loc1 (int):
-    loc2 (int):
+    根据已经排序号的sorted_provcd和已经得到的locmatrix进一步直接获取两个地点的距离值
+    ------------------------
+    input:
+    loc1 (int): 省份1provcd
+    loc2 (int): 省份2provcd
     matrix (matrix): distance matrix
+    ------------------------
+    return:
+    distance :距离值
     '''
     loc1_index = np.where(sorted_provcd == loc1)[0][0]
     loc2_index = np.where(sorted_provcd == loc2)[0][0]

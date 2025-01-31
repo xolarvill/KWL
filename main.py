@@ -13,7 +13,8 @@ def main():
     ## 基础读取和清洗
     # CfpsData = data_person.main_read('D:\\STUDY\\CFPS\\merged')
     # GeoData = data_geo.main_read('D:\\STUDY\\CFPS\\geo')
-    
+
+
     # 直接使用已清洗的数据节省时间
     CfpsData = pd.read_stata('D:\\STUDY\\CFPS\\merged\\cfps10_22mc.dta')
     GeoData = pd.read_excel('D:\\STUDY\\CFPS\\geo\\geo.xls')
@@ -37,9 +38,16 @@ def main():
     T = len(year) # 总期数
     J = len(provcd) #地点数
     I = len(pid) # 样本数
-    adjacent_matrix = adjacent.adjmatrix() # 邻近矩阵
-    location_matrix = distance.locmatrix() # 物理距离矩阵
-    linguistic_matrix = linguistic.linmatrix() # 文化距离矩阵
+    adjacent_matrix = adjacent.adjmatrix(
+        adj_path=''
+        ) # 邻近矩阵
+    location_matrix = distance.locmatrix(
+        
+        ) # 物理距离矩阵
+    linguistic_matrix = linguistic.linmatrix(
+        excel_path='',
+        json_path='D:\\STUDY\\CFPS\\merged\\KWL\\data\\linguistic.json'
+        ) # 文化距离矩阵
 
     
     # 初始化代估参数

@@ -1,17 +1,28 @@
 import pandas as pd
-import method_entropy, method_pca, houseprice, distance, linguistic, json, os
+import method_entropy, method_pca, houseprice, os
 
 def main_read(directory_path):
+    """
+    Reads and processes geographical and socio-economic data from Excel files.
+    This function performs the following steps:
+    1. Adds housing price data to the GeoData.
+    2. Adds various socio-economic indicators (e.g., education, healthcare, public transportation) 
+       using PCA (Principal Component Analysis) or entropy methods.
+    3. Reads all Excel files from the specified directory and concatenates them into a single DataFrame.
+    Parameters:
+    directory_path (str): The path to the directory containing the Excel files to be read.
+    Returns:
+    pd.DataFrame: A concatenated DataFrame containing data from all Excel files in the specified directory.
+    Raises:
+    ValueError: If the provided directory_path is not a string.
+    """
     # ========================= 添加底层数据 ========================= 
     # 添加房价
-    GeoData = houseprice(
+    houseprice(
         raw_excel_loc = 'D:\\STUDY\\CFPS\\geo\\2000-2022年296个地级以上城市房价数据.xlsx', 
         geodata_loc = 'D:\\STUDY\\CFPS\\geo\\geo.xlsx')
     
-    # 添加语言
-    with open("D:\\STUDY\\CFPS\\merged\\KWL\\data\\linguistic.json", encoding='utf-8') as f:
-        linguistic_tree = json.load(f) # 语言谱系树
-    linguistic.dialect_distance()
+
     
     # ========================= 添加指标数据  ========================= 
     # 使用PCA或者熵值法添加教育、医疗、公共交通等指数
@@ -54,11 +65,6 @@ def main_read(directory_path):
         missing_strategy='mean',
         overwrite=True
     )
-    
-
-    
-    ## 在GeoData中添加每个省份的距离位置
-    distance.distance(GeoData)
     
     # ========================= 读取 ========================= 
     if not isinstance(directory_path, str):

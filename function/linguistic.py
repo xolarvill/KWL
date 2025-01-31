@@ -1,4 +1,5 @@
 import json
+import pandas as pd
 
 class TreeNode:
     def __init__(self, name):
@@ -6,7 +7,6 @@ class TreeNode:
         self.parent = None    # 父节点
         self.children = []    # 子节点列表
         self.depth = 0        # 节点深度（根节点深度为0）
-
 
 # 递归构建树的代码
 def build_tree(data, parent=None):
@@ -93,20 +93,23 @@ def dialect_distance(l1, l2, jsondata):
     print(f"亲疏距离: {distance}")  # 输出示例：亲疏距离: 3
 
 
-def linmatrix():
+def linmatrix(excel_path, json_path,):
     '''
     读取省份的语言人口分布数据，计算各自的语言远近距离，输出矩阵
     '''
-    #  ========================= 读取语言数据 ========================= 
-    
-    
+    #  ========================= 读取数据 ========================= 
+    data = pd.read_excel(excel_path) # excel数据分布
+    with open(json_path, encoding='utf-8') as f:
+        linguistic_tree = json.load(f) # 语言谱系树
     # ========================= 计算数据 ========================= 
     
-    
-    # ========================= 输出矩阵 ========================= 
     matrix = []
+    # ========================= 输出矩阵 ========================= 
+
     return matrix
-    
+
+
+
 if __name__ == '__main__':
     with open("D:\\STUDY\\CFPS\\merged\\KWL\\data\\linguistic.json", encoding='utf-8') as f:
         linguistic_tree = json.load(f)
