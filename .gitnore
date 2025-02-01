@@ -1,2 +1,5 @@
 **/ .DS_Store
 ztest.py
+function/__pycache__/
+data/geo/backup/
+data/geo/adjacent/

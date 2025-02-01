@@ -15,8 +15,8 @@ def main():
     # Geodata = data_geo.main_read('D:\\STUDY\\CFPS\\geo')
 
     # 直接使用已清洗的数据节省时间
-    Cfpsdata = pd.read_stata('D:\\STUDY\\CFPS\\merged\\cfps10_22mc.dta')
-    Geodata = pd.read_excel('D:\\STUDY\\CFPS\\geo\\geo.xls')
+    Cfpsdata = pd.read_stata('D:\\STUDY\\CFPS\\merged\\KWL\\data\\cfps10_22mc.dta')
+    Geodata = pd.read_excel('D:\\STUDY\\CFPS\\merged\\KWL\\data\\geo\\geo.xls')
 
     # 给出样本的描述性统计，并写入txt文件中
     description = descriptive.des(dataframe = Cfpsdata, Geodata = Geodata)
@@ -38,7 +38,7 @@ def main():
     J = len(provcd_list) #地点数
     I = len(pid_list) # 样本数
     adjacent_matrix = adjacent.adjmatrix(
-        adj_path='D:\\STUDY\\CFPS\\geo\\adjacent\\adjacent.xlsx'
+        adj_path='D:\\STUDY\\CFPS\\merged\\KWL\\data\\geo\\adjacent.xlsx'
         ) # 邻近矩阵
     distance_matrix = distance.dismatrix(
         Geodata=Geodata
