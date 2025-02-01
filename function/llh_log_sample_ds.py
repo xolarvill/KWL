@@ -2,6 +2,7 @@ import torch
 import pandas as pd
 from typing import List
 from joblib import Parallel, delayed
+from llh_individual_ds import MigrationParameters, DynamicProgramming, IndividualLikelihood
 
 class TotalLogLikelihood:
     """计算总体样本的对数似然，整合所有个体结果"""

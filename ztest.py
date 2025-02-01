@@ -11,3 +11,4 @@ distance = geodesic(
     (location1.latitude, location1.longitude), 
     (location2.latitude, location2.longitude)).km
 print(f"北京到上海的直线距离：{distance:.2f}公里")  # 输出：约1068公里
+

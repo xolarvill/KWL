@@ -3,6 +3,19 @@ import numpy as np
 import torch
 from scipy.linalg import inv
 from scipy.stats import norm
+from llh_individual_ds import MigrationParameters
+from llh_log_sample_ds import TotalLogLikelihood
+
+def compute_hessian(total_log_likelihood: TotalLogLikelihood, params: MigrationParameters) -> np.ndarray:
+    """通过自动微分计算Hessian矩阵"""
+    from torch.autograd.functional import hessian
+    
+    def log_lik_func(params_tensor: torch.Tensor) -> torch.Tensor:
+        return total_log_likelihood(params_tensor)
+    
+    params_tensor = torch.cat([p.flatten() for p in params.parameters()])
+    H = hessian(log_lik_func, params_tensor).detach().numpy()
+    return H
 
 class ParameterResults:
     """计算参数的标准误、p值，并按学术格式输出"""
@@ -59,16 +72,6 @@ class ParameterResults:
         elif format == 'csv':
             df.to_csv(filename, index=False)
             
-def compute_hessian(total_log_likelihood: TotalLogLikelihood, params: MigrationParameters) -> np.ndarray:
-    """通过自动微分计算Hessian矩阵"""
-    from torch.autograd.functional import hessian
-    
-    def log_lik_func(params_tensor: torch.Tensor) -> torch.Tensor:
-        return total_log_likelihood(params_tensor)
-    
-    params_tensor = torch.cat([p.flatten() for p in params.parameters()])
-    H = hessian(log_lik_func, params_tensor).detach().numpy()
-    return H
 
 # example
 

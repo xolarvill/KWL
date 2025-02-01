@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 import torch
 from scipy.optimize import minimize
+from llh_individual_ds import MigrationParameters
+from llh_log_sample_ds import TotalLogLikelihood
+from std import compute_hessian, ParameterResults
 
 # 优化器配置
 def estimate_parameters(
@@ -23,7 +26,6 @@ def estimate_parameters(
     )
     
     # 使用SciPy的L-BFGS优化器（支持大规模参数）
-
     initial_params = torch.cat([p.flatten() for p in params.parameters()]).detach().numpy()
     
     result = minimize(
@@ -38,7 +40,17 @@ def estimate_parameters(
     with torch.no_grad():
         for i, param in enumerate(params.parameters()):
             param.copy_(torch.tensor(result.x[i]))
-    return params
+
+    # 计算Hessian矩阵
+    hessian = compute_hessian(total_log_likelihood, params)
+        
+    # 生成结果对象
+    results = ParameterResults(params, hessian)
+    results.calculate_statistics()
+    return results
+
+# 避免未定义
+total_log_likelihood = []
 
 # 验证梯度正确性
 def gradient_check(params: MigrationParameters, epsilon=1e-5):

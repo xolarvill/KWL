@@ -3,6 +3,12 @@ import numpy as np
 import pandas as pd
 from torch import Tensor
 from typing import Dict, List
+from joblib import Parallel, delayed
+
+# 避免未定义
+dismatrix = []
+adjmatrix = []
+GeoData = []
 
 class MigrationParameters:
     """封装所有待估参数，支持自动微分"""
@@ -110,8 +116,6 @@ class IndividualLikelihood:
             log_lik += torch.log(rho_j) + torch.log(wage_prob)
         return torch.exp(log_lik)  # 返回概率值（非对数）
     
-
-from joblib import Parallel, delayed
 
 class LikelihoodAggregator:
     """并行计算所有个体的似然"""

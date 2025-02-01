@@ -1,4 +1,4 @@
-from function import adjacent, distance, linguistic, descriptive, subsample , llh_individual, llh_log_sample, nelder_mead, nelder_mead1, newton_line_search, compare_vec
+from function import adjacent, distance, linguistic, descriptive, subsample , llh_individual, llh_log_sample, nelder_mead, nelder_mead1, newton_line_search, compare_vec, llh_individual_ds, llh_log_sample_ds, optimal, std
 import numpy as np
 import sympy as sp
 import pandas as pd
@@ -11,45 +11,43 @@ def main():
     '''
     # 原始数据读取、清洗、添加新变量
     ## 基础读取和清洗
-    # CfpsData = data_person.main_read('D:\\STUDY\\CFPS\\merged')
-    # GeoData = data_geo.main_read('D:\\STUDY\\CFPS\\geo')
-
+    # Cfpsdata = data_person.main_read('D:\\STUDY\\CFPS\\merged')
+    # Geodata = data_geo.main_read('D:\\STUDY\\CFPS\\geo')
 
     # 直接使用已清洗的数据节省时间
-    CfpsData = pd.read_stata('D:\\STUDY\\CFPS\\merged\\cfps10_22mc.dta')
-    GeoData = pd.read_excel('D:\\STUDY\\CFPS\\geo\\geo.xls')
+    Cfpsdata = pd.read_stata('D:\\STUDY\\CFPS\\merged\\cfps10_22mc.dta')
+    Geodata = pd.read_excel('D:\\STUDY\\CFPS\\geo\\geo.xls')
 
     # 给出样本的描述性统计，并写入txt文件中
-    description = descriptive.des(dataframe = CfpsData, geodata = GeoData)
+    description = descriptive.des(dataframe = Cfpsdata, Geodata = Geodata)
     with open('description.txt', 'w') as f:
             f.write(f"{description}")
     
     # 是否要使用子样本进行分类回归
     cut_par = 1
     if cut_par == 1:
-        CfpsData = subsample.cutout1(CfpsData)
+        Cfpsdata = subsample.cutout1(Cfpsdata)
     elif cut_par == 2:
-        CfpsData = subsample.cutout2(CfpsData)
+        Cfpsdata = subsample.cutout2(Cfpsdata)
     
     # 获取基础参数
-    year_list = CfpsData['year'].unique() # 年份列表
-    pid_list = CfpsData['pid'].unique() # 个体ID列表
-    provcd_list = CfpsData['provcd'].unique() # 省份代码列表
+    year_list = Cfpsdata['year'].unique() # 年份列表
+    pid_list = Cfpsdata['pid'].unique() # 个体ID列表
+    provcd_list = Cfpsdata['provcd'].unique() # 省份代码列表
     T = len(year_list) # 总期数
     J = len(provcd_list) #地点数
     I = len(pid_list) # 样本数
     adjacent_matrix = adjacent.adjmatrix(
-        adj_path=''
+        adj_path='D:\\STUDY\\CFPS\\geo\\adjacent\\adjacent.xlsx'
         ) # 邻近矩阵
     distance_matrix = distance.dismatrix(
-        
+        Geodata=Geodata
         ) # 物理距离矩阵
     linguistic_matrix = linguistic.linmatrix(
         excel_path='',
         json_path='D:\\STUDY\\CFPS\\merged\\KWL\\data\\linguistic.json'
         ) # 文化距离矩阵
 
-    
     # 初始化代估参数
     ## u(x,j)
     alpha0 = 0 # wage income parameter
@@ -89,52 +87,20 @@ def main():
              ] # 代估参数向量
     
 
-    # 从个人轨迹的似然贡献得到个人所有年份的似然函数（包括工资似然和迁移似然）
-    # 所有代估参数此时都用sympy.symbols格式占位
-    individual_likelihoods = []
-    for i in pid_list:
-        llh_i = llh_individual.create_llh_individual(dataframe=CfpsData, geodata=GeoData, individual_index=i)
-        individual_likelihoods.append(llh_i)
+    # 从个人轨迹的似然贡献得到个人所有年份的似然函数（包括工资似然和迁移似然），从而估计参数
+    # 执行参数估计
+    print("Starting parameter estimation...")
+    results = optimal.estimate_parameters(Cfpsdata, Geodata, adjacent_matrix, distance_matrix)
     
-    # 给出类型权重向量
-    pi=[
-        [1,1,1],
-        [2,3,3]
-    ]
+    # 输出结果
+    print("\nParameter Estimates with Standard Errors:")
+    print(results.to_dataframe())
+    results.save_to_file('parameter_results.tex', format='latex')
+    print("\nResults saved to parameter_results.tex")
     
-    # 从个人历史的似然函数得到总的样本似然函数
-    sample_loglikelihood_function = llh_log_sample.create_sample_likelihood(pi, individual_likelihoods)
-
-    # 用经过LU分解优化过的Newton线搜索最大化似然函数（实则是最小化负的似然函数）
-    opt_pars, opt_step, num_iterations, se = newton_line_search.newton_line_search(-sample_loglikelihood_function, initial_guess = theta, tolerance = 1e-6, max_iter = 100)
-    
-    # 记录似然估计参数的标准误
-    try:
-        print(f"最大化似然函数的最优步长为{opt_step}，共迭代{num_iterations}次")
-        with open('std.txt', 'w') as f:
-            f.write(f"最大化似然函数的最优步长为{opt_step}，共迭代{num_iterations}次\n")
-            for i in range(len(opt_pars)):
-                result_str = f"参数{i+1}的似然估计为{opt_pars[i]}，标准误为{se[i]}"
-                print(result_str)
-                f.write(result_str + '\n')
-    except Exception as e:
-        error_str = f"参数估计出错: {e}"
-        print(error_str)
-        with open('std.txt', 'w') as f:
-            f.write(error_str + '\n')
-    
-    # 并用Nelder-Mead算法检查局部最大值（和Newton法一样，原本也是最小化，使目标函数变负即可）
-    nm1 = nelder_mead.nelder_mead(-sample_loglikelihood_function)
-    nm2 = nelder_mead1.nelder_mead(-sample_loglikelihood_function)
-    
-    # 比较Newton法和Nelder-Mead法的结果
-    # 并给出大致波动范围
-    print(f'Newton法与Nelder-Mead法一的比较结果是:{compare_vec.compare_vectors(opt_pars, nm1)}')
-    print(f'Newton法与Nelder-Mead法二的比较结果是:{compare_vec.compare_vectors(opt_pars, nm2)}')
-    
-    # 返回结果        
-    print('The algorithm is done')
-    print('Read readme.md for more information')
+    # 返回程序运行结果        
+    print('\nThe algorithm is done')
+    print('\nRead readme.md for more information')
     
 
 if __name__ == '__main__':
