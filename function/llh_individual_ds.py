@@ -73,10 +73,13 @@ class DynamicProgramming:
         utility = []
         for j in all_provinces:
             # 迁移成本 = 基础成本 + 距离成本 + 邻近折扣 + 年龄效应
-            cost = (
-                self.params.gamma_distance * dismatrix[csta][j] +
-                self.params.gamma_adjacent * adjmatrix[csta][j] +
-                self.params.gamma_age * age
+            cost = self.params.gammaF * (
+                self.params.gamma0 + 
+                self.params.gamma1 * dismatrix[csta][j] +
+                self.params.gamma2 * dismatrix[csta][j] +
+                self.params.gamma3 * adjmatrix[csta][j] +
+                self.params.gamma4 * age +
+                self.params.gamma5 * 10 
             )
             # 总效用 = 收入效用 + 宜居度效用 - 迁移成本 + 期望价值（下一期）
             u = (
