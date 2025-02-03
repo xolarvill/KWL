@@ -13,15 +13,31 @@ GeoData = []
 class MigrationParameters:
     """封装所有待估参数，支持自动微分"""
     def __init__(self):
-        # 迁移成本参数（gamma系列）
-        self.gamma_distance = torch.nn.Parameter(torch.tensor(-0.1))  # 距离衰减系数
-        self.gamma_adjacent = torch.nn.Parameter(torch.tensor(0.5))   # 邻近省份折扣
-        self.gamma_age = torch.nn.Parameter(torch.tensor(0.05))       # 年龄对迁移成本的影响
+        # u(x,j)
+        self.alpha0 = torch.nn.Parameter(torch.tensor(0.8)) # wage income parameter 
+        self.alpha1 = torch.nn.Parameter(torch.tensor(0.8)) # houseprice
+        self.alpha2 = torch.nn.Parameter(torch.tensor(0.8)) # weather = hazard + temperature + air quality + water supply
+        self.alpha3 = torch.nn.Parameter(torch.tensor(0.8)) # education 
+        self.alpha4 = torch.nn.Parameter(torch.tensor(0.8)) # health
+        self.alpha5 = torch.nn.Parameter(torch.tensor(0.8)) # traffic = public transportation + road service
+        self.alphaH = torch.nn.Parameter(torch.tensor(0.1)) # home premium parameter
+        self.xi = torch.nn.Parameter(torch.tensor(0.1)) # random permanent component
+        self.zeta = torch.nn.Parameter(torch.tensor(0.1)) # exogenous shock
         
-        # 工资模型参数
-        self.alpha_income = torch.nn.Parameter(torch.tensor(0.8))     # 收入效用系数
+        # wage
+        self.nu = torch.nn.Parameter(torch.tensor(0.8)) # 
+        self.eta = torch.nn.Parameter(torch.tensor(0.8)) # 
         self.beta_amenity = torch.nn.Parameter(torch.tensor(0.3))     # 城市宜居度系数
         self.sigma_eps = torch.nn.Parameter(torch.tensor(0.5))        # 暂态效应标准差
+        
+        # 迁移成本参数（gamma系列）
+        self.gammaF = torch.nn.Parameter(torch.tensor(0.8)) # mirgration friction parameter
+        self.gamma0 = torch.nn.Parameter(torch.tensor(0.5)) # heterogenous friction parameter 
+        self.gamma1 = torch.nn.Parameter(torch.tensor(-0.1)) # 距离衰减系数
+        self.gamma2 = torch.nn.Parameter(torch.tensor(0.5)) # 邻近省份折扣
+        self.gamma3 = torch.nn.Parameter(torch.tensor(0.8)) # 先前省份折扣
+        self.gamma4 = torch.nn.Parameter(torch.tensor(0.05)) # 年龄对迁移成本的影响
+        self.gamma5 = torch.nn.Parameter(torch.tensor(0.8)) # 更大的城市更便宜
         
         # 固定效应支持点（离散化）
         self.eta_support = torch.tensor([-1.0, 0.0, 1.0])             # 个体固定效应（3个支持点）
