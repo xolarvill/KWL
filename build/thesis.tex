@@ -1,145 +1,31 @@
-\documentclass{article}
+%!TEX program = Traditional Builder with XeLaTeX
+\documentclass[10pt,a4paper]{article}
 \usepackage[UTF8]{ctex}
 \usepackage{graphicx} % Required for inserting images
 \usepackage{amsmath,amsthm} % Math
 \usepackage{wasysym,MnSymbol} % Greek alphabets
 \usepackage{mathrsfs,amsfonts,calrsfs} % Math fonts
-\usepackage{newtxtext}
 \usepackage{geometry} % Formatting
-\usepackage[dvipsnames,svgnames]{xcolor}
-\usepackage[strict]{changepage}
-\usepackage{framed}
-\usepackage{cancel}
-\usepackage{autobreak}
 \usepackage{hyperref}
 
-\usepackage{xcolor}
-\usepackage{listings}
-
-% listing代码框
-\lstset{
-  language=Python,
-  basicstyle=\ttfamily,
-  keywordstyle=\color{blue},
-  commentstyle=\color{gray},
-  stringstyle=\color{red},
-  frame=single,
-  breaklines=true
-}
-
-
-\graphicspath{ {./images/} }
-
-\providecommand{\tightlist}{
-  \setlength{\itemsep}{0pt}
-  \setlength{\parskip}{0pt}}
-
-
-%\setlength{\parindent}{0pt}% cancel indentation before every line
-
-% right cases
-\newenvironment{rcases}
-  {\left.\begin{aligned}}
-  {\end{aligned}\right\rbrace}
-
-% Blue block
-\definecolor{blueshade}{rgb}{0.95,0.95,1} % blue block color
-\newenvironment{blueblock}{
-\def\FrameCommand{
-  \hspace{1pt}
-    {\color{DarkBlue}
-    \vrule width 2pt}
-    {\color{blueshade}
-    \vrule width 4pt}
-  \colorbox{blueshade}
-}
-\MakeFramed{
-  \advance
-  \hsize-
-  \width
-  \FrameRestore}
-\noindent\hspace{-4.55pt}% disable indenting first paragraph
-\begin{adjustwidth}{}{7pt}
-\vspace{2pt}\vspace{2pt}
-}
-{\vspace{2pt}\end{adjustwidth}\endMakeFramed}
-
-
-% Green block
-\definecolor{greenshade}{rgb}{0.90,0.99,0.91} % green block
-\newenvironment{greenblock}{%
-\def\FrameCommand{%
-  \hspace{1pt}%
-    {\color{Green}%
-    \vrule width 2pt}%
-    {\color{greenshade}%
-    \vrule width 4pt}%
-  \colorbox{greenshade}%
-}%
-\MakeFramed{%
-  \advance%
-  \hsize-%
-  \width%
-  \FrameRestore}%
-\noindent\hspace{-4.55pt}% disable indenting first paragraph
-\begin{adjustwidth}{}{7pt}%
-\vspace{2pt}\vspace{2pt}%
-}
-{%
-\vspace{2pt}\end{adjustwidth}\endMakeFramed%
-}
-
-
-% Red block
-\definecolor{redshade}{rgb}{1.00,0.90,0.90} % red block
-\newenvironment{redblock}{
-\def\FrameCommand{
-  \hspace{1pt}
-    {\color{LightCoral}
-    \vrule width 2pt}
-    {\color{redshade}
-    \vrule width 4pt}
-  \colorbox{redshade}
-}
-\MakeFramed{
-  \advance
-  \hsize-
-  \width
-  \FrameRestore}
-\noindent\hspace{-4.55pt}% disable indenting first paragraph
-\begin{adjustwidth}{}{7pt}
-\vspace{2pt}\vspace{2pt}
-}
-{\vspace{2pt}\end{adjustwidth}\endMakeFramed}
-
-
-\newtheorem{question}{Question}
-\newtheorem{note}{Note}
-\newtheorem{proposition}{Proposition}
-\newtheorem{lemma}{Lemma}
-\newtheorem{property}{Property}
-
-\numberwithin{equation}{section} % This makes equation numbers reflect the chapter
-
-
-\title{Thesis Draft}
-\author{Suicidal Bumblebee }
-\date{January 2025}
+%document headings
+\title{Practice}
+\author{Justin Smith}
 
 \begin{document}
 
 \maketitle
 
 \begin{itemize}
-\item 证明工资分布和地区分布有直接关系 而不是只和行业工资 否则无法使用地区平均工资作为$\mu_{j}$
-\item 在原模型基础上引入了新的特点，例如流动壁垒（迁移摩擦）、地区异质性
-\item 要用MLE，要对扰动项的条件概率分布进行假设
-\item 由于模型迭代极为复杂没有解析解，所以我们退而求其次求解析解
-\item 本文主线：传统的城乡二元对立模型难以满足研究多层次的劳动力的动态住选址选择问题，故而采用最有居住地选择模型
-\item 乡土文化中分出两种类型的人，一种是对于离家近的地方有执念的，一种是没有的
-\item 给出城市的文化亲近度
-\item 用samuelson冰山理论应用了摩擦系数
-\item 在原先的纯空间距离上还加入了空间经济距离
+  \item 证明工资分布和地区分布有直接关系 而不是只和行业工资 否则无法使用地区平均工资作为$\mu_{j}$
+  \item 在原模型基础上引入了新的特点，例如流动壁垒（迁移摩擦）、地区异质性
+  \item 要用MLE，要对扰动项的条件概率分布进行假设
+  \item 由于模型迭代极为复杂没有解析解，所以我们退而求其次求解析解
+  \item 本文主线：传统的城乡二元对立模型难以满足研究多层次的劳动力的动态住选址选择问题，故而采用最有居住地选择模型
+  \item 乡土文化中分出两种类型的人，一种是对于离家近的地方有执念的，一种是没有的
+  \item 给出城市的文化亲近度
+  \item 用samuelson冰山理论应用了摩擦系数
+  \item 在原先的纯空间距离上还加入了空间经济距离
 \end{itemize}
 
 \section{摘要}
@@ -149,27 +35,14 @@
 
 \section{引言}
 
-\begin{greenblock}
-世界人口分布的特点 -> 我国收入的地理分布 -> 劳动力的流动符合直接 -> 直觉中仍有劳动力回流这种反直觉的现象 -> 为了分析这点必须要先了解劳动力为何流动 -> 世界上的普遍研究做法 -> 我国的研究方法 -> 提出其中的不适合于缺陷 -> 引出我们的方法 -> 在原作者的基础上改进 -> 介绍论文各章节
-\end{greenblock}
+\quote{世界人口分布的特点 -> 我国收入的地理分布 -> 劳动力的流动符合直接 -> 直觉中仍有劳动力回流这种反直觉的现象 -> 为了分析这点必须要先了解劳动力为何流动 -> 世界上的普遍研究做法 -> 我国的研究方法 -> 提出其中的不适合于缺陷 -> 引出我们的方法 -> 在原作者的基础上改进 -> 介绍论文各章节}
 
 
-世界人口分布和移动的共同点（简略）
-Krugman (1991); Fujita et al. (1999); Puga (1999)的新经济地理学指出劳动力从“边缘”地区向商品多样化、工资高和就业机会多的“中心”地区集聚
+纵观世界，人口的迁移规律总是由贫穷挤向富裕。\cite{krugmanIncreasingReturnsEconomic1991}; Fujita et al. (1999)\cite{fujitaSpatialEconomyCities}; Puga (1999)的新经济地理学指出经济活动集中产生规模经济和网络效应，促成产业集聚。经济的聚集会导致区域不平衡发展，这使得劳动力迁移有了移动的规律。人们倾向于流向产业集聚、薪资较高的地区，形成“吸引效应”。劳动力从“边缘”地区向商品多样化、工资高和就业机会多的“中心”地区集聚。
 
-经济活动集中在某个地区时，能够产生规模经济和网络效应，这导致了产业集聚。尤其是在制造业、服务业等领域，企业集聚在一起可以获得更多的商业机会，减少运输成本，并从市场规模中获益。
+自改革开放以来，我国各省份收入增长如（），而常驻人口的增长入（）。我国在经济上形成了东富西穷 南富北穷的局面，在人口上也是富裕的地区比贫穷的地区多。
+针对劳动力从贫穷的农村走向富裕的城市，我国有大量经济学研究
 
-新经济地理学强调地区之间的竞争和合作机制，导致区域内的资源和生产活动会相互强化。例如，Krugman通过模型证明，虽然初期经济活动可能会在某些地区零散分布，但由于市场和生产的反馈机制，某些地区会因为集聚效应逐渐吸引更多的资源，形成经济集中，最终导致区域的不平衡发展。
-
-根据新经济地理学的理论，劳动力的迁移并不是随机的。人们往往会选择进入那些产业集聚、机会多、工资水平较高的地区。因此，地区的经济集聚会吸引更多的劳动力流入，形成所谓的“吸引效应”。
-
-随着劳动力和产业的集中，特定地区会形成自我强化的迁移机制。例如，企业聚集会促进更多的就业机会，而就业机会的增多又会吸引更多的劳动力流入，这一过程可能形成区域性“良性循环”。
-
-通过分析劳动力迁移的影响，新经济地理学表明，劳动者在选择迁移时会受到工资差异、就业机会、生活成本等多重因素的影响。尤其是在低成本地区和高薪地区之间，劳动力的流动往往导致区域收入差距的加大。
-
-我国收入分布和地理分布之间的关系
-东富西穷 南富北穷
-【表格汇总 居民可支配收入】
 相邻的城市形成产业聚集 相邻的城市形成城市圈 自改开以来所有城市的人均可观增长（尽管有资源耗尽城市的例子）
 
 我国人口分布和劳动力移动的特殊点
@@ -179,7 +52,6 @@ Krugman (1991); Fujita et al. (1999); Puga (1999)的新经济地理学指出劳�
 但是依旧有回流
 （李芝倩2007）
 xxx通过数据举例
-
 
 但富的城市仍有虹吸效应 包括财富虹吸和人口虹吸 按照Krugman 1991的观点这种贫富差距并不会收敛
 这种大城市与小县城之间长久的对立（城乡之间的对立）是我国长久持续且深刻的工业化带来的必然结果 
@@ -249,7 +121,7 @@ xxx引用例证
 需要采取一个在horizon里每期都进行迁移选择的效用最大化模型来分析
 从而控制各种causality problems
 正因为如此
-本文在Kennan and Walker 2010的动态最优搜寻工作模型基础上引入了流动摩擦、居民异质性、乡土文化
+本文在\cite{kennanEffectExpectedIncome2011}的动态最优搜寻工作模型基础上引入了流动摩擦、居民异质性、乡土文化
 来分析劳动力迁移作为经济现象背后的原因
 相较于原作者的种种缺点
 本文通过
@@ -271,7 +143,7 @@ xxx引用例证
 
 \subsection{模型}
 对于劳动力流动有多种解释
-按照Jia et al. 2023的分类可以将其划分
+按照\cite{jiaEconomicsInternalMigration2023}的分类可以将其划分
 一种是空间均衡模型，另一种是最优居住地选择模型。
 
 \subsubsection{空间均衡模型}
@@ -279,14 +151,15 @@ xxx引用例证
 
 我国在有大量的基于以Todaro模型为代表的城乡二元对立模型进行讨论的论文
 
-Lewis 1954，Ranis and Fei 1961首先提出了发展经济学的二元对立模型，用于解释发展中国家在发展中城市部门吸收农村人口实现现代化的过程，他们的结论是现代经济部门工资高于传统农业部门，劳动力将从农业向工业部门转移。
+\cite{lewisEconomicDevelopmentUnlimited1954}，\cite{ranisTheoryEconomicDevelopment1961}首先提出了发展经济学的二元对立模型，用于解释发展中国家在发展中城市部门吸收农村人口实现现代化的过程，他们的结论是现代经济部门工资高于传统农业部门，劳动力将从农业向工业部门转移。
 
-Todaro 1969建立了一个城乡二元对立的模型，其中劳动力受到预期城乡收入差距前往现代工业部门工作，即使这会导致失业率的上升从而下降自身的预期收益。他的做法有多种优点，例如加入了一次性的迁移成本、将失业率代入了模型。Todaro指出即使面临失业风险，人口也会因为预期城乡收入差距而迁移。
-Harris and Todaro 1970在其原先基础上加入了（xxx）
+\cite{todaroModelLaborMigration1969}建立了一个城乡二元对立的模型，其中劳动力受到预期城乡收入差距前往现代工业部门工作，即使这会导致失业率的上升从而下降自身的预期收益。他的做法有多种优点，例如加入了一次性的迁移成本、将失业率代入了模型。Todaro指出即使面临失业风险，人口也会因为预期城乡收入差距而迁移。
+
+\cite{harrisMigrationUnemploymentDevelopment1970}在其原先基础上加入了（xxx）
 对于我国的劳动力迁移研究而言，Todaro最重要的假设是其假设现代工业部门规模经济，而农业部门CRTS，这代表了代表了城乡二元对立的思想，适合我国发展中国家的国情。
 
 
-Rosen，Roback 1982
+\cite{rosenWageBasedIndexesUrban1979,robackWagesRentsQuality1982,robackWagesRentsAmenities1988}
 国内也开始慢慢有Rosen Roback模型作为基础的论文发表
 王丽莉2020、2023
 
@@ -295,7 +168,7 @@ Rosen，Roback 1982
 \subsubsection{最优居住地选择模型}
 Tiebout 1956提出用脚投票，第一次用模型将amenities这个概念引入对劳动人口的流动进行考察
 
-从Sjaastad 1962开始，开始重视劳动者本身的主观意愿
+从\cite{sjaastadCostsReturnsHuman1962}开始，开始重视劳动者本身的主观意愿
 \textit{Sjaastad’s (1962) treatment of migration as an investment emphasizes the dynamic  aspect of migration – expected costs and payoffs to migration change over time. Viewed  within a life cycle perspective, individuals (or families) decide whether and when to  move. Allowing households to make multiple migration decisions substantially increases the model’s complexity. Decisions made in previous periods (e.g., savings, education,  marriage, fertility) determine choices available in the current period, and expectations  of future events also influence current decisions. Within this perspective migration and  fertility choices are connected through the “primitives” of the decision making process:  current opportunities (determined in part by decisions made in the past), expectations  (anticipated future events and outcomes), and preferences (values assigned to different  outcomes). The economic perspective thus provides a unified framework connecting several important demographic behaviors.}
 
 
@@ -325,7 +198,6 @@ Kennan-Walker糅合了多年来劳动力迁移经济学的发展，并凝结在�
 
 \subsubsection{劳动力壁垒}
 
-\subsubsection{居住成本与迁移成本}
 Helpman (1998)在Krugman 1991的基础上引入住房市场因素，指出房价会影响劳动者相对效用，从而抑制劳动力在高房价地区的集聚；还提出经济集聚导致的劳动力涌入也会推高房价
 Brakman et al. (2002); Saks (2004); Rabe \& Taylor (2012)实证检验了Helpman的理论。Hanson et al. (1999, 2005)实证分析支持Helpman（1998）的结论。
 
@@ -334,7 +206,7 @@ Dohmen (2005); Meen \& Nygaard (2010)指出尽管高房价地区会抑制劳动�
 张莉2017经济研究
 
 周颖刚2019经济研究
-	根据 Roback( 1982) 和 Diamond( 2016) ,一方面劳动力从低工资地区向高工资地区流动,以提  高劳动力家庭的效用水平; 另一方面,房价是劳动力在城市居住的主要成本,高房价水平降低了劳  动力在居住城市的效用水平
+\textit{根据Roback(1982)和Diamond(2016)，一方面劳动力从低工资地区向高工资地区流动，以提高劳动力家庭的效用水平；另一方面，房价是劳动力在城市居住的主要成本，高房价水平降低了劳动力在居住城市的效用水平。}
 
 Diamond 2016
 
@@ -345,25 +217,26 @@ Todaro在模型中加入了一次性的迁移成本，
 \subsubsection{人力资本}
 Moretti (2004); Fu and Liao (2012)指出人口密度高的地方有利于技能匹配和获得学习机会，劳动力更倾向于流向教育水平高、人口密度强的城市，这实际也是侧面证明了预期收入
 
-刘毓芸等 (2015)：基于文化经济学理论，指出方言距离较小时促进劳动力流动，反之则阻碍劳动力流动。
+刘毓芸等(2015)：基于文化经济学理论，指出方言距离较小时促进劳动力流动，反之则阻碍劳动力流动。
 
 \textit{Schultz (1961), who considered migration as a form of investment in human capital}
 
-
 \subsubsection{舒适度、公共服务与}
 Tiebout 1956
+
 夏怡然2015，城市间的“孟母三迁”——公共服务影响劳动力流向的经验研究
 
 在社会学的研究中，舒适度这个概念是人口迁移的主要因素，这一概念涵盖了空气质量、公共服务、城市天气等多种变量。以王丽娜2007为例
 
 孙伟增2019基于Rosen-Roback模型得出空气污染对于流动人口的就业选址具有显著的负向影响
 
-Dorfman 2016  
-\textit{This paper extends the literature on amenity migration by focusing on healthcare access for later‐life migrants.}
+
+\textit{Dorfman (2016): This paper extends the literature on amenity migration by focusing on healthcare access for later‐life migrants.}
 
 \subsubsection{具有中国特色的因素：户籍、乡土观念等}
 
 李强2003认为由于户籍制度，中国的人口流动将不再遵循一般的推拉规律
+
 陆益龙2008用OLS分析户籍的社会流动影响
 
 乡土观念
@@ -374,11 +247,6 @@ Dorfman 2016
 亲戚介绍
 离得近
 
-
-
-
-
-\subsubsection{其他}
 
 信息的沟通过程
 想象在古代 大概只有自然灾害、战争等一些有限的因素导致能导致劳动力有规律迁移
@@ -398,7 +266,7 @@ Dorfman 2016
 如下
 \begin{itemize}
 \item 劳动力自由流动
-\item 本文的重要假设是工资是个人技能集的本地价格$w^{D}=w^{S}=w^{S}(\sum\limits_{i}Skill_{i})\Rightarrow w^*$
+\item 本文的重要假设是工资是个人技能集的本地价格$w^{D}=w^{S}=w^{S}(\sum\limits_{i}Skill_{i})\Rightarrow w^{*}$
 \item 资产不影响居民的选择（成吗？）
 \item 个人之间不相互影响（iid抽样）
 \end{itemize}
@@ -447,35 +315,49 @@ V(x,\zeta)=\max\limits_{j}[v(x,j)+\zeta_{j}]
 
 使得在状态x下选择地点j的概率为$\rho(x,j)=\exp(\bar \gamma+v(x,j)-\bar v(x))$，之中的$\bar \gamma$为欧拉常数
 
-其中基础效用$v(x, j) = u(x, j) + \beta \sum_{x'} p(x' | x, j) \bar{v}(x')$分为两部分
+其中基础效用分为两部分
+\begin{equation}
+  v(x, j) = u(x, j) + \beta \sum_{x'} p(x' | x, j) \bar{v}(x')
+\end{equation}
 一是选择j带来的直接效用
 二是折现的通过转移概率加权得到的未来期望效用，$\bar{v}(x) = E_{\zeta} V(x, \zeta)$表明在状态x下去掉随机项影响得到的期望效用
 
 公式中的随机效用项假设服从于一类极值分布
 We assume that $\zeta_j$ is drawn from the Type I extreme value distribution. In this case, using arguments due to McFadden (1973) and Rust (1987), we have
-$$\exp\left(\bar{v}(x)\right) = \sum_{k=1}^J \exp\left(v(x, k)\right)$$
+\begin{equation}
+  \exp\left(\bar{v}(x)\right) = \sum_{k=1}^J \exp\left(v(x, k)\right)
+\end{equation}
 
 这表示如果变量服从一类极值分布，那么$\exp\left(\bar{v}(x)\right)$可以表示为所有$v(x, k)$的指数和
 它意味着，在状态x 下，选择某一选项j的概率与效用的指数值成比例。
 这个性质广泛用于预测个体选择的分布。
 
-那么以上的地点选择概率也就是$\rho(x,j)=\frac{\exp(v(x,j))}{\sum\limits_{k=1}^{J} exp(x,k)}$
+那么以上的地点选择概率也就是
+\begin{equation}
+  \rho(x,j)=\frac{\exp(v(x,j))}{\sum\limits_{k=1}^{J} exp(x,k)}
+\end{equation}
 （需要证明吗？）
 
 假设收入的边际效用是固定的，居民可以在固定利率下自由借贷，那么居民的期望效用最大化问题就可以转化为预期永久收入，除去迁移成本
 （需要证明吗？）
 
 居民在地点为h的效用流等于基础效用+随机效用
-$\tilde u_{h}(x,j)=u_{h}(x,j) +\zeta_j$
+\begin{equation}
+  \tilde u_{h}(x,j)=u_{h}(x,j) +\zeta_j
+\end{equation}
 
 在h地点的居民的基础效用组成部分如下
-$u_h(x,j)=w_{ij}(a)+\sum\limits \alpha_{k}Y_{k}(\ell^{0})+\sum\limits h +\xi(\ell^{0},\omega)-MovingCost$
+\begin{equation}
+  u_h(x,j)=w_{ij}(a)+\sum\limits \alpha_{k}Y_{k}(\ell^{0})+\sum\limits h +\xi(\ell^{0},\omega)-\triangle
+\end{equation}
 下面逐步将其拆分讲解
 
 
 \subsection{工资性收入（货币收入）}
 其中工资收入的组成是
-$$w_{ij}(a)=\mu_j+\nu_{ij}+G(X_i,a,t)+\eta_i+\varepsilon_{ij}(a)$$
+\begin{equation}
+  w_{ij}(a)=\mu_j+\nu_{ij}+G(X_i,a,t)+\eta_i+\varepsilon_{ij}(a)
+\end{equation}
 地区平均收入$\mu_j$
 个人与地区的匹配效应$\nu_{ij}$
 时间效应$G(X_{i},a,t)$, where $X_{i}$ is characteristics, $a$ is age and $t$ is a time effect
@@ -517,7 +399,7 @@ The location match effect is treated as a random variable12. This means that for
 
 
 
-$\rho_j$ ==is the location effect，这会捕捉一些受地区影响的经济变量==
+$\rho_j$ is the location effect，这会捕捉一些受地区影响的经济变量
 - 某些产业在特定地区呈现区域产业集聚（Regional Economic Clustering），例如北京相较于其他城市有极强的新闻媒体产业，山西某些城市有丰厚的煤矿资源带来的矿物资源产业繁荣。
 - 特定城市会受到政策照顾，使得所在地区的劳动力税收减免
 - 地区通过人才政策进行额外补贴等
@@ -562,8 +444,8 @@ Sixth term $\gamma_5 \cdot n_j$ means that it is possible to be cheaper to move 
 \textbf{讨论劳动力流动壁垒问题}
 蒋为2024
 程名望2007
-王丽莉2020、2023提出了迁移摩擦这一概念，可以将迁移成本认为是（引用）
-\textit{进一步降低人口流动壁垒将有利于我国城市规模的扩张与劳动力资源配置效率的改进。}
+\cite{WangLiLiWoGuoRenKouQianYiChengBenChengShiGuiMoYuShengChanLu2020}，\cite{WangLiLiTuDiGongGeiFangJieYuLaoDongLiKongJianPeiZhiXiaoLu2023}提出了迁移摩擦这一概念，可以将迁移成本认为是（引用）\textit{进一步降低人口流动壁垒将有利于我国城市规模的扩张与劳动力资源配置效率的改进。}
+
 所以可以采用Samuelson的iceburg理论 流动壁垒可以被认为是一次性付清的迁移成本
 令$MovingCost = \frac{SomeMoney}{CertainCoefficient}$
 
@@ -628,7 +510,7 @@ $$\rho(x,j)=\exp[v(x,j)-\bar v(x)]$$
 
 通过离散估计法估计地区匹配效应的分布
 
-选择一些**支持点（support points）**，将原本连续的分布F用离散分布$\hat F$代替。
+选择一些支持点（support points），将原本连续的分布F用离散分布$\hat F$代替。
 支持点被选为分布的某些分位点（比如中位数或四分位点），并将每个分位点分配一个权重（概率）。
 对于每个$q_r$（分位点位置），计算对应的效用值，用这些有限的效用值来代替连续效用的积分。
 
@@ -636,11 +518,11 @@ $$\rho(x,j)=\exp[v(x,j)-\bar v(x)]$$
 
 \subsubsection{固定效应}
 
-**数学上**：
+
 $\eta$ 表示每个个体工资的固定成分（例如长期能力或个体特质）。
-假设其分布是一个对称的离散分布，具有 7 个支持点。每个支持点有相等的权重。
-因为是离散分布，只需要估计 3 个参数：分布的中间点（中心趋势）和离散范围。
-**经济意义**：
+假设其分布是一个对称的离散分布，具有7个支持点。每个支持点有相等的权重。
+因为是离散分布，只需要估计 3个参数：分布的中间点（中心趋势）和离散范围。
+
 固定效应代表长期的工资差异来源，例如教育水平、经验等。
 选择离散分布是为了简化复杂的连续分布，同时通过支持点捕捉关键的分布特性（如中心趋势和差异性）。
 
@@ -649,14 +531,14 @@ $\eta$的离散分布提供了一种对长期工资特质的简化建模方式�
 \subsubsection{短期波动}
 
 数学上
-$\varepsilon$ 表示工资的短期波动成分，比如由于经济周期、随机冲击等导致的变化
-假设$\varepsilon_{it}$ ​（某人在某个时间的短期波动）来源于一个均值为零的正态分布，其方差$\sigma_{\epsilon}$随人而异
+$\varepsilon$表示工资的短期波动成分，比如由于经济周期、随机冲击等导致的变化
+假设$\varepsilon_{it}$（某人在某个时间的短期波动）来源于一个均值为零的正态分布，其方差$\sigma_{\epsilon}$随人而异
 对于每个人，$\sigma_\varepsilon(i)$来自一个离散分布（4 个支持点，均匀分布），因此需要估计 4 个参数
 $\varepsilon$反映工资中不可预测的临时变化，例如经济不确定性或工作绩效波动
 允许$\sigma_\varepsilon(i)$因人而异捕捉到工资短期波动的个体差异性（例如高风险行业可能有更大波动）
 
 
-对$\varepsilon$的建模允许方差随个体变化，进一步增加模型的灵活性，使其能够更好地拟合数据。
+在建模中，$\varepsilon$允许方差随个体变化，体现了个体的异质性，这进一步增加模型的灵活性，使其能够更好地拟合数据。
 
 \subsubsection{工资的影响}
 
@@ -666,7 +548,7 @@ $\varepsilon$反映工资中不可预测的临时变化，例如经济不确定�
 
 \subsubsection{似然函数}
 
-**未观测变量**
+\textbf{未观测变量}
 
 在每个地点中个体都有从地区匹配效应的分布中抽取一个值，假设这个分布是一个有限集合上的均匀分布，$Y=\{\nu(1),\nu(2)...\nu(n_{\nu})\}$
 其结果是$\omega^{i}_{\nu}$，$\omega^{i}_{\nu}(j)$代表在地点j的匹配效应，$1\leqslant j\leqslant N_i$，$N_i$是$i$到达过的地方的数量
@@ -688,42 +570,52 @@ $\varepsilon$反映工资中不可预测的临时变化，例如经济不确定�
 
 参数向量的可能实现组成一个集合，用$\Omega(N_{i})$表示
 
-**似然贡献**
+\textbf{似然贡献}
 
 $\mathcal{K}_{it}=(\mathcal{K}_{it}^{0},\mathcal{K}_{it}^{1})$表示当前位置和上一个位置
 
 个体i在t时期选择目的地的似然概率是$\lambda_{it}(\omega^{i},\theta_{\tau})$
 同时在
-$\lambda_{it}(\omega^{i},\theta_{\tau})=\rho(x,j)=\rho_{h(i)}(\ell(i,t),\omega_{\nu}^{i}(\mathcal{K}_{it}^{0}),\omega_{\nu}^{i}(\mathcal{K}_{it}^{1}),\omega_{\xi}^{i}(\mathcal{K}_{it}^{0}),\omega_{\xi}^{i}(\mathcal{K}_{it}^{0}),a_{it},\ell^{0}(i,t+1),\theta_{\tau})$
+\begin{equation}
+  \lambda_{it}(\omega^{i},\theta_{\tau})=\rho(x,j)=\rho_{h(i)}(\ell(i,t),\omega_{\nu}^{i}(\mathcal{K}_{it}^{0}),\omega_{\nu}^{i}(\mathcal{K}_{it}^{1}),\omega_{\xi}^{i}(\mathcal{K}_{it}^{0}),\omega_{\xi}^{i}(\mathcal{K}_{it}^{0}),a_{it},\ell^{0}(i,t+1),\theta_{\tau})
+\end{equation}
 公式表明个体的选择不仅受到过去历史（如上一个地点和上一个选择）和随机效应（如匹配效应和暂态效应）的影响，还考虑了个体的长期偏好和未来选择的影响。
 通过对这个似然函数进行建模，我们可以估计个体在特定情况下做出选择的概率，从而理解个体在复杂环境下如何做出决策。
 
 
-由于暂态效应服从期望为0的正态分布
-$\varepsilon_{ij}(a)=w_{ij}(a)-\mu_j-\nu_{ij}-G(X_i,a,t)-\eta_i$也服从该分布
-从而令$\Psi$表示标准正态分布的概率累积函数
-那么收入函数的密度函数，
-$$\Psi_{it}(\omega^{i},\theta)=\phi(\frac{w_{it} - \mu_{\ell^{0}(i,t)}-G(X_{i},a_{it},\theta)-\nu(\omega_{nu}^{i}(\mathcal{K}_{it}^{0}))-\eta(\omega_{\eta}^{i})  }{\sigma_{\epsilon}(\omega_{\epsilon}^{i})})$$
-$\mu_{\ell^{0}(i,t)}​$：是个体i在位置ell基础工资水平
-$G(X_i, a_{it}, \theta)$：代表个体i在时间t受到的外部影响（如经济环境、工作特征等
-$\nu(\omega_{\nu}^i(\mathcal{K}_{it}^0))$、$\eta(\omega_{\eta}^i)$：分别是地区匹配效应和固定效应，它们是收入的随机组成部分，影响个体的收入
-$\sigma_{\epsilon}(\omega_{\epsilon}^i)$：表示暂态效应的标准差，它反映了短期收入波动的程度
+由于暂态效应服从期望为0的正态分布，那么$\varepsilon_{ij}(a)=w_{ij}(a)-\mu_j-\nu_{ij}-G(X_i,a,t)-\eta_i$也服从该分布。
+
+从而令$\Psi$表示标准正态分布的概率累积函数，使得收入函数的密度函数为
+\begin{equation}
+  \Psi_{it}(\omega^{i},\theta)=\phi(\frac{w_{it} - \mu_{\ell^{0}(i,t)}-G(X_{i},a_{it},\theta)-\nu(\omega_{nu}^{i}(\mathcal{K}_{it}^{0}))-\eta(\omega_{\eta}^{i})  }{\sigma_{\epsilon}(\omega_{\epsilon}^{i})})
+\end{equation}
+其中$\mu_{\ell^{0}(i,t)}$：是个体i在位置$\ell$基础工资水平；$G(X_i, a_{it}, \theta)$：代表个体$i$在时间$t$受到的外部影响（如经济环境、工作特征等）；$\nu(\omega_{\nu}^i(\mathcal{K}_{it}^0))$、$\eta(\omega_{\eta}^i)$：分别是地区匹配效应和固定效应，它们是收入的随机组成部分，影响个体的收入；$\sigma_{\epsilon}(\omega_{\epsilon}^i)$：表示暂态效应的标准差，它反映了短期收入波动的程度。
+
 这是在时期t给定个体i的选择和随机效应（如匹配效应、固定效应等），观察到收入$w_{it}$的概率概率，即被观测收入的似然概率。
 
 由此通过个体在其历史轨迹中给出的两种似然贡献
+
 我们得到了类型为$\tau$的个体$i$的似然函数
+
 即在所有可能的不可观测变量的组合下，个体在所有时期中的观测收入$w_{it}$上选择地点的概率$\rho_{it}$的乘积：
-$$L_{i}(\theta_{\tau})=\frac{1}{n_{\nu}n_{\epsilon}n_{\xi}(n_{\nu})^{N_{i}}} \sum\limits_{\omega^{i}\in\Omega(N_{i})}(\prod\limits_{i=1}^{T_{i}} \psi_{it}() \lambda_{it}())$$
+\begin{equation}
+  L_{i}(\theta_{\tau})=\frac{1}{n_{\nu}n_{\epsilon}n_{\xi}(n_{\nu})^{N_{i}}} \sum\limits_{\omega^{i}\in\Omega(N_{i})}(\prod\limits_{i=1}^{T_{i}} \psi_{it}\lambda_{it})
+\end{equation}
+
 由于模型允许存在异质性
+
 让$L_{i}(\theta_{\tau})$代表tau类型个体的似然函数，其中$\theta$是该个体的待估参数向量
+
 样本的似然函数是一个混合类型的联合对数似然函数，把每个观测i的贡献相加
 \begin{equation}
 \Lambda(\theta)=\sum\limits_{i=1}^{N}\log(\sum\limits_{\tau=1}^{K}\pi_{\tau}L_{i}(\theta_{\tau})) 
 \end{equation}
 其中混合比例由$\pi_{\tau}$给出，且$\sum\limits_{\tau=1}^{K}\pi_{\tau}=1$
 每个个体i都做出了贡献
-这是在给定参数$\theta_{\tau}$的条件下，个体$i$在类型$\tau$下的似然。即，个体i可能属于某种类型，似然函数$L_i(\theta_{\tau})$捕捉了该个体数据与类型\tau相关的匹配度。
-混合似然$\sum_{\tau=1}^{K} \pi_{\tau} L_i(\theta_{\tau})$这表示对所有类型的加权平均，权重是$\pi_{\tau}​$，即每种类型的概率。通过这种加权求和，模型允许每个个体属于不同的类型，并通过类型的权重（概率）来加权它们的贡献。
+这是在给定参数$\theta_{\tau}$的条件下，个体$i$在类型$\tau$下的似然。即，个体i可能属于某种类型，似然函数
+$L_i(\theta_{\tau})$捕捉了该个体数据与类型$\tau$相关的匹配度。
+混合似然$\sum_{\tau=1}^{K} \pi_{\tau} L_i(\theta_{\tau})$这表示对所有类型的加权平均，权重是$\pi_{\tau}$，即每种类型的概率。通过这种加权求和，模型允许每个个体属于不同的类型，并通过类型的权重（概率）来加权它们的贡献。
+
 每个个体可能属于不同的类型，这些类型有不同的收入和行为模式。每个数据点i来自某个成分，但成分的归属是未知的，因此需要将每个数据点的似然表示为各成分似然的加权和，然后取对数并求和得到整个样本的对数似然。因此通过混合模型，能够捕捉到个体之间的异质性。
 
 
@@ -751,8 +643,8 @@ $$L_{i}(\theta_{\tau})=\frac{1}{n_{\nu}n_{\epsilon}n_{\xi}(n_{\nu})^{N_{i}}} \su
 
 
 蒋琪2018劳动经济研究：
-<u>本研究使用CFPS2010 年和2014 年两期数据构成面板进行影响评估。CFPS采用的是内隐分层、多阶段、多层次、与人口规模成比例的概率抽样方式，样本覆盖除中国港澳台、新疆、西藏、青海、内蒙古、宁夏和海南之外的其他省/市/自治区。这些地区的人口占全国的95%左右，因此，CFPS的数据是一个具有全国代表性的高质量数据库 (Xie ＆ Lu，2015) </u>
-<u>关键结果变量为个人的年总收入 (PIncome)。本研究选取的关于个人总收入的变量为“qk601”(2010 年) 和“p_income”( 2014 年) 。在面板数据中，两个变量统一命名为“PIncome”。该变量来自 CFPS 问卷的 “K 部分: 个人收入”，具体题目为“您 ( 去年) 个人的年总收入是 元?”。CFPS在公布历期数据之前，对收入部分结果进行了修正，以满足各年之间的可比性。控制变量。参考以往研究 (卜茂亮等，2011; 黄国英、谢宇，2017; 谭燕芝等， 2017; 周广肃、孙浦阳，2017) 并结合CFPS数据的可获得性和完整性，本文选取的控制变量包括地域 (所在省份)、常住地 (城镇或农村)、性别、民族、年龄、受教育年限、婚姻状态、自评健康状况、认知能力、非认知能力、对自己未来的自信心和职业等。其中CFPS的非认知能力来自访员在理解能力、配合程度、接人待物水平、回答的可信程度和语言表达能力5个方面对受访者的评价平均得分; 认知能力包括语文和数学方面的测试得分 (黄国英、谢宇，2017)</u>
+\textit{本研究使用CFPS2010 年和2014 年两期数据构成面板进行影响评估。CFPS采用的是内隐分层、多阶段、多层次、与人口规模成比例的概率抽样方式，样本覆盖除中国港澳台、新疆、西藏、青海、内蒙古、宁夏和海南之外的其他省/市/自治区。这些地区的人口占全国的95\%左右，因此，CFPS的数据是一个具有全国代表性的高质量数据库 (Xie ＆ Lu，2015) }
+\textit{关键结果变量为个人的年总收入 (PIncome)。本研究选取的关于个人总收入的变量为“qk601”(2010年) 和“pincome”(2014 年) 。在面板数据中，两个变量统一命名为“PIncome”。该变量来自 CFPS 问卷的 “K 部分: 个人收入”，具体题目为“您 ( 去年) 个人的年总收入是 元?”。CFPS在公布历期数据之前，对收入部分结果进行了修正，以满足各年之间的可比性。控制变量。参考以往研究 (卜茂亮等，2011; 黄国英、谢宇，2017; 谭燕芝等， 2017; 周广肃、孙浦阳，2017) 并结合CFPS数据的可获得性和完整性，本文选取的控制变量包括地域 (所在省份)、常住地 (城镇或农村)、性别、民族、年龄、受教育年限、婚姻状态、自评健康状况、认知能力、非认知能力、对自己未来的自信心和职业等。其中CFPS的非认知能力来自访员在理解能力、配合程度、接人待物水平、回答的可信程度和语言表达能力5个方面对受访者的评价平均得分; 认知能力包括语文和数学方面的测试得分 (黄国英、谢宇，2017)}
 
 
 基于使用了CFPS2010到2022年间的数据
@@ -799,7 +691,7 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 \label{sub:方法上}
 基于以上的推导
 在代码中需要先求出个体的似然
-而个体的总似然是 迁移选择概率和工资观测概率的乘积
+而个体的总似然是迁移选择概率和工资观测概率的乘积
 那么集体的似然函数同时对未观测的随机效应（固定效应、地区匹配效应等）进行积分（离散求和）：
 $$
 L_{i}=\sum\limits_{\text{所有随机效应组合}}(\prod_{t}\rho(x_{t},j_{t})⋅P(w_{t}|\text{随机效应}))$$
@@ -869,6 +761,8 @@ L_{i}=\sum\limits_{\text{所有随机效应组合}}(\prod_{t}\rho(x_{t},j_{t})�
 使模型作为微观基础从而宏观化
 从而引入其他变量
 
+
+
 \section{附录：证明} % (fold)
 \label{sec:附录_证明}
 \textbf{Rust极值分布}
@@ -887,4 +781,9 @@ Probability that a person in state $x$ will choose location $j$ can then be writ
 $$\rho(x,j)=\exp[v(x,j)-\bar v(x)]$$
 % section 附录_证明 (end)证明
 
+
+
+
+\bibliography{Papers}
+\bibliographystyle{gbt7714-author-year}
 \end{document}
