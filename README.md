@@ -7,7 +7,7 @@ This project implements an economic model simulation using Python. The model is 
 ## Project Structure
 
 ```bash
-│  .gitnore
+│  .gitignore
 │  main.py # 主运行文件
 │  README.md # 说明文件
 │  requirements.txt # 需求
