@@ -1,8 +1,8 @@
-**/ .DS_Store
-**/ .aux
-**/ .log
-**/ .out
-**/ .synctex.gz
+**.DS_Store
+**.aux
+**.log
+**.out
+**.synctex.gz
 ztest.py
 function/__pycache__/
 data/geo/backup/
