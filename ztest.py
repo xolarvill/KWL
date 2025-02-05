@@ -1,14 +1,11 @@
-from geopy.geocoders import Nominatim
-from geopy.distance import geodesic
+n= 100
+a=1
+b=2
+count = 0
+for i in range(n // a + 1):
+    for j in range(n // b + 1):
+        if i * a + j * b == n:
+            count += 1
 
-
-geolocator = Nominatim(user_agent="geopyroutine")
-location1 = geolocator.geocode("北京市")
-print((location1.latitude, location1.longitude))
-location2 = geolocator.geocode("杭州市")
-print((location2.latitude, location2.longitude))
-distance = geodesic(
-    (location1.latitude, location1.longitude), 
-    (location2.latitude, location2.longitude)).km
-print(f"北京到上海的直线距离：{distance:.2f}公里")  # 输出：约1068公里
+print(count)
 
