@@ -1,7 +1,7 @@
 import openpyxl
 import numpy as np
 
-def adjmatrix(adj_path):
+def adjmatrix(adj_path: str) -> np.array:
     '''
     Goal:
     Reads an Excel file containing an adjacency matrix, ensures the matrix is square,

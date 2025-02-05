@@ -1,7 +1,8 @@
 import numpy as np
+import pandas as pd
 
 # 个人的位置矩阵
-def calK_all_time(dataframe, individual_index, option):
+def calK_all_time(dataframe: pd.DataFrame, individual_index: int, option: str) -> np.array:
     
     '''
     goal:

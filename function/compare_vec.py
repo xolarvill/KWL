@@ -1,6 +1,6 @@
 import numpy as np
 
-def compare_vectors(v1, v2):
+def compare_vectors(v1: np.array, v2: np.array) -> str:
     if np.allclose(v1, v2):
         return "相同"
     else:
