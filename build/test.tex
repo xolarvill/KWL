@@ -1,5 +1,5 @@
 %!TEX program = Traditional Builder with XeLaTeX
-\documentclass[a4paper,10pt]{article}
+\documentclass[a4paper,12pt]{article}
 \usepackage[UTF8]{ctex}
 \usepackage{graphicx} % Required for inserting images
 \usepackage{amsmath,amsthm} % Math
@@ -7,12 +7,19 @@
 \usepackage{mathrsfs,amsfonts,calrsfs} % Math fonts
 \usepackage{geometry} % Formatting
 \usepackage{hyperref}
+\usepackage{listings}
+
+% 添加首行缩进，两个字符
+\usepackage{indentfirst}
+\setlength{\parindent}{2em}
+
+\geometry{top=2.4cm,bottom=2.4cm,left=2.4cm,right=2.4cm}
 
 % 避免出现所有作者名字
 \usepackage[authoryear,etalmode=truncate,etaltext=it]{gbt7714}
 
 %document headings
-\title{动态最优居住地选择模型下的劳动力迁移行为考察}
+\title{动态迁移决策模型下的劳动力迁移行为考察}
 \author{Suicidal Bumblebee}
 \date{Jan 2025}
 
@@ -22,218 +29,234 @@
 
 \maketitle
 
-\begin{itemize}
-  \item 证明工资分布和地区分布有直接关系 而不是只和行业工资 否则无法使用地区平均工资作为$\mu_{j}$
-  \item 在原模型基础上引入了新的特点，例如流动壁垒（迁移摩擦）、地区异质性
-  \item 要用MLE，就要对扰动项的条件概率分布进行假设
-  \item 由于模型迭代极为复杂没有解析解，所以我们退而求其次求解析解
-  \item 本文主线：传统的城乡二元对立模型难以满足研究多层次的劳动力的动态住选址选择问题，故而采用最有居住地选择模型
-  \item 乡土文化中分出两种类型的人，一种是对于离家近的地方有执念的，一种是没有的
-  \item 给出城市的文化亲近度
-  \item 用samuelson冰山理论应用了摩擦系数
-  \item 在原先的纯空间距离上还加入了空间经济距离
-\end{itemize}
+\begin{abstract}
+  随着经济的发展与社会工业化带来的社会关系剧变，劳动力迁移形成有规律的迁移模式是必然的。不同于我国研究中的传统城乡二元对立语境，本文基于理性预期构造了动态最优住址选择模型，基于CFPS数据对2010年至2022年间我国各省的人口流动进行实证检验，并得到的结论是（xxx、xxx、xxx）。本文的贡献在于（xxx、xxx、xxx）。
 
-\section*{摘要}
-随着经济的发展与社会工业化带来的社会关系剧变，劳动力迁移形成有规律的迁移模式是必然的。不同于我国研究中的传统城乡二元对立语境，本文基于理性预期构造了最优住址选择模型，更适用于当下城市化背景中城乡间隔逐渐消除的大背景，并检验（xxx年）间我国各省的人口流动，并基于（xxx数据）进行实证检验，得到的结论是（xxx、xxx、xxx）
+  \textbf{关键词：} 动态迁移决策模型、劳动力迁移、收入引致、迁移摩擦
+\end{abstract}
 
-\textbf{关键词：} 动态居住地选择、劳动力迁移、收入引致
+
 
 \section{引言}
 
-\quote{世界人口分布的特点 -> 我国收入的地理分布 -> 劳动力的流动符合直接 -> 直觉中仍有劳动力回流这种反直觉的现象 -> 为了分析这点必须要先了解劳动力为何流动 -> 世界上的普遍研究做法 -> 我国的研究方法 -> 提出其中的不适合于缺陷 -> 引出我们的方法 -> 在原作者的基础上改进 -> 介绍论文各章节}
+纵观古今内外，“人往高处走，水往低处流”的规律总是屡试皆准。早在上世纪末，以\cite{krugmanIncreasingReturnsEconomic1991}和\cite{fujitaSpatialEconomyCities1999}为代表的新经济地理学就指出经济活动的集中会产生规模经济和网络效应，促成产业集聚。经济的聚集会导致区域不平衡发展，人们倾向于从“边缘”地区流向产业集聚、薪资较高和就业机会多的“中心”地区，形成“吸引效应”，这使得劳动力迁移有了移动的规律。欧美国家作为世界上人均GDP最高的区域，吸引大量来自其他相对落后国家的居民。根据世界银行（World Bank Group）和美国移民委员会（American Immigration Councile）公布的数据，
+2023年美国的人均GDP为82769美元，外来人口达到了4780万，移民占美国人口的 14.3\%，比 1970 年的 4.7\% 增长了约三倍。相似地，在我国内部也发生着同样的人口迁移现象。改革开放以来，随着交通工具的进步和政策的放宽，劳动力自由流动在我国成为可能。恰逢此时，我国经济的迅速崛起逐渐形成了“东富西穷、南富北穷”的局面。经济发展的不平衡不仅表现在地区收入差距上，也体现在人口分布的变化中。富裕地区吸引了大量来自相对贫困地区的劳动力。国家统计局2020年发布的《第七次人口普查》显示，流动人口达到3.76亿，占全国总人口比重分别为34.90\%和26.62\%，较2010年分别上涨88.52\%和69.72\%。
+广东跨省流入高达2962.21万人，浙江也达到1618.65万人，上海跨省流入人口为1047.97万人。这三地的跨省流入人口数量位居前三。此外，北京流入841.8万人，位居第五。
+同时，我国也存在多个人口输出大省\footnote{数据来源于2010年的《第六次人口普查》}：
+安徽省净向外输出911.9万人，占本省户籍人口的13.29\%；
+四川省净向外输出956.35 人，占本省户籍人口的10.63\%；
+河南省净向外输出约565万人，约占本省户籍人口的7\%；
+湖南省净向外输出509.7196人，占本省户籍人口的7.20\%；
+湖北省净向外输出452.1980人，占本省户籍人口的7.32\%。
+
+在我国激烈的劳动力迁移浪潮中大致存在以下规律。
+首先，劳动力净流入的区域符合常识中的迁移规律，劳动力从农村流向城市是迁移的主流趋势。大城市由于更高的工资水平、更丰富的就业资源、更高质量的基础服务设施，具有强大的“虹吸效应”，这一点与新经济地理学学者提出的观点相吻合。在可以预见的未来，这种劳动力向经济发达地区集中的趋势仍将持续。
+其次，永久迁移与暂时性迁移之间存在显著差异。第七次人口普查显示，2020年时我国人户分离人口已达4.93亿，占总人口的34.16\%。（xxx）
+并且，尽管总体上劳动力向发达地区流动，仍有部分劳动力“回流”到欠发达地区。这种反直觉的现象已被部分学者注意到（\cite{ShiZhiLeiJiaTingBingFuJiaTingJueCeYuNongCunQianYiLaoDongLiHuiLiu2012}，\cite{RenYuanNongCunWaiChuLaoDongLiHuiLiuQianYiDeYingXiangYinSuHeHuiLiuXiaoYing2017}），表明某些群体在外迁后因各种原因选择返回原居住地，这揭示了迁移决策背后更为复杂的动机。
+
+对于劳动力流动现象的研究，我国学术界长期围绕城乡二元分析框架与空间均衡模型展开。作为典型的发展中经济体，我国自计划经济时期形成的城乡二元结构构成了劳动力迁移的制度基础。改革开放后，工业化进程产生的劳动要素需求与农村剩余劳动力释放一拍即合，这一过程在学术研究领域直接映射为对传统二元经济理论的引用。其中，在\cite{lewisEconomicDevelopmentUnlimited1954}二元对立模型基础上，
+\cite{todaroModelLaborMigration1969}通过引入失业率与预期收入，突破了无限劳动供给假设的刚性约束，其"即使存在失业风险，人口仍会因预期收入差距迁移"的核心命题，恰与中国城市化进程中农民工"候鸟式迁移"的特征契合，成为解释中国农民工流动现象的核心理论工具。而后，\cite{harrisMigrationUnemploymentDevelopment1970}进一步将城市正规部门与非正规部门纳入分析框架，通过工资刚性与就业概率的动态调整机制，构建起解释发展中国家城市失业与农村劳动力持续涌入并存现象的理论模型。这种强调制度分割与部门差异的分析视角，为中国学者解析户籍制度、土地制度等特殊约束条件下的劳动力流动提供了重要切入点。如\cite{XiongCaiYunNongMinGongChengShiDingJuZhuanYiJueCeYinSuDeTuiLaMoXingJiShiZhengFenXi2007}构建的农民工定居决策模型，通过引入城市拉力（就业机会、公共服务）与农村推力（土地保障弱化、收入差距）的交互作用，拓展了传统二元模型的解释维度。\cite{HuangZhongHuaNongCunTuDiZhiDuAnPaiShiFouZuAiNongMinGongShiMinHuaTuoDaLuoMoXingTuoZhanHeYiWuShiShiZhengFenXi2014}通过嵌入土地保险功能变量，\cite{ZhongShuiYingXiangChengRenKouLiuDongDeLiLunJieShiNongCunRenKouTuiChuShiJiaoTuoDaLuoMoXingDeZaiXiuZheng2015}纳入制度变迁因素。
+部分文献虽然淡化了城乡之间的对立，但依然在均衡状态下分析工资和租金的确定，同时考虑移民流动对这些结果的影响。
+\cite{ZongJiaFengDaChengShiZhiFuLiaoGengGaoDeGongZiMa2015}构建的三部门Rosen-Roback模型揭示，中国大城市存在显著工资溢价且技能异质性导致差异化集聚收益：高技能劳动力通过知识溢出获取短期增长红利，而低技能群体则需经历长期调整方能获益。
+\cite{WangLiLiWoGuoRenKouQianYiChengBenChengShiGuiMoYuShengChanLu2020,WangLiLiTuDiGongGeiFangJieYuLaoDongLiKongJianPeiZhiXiaoLu2023,WangLiLiLaoDongLiLiuDongDuiChengShiGongZiYuFuLiDeYingXiangJiYuKongJianJunHengMoXingDeFenXi2024}通过将土地供给管制、迁移壁垒等制度变量内生化，定量识别出行政干预对劳动力空间配置的扭曲效应：建设用地指标的区域错配加剧东部大城市住房供给弹性不足，推高生活成本并阻碍生产率导向的人口集聚，导致2010年经济总产出损失达3\%-4\%。刘华仁（2024）则构建包含人力资本溢出效应的量化空间均衡模型，证明高技能劳动力的区域再配置可通过生产率与公共服务双重渠道提升社会福利，这为人才政策优化提供了理论依据。
+
+尽管现有研究取得显著进展，其理论局限却愈发凸显，主要体现在三重维度：其一，动态演化机制缺位。主流文献多依赖静态或比较静态分析，将迁移决策简化为单期最优选择，忽视个体在生命周期内人力资本积累、预期调整与制度环境变迁的交互作用。例如，新生代农民工的"发展型迁移"倾向使其决策函数从生存工资最大化转向职业发展机会获取，这种偏好结构的代际演变亟需动态模型加以刻画。其二，微观基础建构薄弱。多数研究依赖宏观数据相关性分析，未能深入个体异质性（如风险偏好、社会网络、数字技能）对迁移路径分化的影响机制，导致政策仿真缺乏行为基础。其三，理论范式滞后于实践创新。传统模型难以解释"城-城流动"规模扩张、远程就业兴起等新业态对迁移地理的重构效应，尤其缺乏对迁移可逆性与多向性的理论建模。
+
+上述局限导致既有研究难以回应两大核心命题：在城乡融合发展与数字技术渗透的复合冲击下，劳动力流动的长期均衡路径将呈现何种形态？制度变迁如何通过重构迁移成本收益函数影响个体的跨期决策？对此，Han（2018）虽尝试通过OLG模型捕捉迁移行为的代际动态，但其模型仍未能内生化制度约束与技能积累的交互效应。本文认为，突破现有理论桎梏需实现三个转向：从静态均衡转向动态演化分析，从宏观相关性转向微观行为基础构建，从单向城乡迁移转向多维度空间重构。为此，本研究构建一个动态迁移决策模型，引入制度摩擦、乡土黏性、数字技术渗透等异质性参数，构建包含预期调整与学习效应的动态迁移选择模型。通过反事实模拟与政策实验，旨在揭示以下机制：（1）户籍制度改革与土地确权如何通过改变预期稳定性影响迁移持久性；（2）人力资本积累速率差异如何引致迁移路径的分化；（3）远程就业普及如何重塑迁移的地理指向与频率特征。理论模型的构建不仅为解析中国劳动力流动的复杂图景提供新分析工具，亦能为推进以人为核心的新型城镇化战略提供政策启示。
 
 
-纵观古今内外，“人往高处走，水往低处流”的规律总是屡试皆准。早在上世纪末，以\cite{krugmanIncreasingReturnsEconomic1991}和\cite{fujitaSpatialEconomyCities1999}为代表的新经济地理学就指出经济活动的集中会产生规模经济和网络效应，促成产业集聚。经济的聚集会导致区域不平衡发展，人们倾向于从“边缘”地区流向产业集聚、薪资较高和就业机会多的“中心”地区，形成“吸引效应”，这使得劳动力迁移有了移动的规律。
+本文的重要性在于，在当前工业化加速和经济转型的背景下，劳动力跨区域迁移问题愈发显得关键而复杂。尤其是在中国这一快速发展的国家，人口流动不仅直接影响城市化进程、区域经济平衡和资源配置效率，而且对社会福利和长期经济结构调整产生深远影响。深入理解和准确预测劳动力迁移趋势，不仅有助于把握经济内在发展动力，还能为政策制定提供科学依据，从而实现区域协调发展与社会整体进步。
 
-自改革开放以来，我国各省份收入增长如（），而常驻人口的增长入（）。我国在经济上形成了东富西穷、南富北穷的局面，在人口上也是富裕的地区比贫穷的地区多。
+本研究主要从收入差异这一视角切入，系统分析我国劳动力迁移的规律及其内在驱动机制。我们认为，收入差异作为影响劳动力跨区域流动的核心经济因素，其作用机理和效应值得深入探讨。通过构建理论模型和进行实证检验，本文旨在揭示： 不同区域之间收入水平的差距如何激发劳动力迁移；  收入差异在迁移决策中如何与就业机会、生活成本、制度摩擦等因素相互作用；  通过适当的经济政策干预，如何引导劳动力合理流动，从而优化资源配置、促进城市与农村的协调发展，并提升整体社会福利。
+正如 Desmet 等人（\cite{desmetUrbanAccountingWelfare2013}）所强调的：“Understanding the different forces that determine city sizes is crucial for answering a broad set of questions. What is the relative importance of these forces in determining the size distribution of cities? How much would we gain or lose if cities had similar amenities, technology levels, or frictions? How much reallocation would this cause? More generally, what are the welfare implications of the location of agents across cities?”——这一论述不仅指出了城市规模与人口重新配置对福利产生的深远影响，也启示我们：在面对不同区域之间的制度和经济差异时，探讨收入差异对于劳动力流动的影响具有特别重要的意义。如果各地区在公共服务、技术水平或制度摩擦方面趋于一致，劳动力配置和城市规模分布必将发生显著变化，进而影响整体社会福利。
+通过本文的研究，我们期望为劳动力迁移问题提供一个从收入差异出发的理论与实证分析框架，进一步揭示影响迁移决策的内在经济机制，并为政策制定者在优化区域发展、促进劳动力合理流动和提升社会福利方面提供切实的理论支持和实证依据。
 
-
-\textit{仅从第六次人口普查数据来看,2010年中国流动人口的规模就高达2.21 亿,占当时全国总人口的16.58\% 左右。一些城市流动人口的规模已接近于其户籍人口的数量,如东莞的本地人口与外来流动人口之比约为1.3∶1,部分城市甚至  出现了流动人口大于户籍人口的所谓“倒挂”现象。}
-
-\textit{国 家 统 计 局 发 布 的 《 2014 年 国 民 经 济 和 社 会 发 展 统 计 公 报 》 显 示 , 截 至 2014 年 末 , 中国人户分离的人口为 2.98 亿 , 其 中 流 动 人 口 为 2.53 亿 , 占 全 国 总 人 口 的 比 重 分 别 为 21.8\% 和 18.5\% 。 影响劳动力流动 的 因 素众多(李实,2007 ; 周 靖祥 , 2010 ; 陆铭,2011),现有文献主要强调经济发展差距、制度与政策 、个体因素、社会关系等。}
-
-我国人口分布和劳动力移动的特殊点
-（阐述我国劳动力流动的特点）
-在过去的劳动力迁移历史中，有着一些可以总结的清晰规律：
-1劳动力净流入符合常识中的劳动力迁移规律
-即我国劳动力流动的巨大特点之一就是由农村流向城市是绝对的主流
-富的城市仍有虹吸效应 包括财富虹吸和人口虹吸 按照Krugman的观点这种贫富差距并不会收敛
-这种大城市与小县城之间长久的对立（城乡之间的对立）是我国长久持续且深刻的工业化带来的必然结果 
-我们可以断言劳动力还会持续地、有规律地进行流动（引用适当文献，例如Lucas 2004指出即使城市存在大量失业，当劳动力仍会大量前往...）
-2永久迁移和暂时性迁移断层
-3但是依旧有回流
-（李芝倩2007）
-xxx通过数据举例
-
-为了要理解劳动力迁移为什么会有这样的规律
-我们需要了解迁移决策背后的原因
-从古至今 全世界各地的people总是在迁移
-古时候迁移的原因多种多样
-但自从进入了定居文明社会之后 人口的迁移规律必然受到了经济因素的制约
-这其中不外乎天灾 政策
-按照xxx的观点 迁移成本的下降必然是劳动力迁移现象上升的决定性因素之一
-进入大航海时代之后 人类的交通能力更是得到质的飞跃 迁移的成本变得更加简单 殖民就是这一时刻最形象的劳动力迁移
-对于我国而言 自从xx时代 xx政策后 劳动市场自由流动 人们可以选择定居的地方简直目不暇接
-制约劳动力迁移的客观因素逐渐被移除 那么剩下的就是主观因素了
-需要说明的是本文关注的仅仅是劳动力的迁移 而不是人口的迁移 因为导致后者的原因是极为复杂的 甚至可能有超出经济学范畴的因素 更具体的说 本文关注的是受到收入影响的劳动力迁移(income-induced migration)
-经济学中对于劳动力迁移的研究已经有丰富的成果
-传统经济学基于功利主义认为影响劳动力迁移的最主要因素是预期收入的变化（引用适当文献）
-人口迁移往往并不意味着经济的正增长 在历史中 从台湾岛出发的南岛语系人群 因为所居住的岛屿能提供的资源与人口增加之间的压力面临马尔萨斯人口陷阱而前往其他岛屿 这与预期收入的变化导致迁移的规律相吻合但他们冒然的前往往往并不一定能带来技术的传播或经济的发展
-在工业化快速崛起 传统农业文化分崩离析之际 人口的迁移必然会变得更自由（引用新法律新法规和文献） 但是在很大程度上这种迁移的模式仍然是未知的 因此预测人口移动是必要的
-同时在人才战争中具有政策意义 
-
-劳动力主观选择定居的过程主要受到以下因素影响
-孟母三迁为代表的amentities
-工资差为代表的wage income
-xxx因素
-
-对于以上因素
-世界上各类经济学方法百花齐放
-xxx历史
-xxx举例
-xxx优劣
-
-但相较于外国各类方法齐出的繁荣景象
-我国由于历史原因
-依旧采用比较原始的方法
-我国传统劳动力流动分析依旧大量采用了城乡对立的基本思想
-xxx举例
-即（解释传统的Todaro二元对立到）
-\textit{已有文献也缺乏一些微观基础，只能静态的观察问题，不能将所有这些现象放在长期理性动态的角度分析，不能在  动态领域观察这些现象是否长期存在，长期规律又是如何，因而结构的稳健性稍有不足}
-
-但是这背后隐藏的方法危机已经悄然显现
-1多次选择（先落地城市A 再搬去城市B）
-2劳动力的流动中往往存在着可逆的迁移选择（去大城市打工最后又回到小县城 不管是出于各种原因） 这实际上也是一种将多次选择问题 
-石智雷2012劳动力回流问题
-任远2017
-但是在关注回流问题的时候，同时也有大量进城
-人们也必须先进城才能再回流
-传统的二元对立模型就此陷入了困境 学者们无体系地应用计量经济学来解决问题 但是治标不治本
-劳动力迁移问题需要一个可撤回的基础模型
-3当个体对城市与城市之间出现有不同的偏好时 且他们都有异质性偏好 就会多种目的地的选择（例如浙江人选择去杭州还是上海 或者是北京）
-劳动力在前往城市时要理性地思考去哪个城市 而不是机械地蜂拥而至
-劳动力不仅在城市与乡村之间流动 也在城市与城市之间流动
-低端城市的劳动力会前往更高端的城市 那么一个城市也能成为传统二元对立语境下的农村 这时候就会陷入城市之间的华夷之辨 即使中国有特色的户籍制度 再善于分辨的人恐怕也无法厘清这之间的关系 接下来的问题就是如果城乡之间已经
-
-但
-在当今人口快速流动的现代化社会中
-传统的城乡对立劳动力流动模型已经难以胜任研究多变的劳动力迁移现象
-
-首先
-需要将劳动力的迁移行为视作一个在连续时间上的选择行为序列看待
-xxx引用例证
-同时由于对于个体的迁移行为之后的效用提升
-可能存在逆向因果效应和自选择效应问题
-例如我们不知道是因为迁移导致的工资提升还是其他因素
-为了克服这种情况
-需要采取一个在horizon里每期都进行迁移选择的效用最大化模型来分析
-从而控制各种causality problems
-正因为如此
-本文在\cite{kennanEffectExpectedIncome2011}的动态最优搜寻工作模型基础上引入了流动摩擦、居民异质性、乡土文化
-来分析劳动力迁移作为经济现象背后的原因
-相较于原作者的种种缺点
-本文通过
-采取了几种不同的xxx方法
-优化了原作者的局限性
-
-本文第二章阐述了一个理论模型
-第三部分对于实证模型中需要的似然函数给出了详细推导 并对变量进行必要的简单化假设
-第四部分给出了实证的结论 并通过对样本的截取 形成了不同的研究命题的结论
-第五部分提出文章可以改进的地方 和未来可以应用的方向
-更具体的证明、代码放在文末的附录中
+为实现上述研究目标，本文结构安排如下：  
+第二章对国内外相关文献进行系统综述，梳理现有理论与实证研究成果，并明确前人工作的不足与本文的创新点；  
+第三章构建理论模型，详细阐述模型的基本假设、机制设计及其与现实经济现象的关联；  
+第四章针对实证模型中所需的似然函数进行详细推导，同时对主要变量作出必要的简化假设，以确保模型的可操作性和稳健性；  
+第五章展示实证分析的主要结论，并通过对样本数据的不同截取和命题验证，探讨模型在解释我国劳动力迁移中的适用性；  
+第六章总结全文，讨论研究局限，并提出未来研究可能的改进方向与应用领域。  
+此外，更为详细的数学证明、程序代码和数据处理流程均附在文末的附录中。
 
 
 
 
 \section{文献综述}
 
+\begin{itemize}
+  \item 简要介绍劳动力流动模型的最优居住地模型，假设迁移是对外部冲击或永久性工资增长机会的响应，从而提高个体的效用水平。指出其与推拉模型的相似性。
+  \item 劳动力迁移本质上是一个匹配搜寻问题，劳动力迁移到一个地方之后必须寻找工作，以及面对其中的可能失业现象。这点在Todaro中早就指出。
+  \item 回流问题与return economics有相似性，但是大部分做法依旧将其视作静态的，没有深入了解其中的机制。本质上与推拉模型无异，只不过将目的地从城市调换成了农村。
+\end{itemize}
 
 
-\subsection{模型}
-对于劳动力流动有多种解释，按照\cite{jiaEconomicsInternalMigration2023}的分类可以将其划分，一种是空间均衡模型，另一种是最优居住地选择模型。
-
-\subsubsection{空间均衡模型}
-\textit{中国是典型的城乡二元经济体， 改革开放后工业化进程的快速推进， 增加了对劳动要素的需 求，农村劳动力流动的限制也逐渐得到放松。 大量农村劳动力流入城市，对推动中国的工业化、城市 化和经济发展做出了重大贡献（李扬和殷剑锋，2005）。}
-
-我国在有大量的基于以Todaro模型为代表的城乡二元对立模型进行讨论的论文
-
-\cite{lewisEconomicDevelopmentUnlimited1954}，\cite{ranisTheoryEconomicDevelopment1961}首先提出了发展经济学的二元对立模型，用于解释发展中国家在发展中城市部门吸收农村人口实现现代化的过程，他们的结论是现代经济部门工资高于传统农业部门，劳动力将从农业向工业部门转移。
-
-\cite{todaroModelLaborMigration1969}建立了一个城乡二元对立的模型，其中劳动力受到预期城乡收入差距前往现代工业部门工作，即使这会导致失业率的上升从而下降自身的预期收益。他的做法有多种优点，例如加入了一次性的迁移成本、将失业率代入了模型。Todaro指出即使面临失业风险，人口也会因为预期城乡收入差距而迁移。
-
-\cite{harrisMigrationUnemploymentDevelopment1970}在其原先基础上加入了（xxx）
-对于我国的劳动力迁移研究而言，Todaro最重要的假设是其假设现代工业部门规模经济，而农业部门CRTS，这代表了代表了城乡二元对立的思想，适合我国发展中国家的国情。
 
 
-\cite{rosenWageBasedIndexesUrban1979,robackWagesRentsQuality1982,robackWagesRentsAmenities1988}
-国内也开始慢慢有Rosen Roback模型作为基础的论文发表
-王丽莉2020、2023
 
-以上为模型及其衍生在本质上属于空间均衡模型，尽管广泛被使用，但是他们将劳动力的迁移视作独立的事件，无法描绘出可逆的迁移选择
 
-\subsubsection{最优居住地选择模型}
-\cite{tieboutPureTheoryLocal1956}提出用脚投票，第一次用模型将amenities这个概念引入对劳动人口的流动进行考察
+
+
+
+
+按照\cite{jiaEconomicsInternalMigration2023}对于劳动力流动的多种解释可以划分为空间均衡模型和最优居住地选择模型。
+
+最优居住地选择模型（Optimal Residential Location Choice Model）是用于分析个体或家庭如何在多个备选居住地之间做出最优选择的模型。这类模型通常基于效用最大化或成本最小化的原则，考虑各种经济、社会、地理和政策因素，以解释人口迁移、城市发展和住房市场的动态。
+
+最优居住地选择模型意味着个人或家庭迁移决策模型通常基于非均衡视角，并假设迁移是对外部冲击或永久性工资增长机会的响应，从而提高个体的效用水平。
+
+最优居住地选择模型的思想最早发源于
 
 从\cite{sjaastadCostsReturnsHuman1962}开始，开始重视劳动者本身的主观意愿
 \textit{Sjaastad’s (1962) treatment of migration as an investment emphasizes the dynamic  aspect of migration – expected costs and payoffs to migration change over time. Viewed  within a life cycle perspective, individuals (or families) decide whether and when to  move. Allowing households to make multiple migration decisions substantially increases the model’s complexity. Decisions made in previous periods (e.g., savings, education,  marriage, fertility) determine choices available in the current period, and expectations  of future events also influence current decisions. Within this perspective migration and  fertility choices are connected through the “primitives” of the decision making process:  current opportunities (determined in part by decisions made in the past), expectations (anticipated future events and outcomes), and preferences (values assigned to different outcomes). The economic perspective thus provides a unified framework connecting several important demographic behaviors.}
 
+以此为标志，最优居住理论反客为主，将宏大世界中的个人视作主人公。
 
-\cite{leeTheoryMigration1966}，Bagne 1969推出了推拉模型，系统阐述推拉理论，指出流入地的有利生活条件为拉力，流出地的不利生活条件为推力，劳动力流动受这两股力量的影响。可以将其视作计量经济学线形多元回归，通过添加多种推拉因素作为控制变量，消除
+Tiebout模型（“用脚投票”理论）： Tiebout 模型是最早描述个体在多个区域之间迁移选择的理论。该模型假设个体根据不同地区提供的公共产品和税收水平来选择居住地，像是在“用脚投票”。如果一个地区提供的公共服务较好、税负较低，个体会倾向于选择该地区。
 
-从（xx年代）开始，经济学家们将效用最大化融入了，由于效用不可测量，最好的替代品就是消费（类似于GDP的概念，效用不可测量，但带来效用的消费可测量），如果引入理性的概念居民必定会在既定收入的限制下实现收入越高、效用越大的效用最大化，那么测量效用的替代品就转而成为了收入。这即是收入成为劳动力迁移研究中决定性因素的历史脉络。
+\cite{leeTheoryMigration1966}\textit{在推拉理论的基础上加入中间障碍因素和个人因素。同时,他认为流入地和流出  地各自都有推和拉两种力量。中间障碍因素主要包括制度安排、距离远近、文化差异等,在中国尤  其表现为户籍制度的影响。}
+
+Bagne 1969推出了推拉模型，系统阐述推拉理论，指出流入地的有利生活条件为拉力，流出地的不利生活条件为推力，劳动力流动受这两股力量的影响。可以将其视作计量经济学线形多元回归，通过添加多种推拉因素作为控制变量，消除
+
+
+随机效用最大化模型（Random Utility Maximization, RUM）： 这一类模型假设个体的居住地选择是基于效用最大化。每个居住地对应一个效用函数，个体通过权衡不同地区的效用，选择效用最大的地区。
+
+迁移成本模型： 迁移成本模型考虑了个体在选择居住地时需要支付的成本（如搬家费用、适应新环境的成本等）。在考虑这些成本的情况下，个体可能会选择效用次优的居住地以避免高迁移成本。
+
+个人位置选择基础模型背后的基本思想是，当搬迁的净预期收益超过成本时，个人会选择搬迁。这些模型将单个个人或家庭作为决策者，并将迁移作为实现最大福利的机制。其基础概念由 Greenwood (1975) 公式化为个人位置选择模型。
+
+
+
+
+
+
 
 
 \textit{DaVanzo (1983), who documented the richness  of individual migration histories, pointing out that although most individuals never move,  those who do are likely to move again, often returning to a home location. This means  that migration decisions should be viewed as a sequence of location choices, where the  individual knows that there will be opportunities to modify or reverse moves that do not  work out well.}
 
-Kennan-Walker糅合了多年来劳动力迁移经济学的发展，并凝结在了KW模型中。
 
-\subsubsection{基于匹配理论}
-彭国华2015\cite{PengGuoHuaJiShuNengLiPiPeiLaoDongLiLiuDongYuZhongGuoDiQuChaiJu2015}
 
-刘晨晖2022\cite{LiuChenHuiLaoDongLiLiuDongJiNengPiPeiYuDiQuJingJiChaiJu2022}
 
-将匹配理论与劳动力迁移结合
 
-\subsubsection{劳动力回流问题}
+
+
+
+
+
+我国对于可撤回迁移决策的研究较少
+
+推拉理论从成本—收益的角度研究认为,人口流动的目的在于改善其自身的生活条件,当流入到城市的农村劳动力在城市  中的生活条件并没有得到改善( Murphy,2002) ,或者迁移者家乡有更  好的投资机会( Christiansen \& Kidd,1983) 时,他们往往就需要再次进行选择。
+这与我国目前研究中涌现的回流问题不谋而合
+劳动力回流现象和可撤回迁移行为在本质上相同
+所以与可撤回迁移比较相关的研究一般来自于对于劳动力回流现象的研究
+
+Sjaastad (1962) 将移民视为一项投资，强调了移民的动态方面——移民的预期成本和收益会随着时间的推移而变化。从生命周期的角度来看，个人（或家庭）决定是否以及何时移民。允许家庭做出多项移民决策大大增加了模型的复杂性。前期做出的决策（例如储蓄、教育、婚姻、生育）决定了当前时期的选择，对未来事件的预期也会影响当前的决策。从这个角度来看，移民和生育选择通过决策过程的“原始要素”联系在一起：当前机会（部分由过去的决策决定）、期望（预期的未来事件和结果）和偏好（分配给不同结果的值）。因此，经济视角提供了一个统一的框架，将几种重要的人口行为联系起来。
+
+Direx 1988是可撤回迁移理论的源头
+
+Thom 2010提供了更现代版的分析
+
+\cite{ShiZhiLeiJiaTingBingFuJiaTingJueCeYuNongCunQianYiLaoDongLiHuiLiu2012}得出结论“本文根据湖北和河南两省的农户抽样调查数据，建立农村迁移劳动力回流决策的影响因素模型，从家庭决策的视角分析了家庭禀赋对迁移劳动力回流的影响及其作用机制。数据分析结果表明：家庭人力资本越丰富，劳动力越容易选择留在农村就业或者回流农村，但是家庭人力资本值达到一定程度后，农村劳动力又倾向于外出就业。家庭社会资本有助于迁移劳动力外出务工，但是随着家庭社会资本值的增加，那些家庭社会资本更为丰富的家庭的劳动力则更愿意回流家乡就业。丰富的家庭经济资本同时可以产生收入效应和替代效应，家庭经济资本可以为外出务工提供物质支持，但是丰富的家庭经济资本又会促使迁移劳动力回流农村，总体来说后者更为明显。”
 
 \cite{RenYuanNongCunWaiChuLaoDongLiHuiLiuQianYiDeYingXiangYinSuHeHuiLiuXiaoYing2017}
 
-\cite{ShiZhiLeiJiaTingBingFuJiaTingJueCeYuNongCunQianYiLaoDongLiHuiLiu2012}
 
 
 
-\subsection{对于影响劳动力流动的因素}
 
-\subsubsection{劳动力壁垒}
-\textit{长 期 以 来 ,户 籍 、地 域 、身 份 、档 案 、人 事 关 系 等 因 素 构 成 了 跨 地 区 劳 动 力 流 动 的 重 要 障 碍 ,阻 碍 了 劳 动 力 在 地 区 间 的 有 效 循 环 和 优 化 配 置 ,造 成 了 地 区 间 严 重 的 资 源 空 间错配(梁琦等,2013;潘士远等,2018;黄文彬和王曦 ,2020 ;陆铭和李鹏飞,2022)。okokok虽 然 在 人 口 红 利 逐 渐 衰 减 的 驱 动 下 ,地 方 政 府 纷 纷 加 大 了 对 人 才 的 抢 夺 力 度 ,出 台 了 一 系 列 人 才 吸 引 政 策 ,但 由 于 人 才 政 策 也 只 能覆 盖 一 小 部 分 劳 动 力 群 体 ,劳 动 力 在 地 区 间 流 动 无 论 在 流 入 地 还 是 流 出 地 仍 然 面 临 着 较 高 的 壁 垒 。okokok近 年 来 ,大 量 研究基于推拉理论讨论了中国劳动力跨地区乃至跨国流动的决定因素 ,为 理 解 劳 动 力 流 动 壁 垒 的 形 成 机 制 提 供 了 重 要 的 理 论 支 撑(马伟 等 ,2012;都阳 等 ,2014;Ngai et al.,2019),这些研究主要从 个 体 微 观 层 面 对 劳 动 力 流 动 壁 垒 的 影 响 因 素 进 行 分 析 。 但 是 ,现 有 研 究 还 未 能 从 宏 观 层 面 提 出 科 学 有 效 的 方 法 对 跨 地 区 劳 动 力 流 动 壁 垒 进 行 准 确 测 度 ,也 未 能 进 一 步 探 索 中 国 跨 地 区 劳 动 力 流 动 壁 垒 的 演 进 特 征 。okokok尽 管 一 些 学 者 利 用 户 籍 制 度 来 反 映 跨 地 区 劳 动 力 流 动 壁 垒 的 高 低 ,或 采 用 定 量  方 法 对 跨 地 区 劳 动 力 流 动 壁 垒 进 行 估 计(Artuc et al.,2010;Tombe \& Zhu,2019;Zi,2020),然 而 由 于 代 理 变 量 选 取 维 度 单 一 以 及 模 型 参 数 设 定 存 在 敏 感 性 问 题 ,这 些 研 究 对 于 跨 地 区 劳 动 力 流 动 壁 垒 的 测 度 均 存 在 局 限 性 。}
+Kennan-Walker糅合了多年来劳动力迁移经济学的发展，并凝结在了KW模型中。
+
+诸多理论进展集中体现在Kennan与Walker于2011年提出的个人迁移选择经典模型（下文简称KW模型）中。该结构性动态模型通过以下创新设计精细刻画个体决策机制：其一，纳入技能水平、区位偏好与迁移成本三个维度的个体异质性；其二，设定多区位备选方案且各区位收益流存在不确定性；其三，引入工资与偏好中的区位匹配效应；其四，将迁移决策建模为连续动态过程而非一次性选择。模型通过构建最优搜寻框架求解迁移决策，以局部均衡视角解析劳动者如何通过跨区域流动实现终身收入（扣除迁移成本）最大化。
+
+相较于传统研究，KW等动态模型在五个维度推动了迁移理论的突破：
+
+第一，修正工资效应认知偏差。早期基于总量数据的研究普遍低估工资对迁移的影响（注10）。而KW模型揭示：跨州迁移决策显著受预期收入变动驱动，具体表现为当前区位匹配质量与潜在区位匹配改善空间的权衡。其估计表明，工资中的区位匹配效应存在巨大异质性，这意味着个体可通过两类路径提升收益：一是从低工资州流向高工资州（该效应具有区位特异性但同类型个体同质）；二是通过迁移实现区位匹配状态的优化（该效应兼具区位特异性与个体异质性）（注11）。
+
+第二，深化迁移成本异质性研究。KW模型突破传统同质成本假设，实证发现：基于任意时间与区位假设的迁移平均成本高达31.2万美元（2010年美元价值）。但实际成本因决策内生性显著降低——个体仅在收益冲击有利时迁移。研究进一步揭示：迁移成本在个体间及时序层面存在显著差异，典型迁移成本甚至呈现负值。作者认为这源于未观测冲击（记为ߞ）引发的即时收益差异驱动迁移，而非传统理论强调的长期效用流预期。与此呼应，Bayer与Juessen（2012）构建微观经济结构模型处理迁移激励的不可观测性与强自相关问题，其聚合分析显示：考虑动态自选择效应后，跨州迁移成本不足家庭年收入中位数的一半。
+
+第三，引入动态决策视角。KW模型突破传统单次决策框架，允许迁移行为可逆。Dustmann与Görlach（2016）聚焦国际临时迁移的研究延续这一动态特征，但其模型进一步探讨技能积累差异、技能回报率区位差异及本土/东道国消费偏好如何驱动跨国往返迁移。研究表明，即使不存在KW模型中的外生冲击，上述机制仍可引致回流行为。
+
+第四，解析生命周期与家庭因素。Gemici（2016）构建包含家庭内部协商机制的动态迁移模型，校准结果显示：家庭纽带会抑制人口流动性、减缓工资增长并降低家庭稳定性。此类分析弥补了单期模型无法捕捉生命周期关联效应的缺陷。
+
+第五，构建政策评估工具。此类模型凭借简约参数结构与良好可操作性，成为反事实分析的理想框架。例如，基于KW框架的扩展研究已成功量化跨州福利待遇差异与州政府高等教育补贴对迁移决策的影响（Kennan \& Walker 2010; Kennan 2020）。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+与本文相关的另一类文献是影响劳动力流动的因素的研究
+
+\cite{tieboutPureTheoryLocal1956}提出用脚投票，发现具有更高生活质量的城市更容易吸引劳动力的进入，第一次用模型将宜居度这个概念引入对劳动人口的流动进行考察。
+
+其中公共服务水平,如 基础教育和医疗水平等,作为生活质量的重要组成因素,会对劳动力的选址行为产生显著影响( 夏怡然和陆铭,2015) 。
+
+\textbf{迁移摩擦（劳动力壁垒）}
+
+\textbf{（整理大部分对于迁移摩擦的认识，同时在文末，根据实证结果对于哪些因素是迁移摩擦给出了统一的结论。）}
+
+对于劳动力的迁移摩擦，目前的学术界还缺乏统一的定义。
+
+\cite{leeTheoryMigration1966}在推拉理论的基础上加入中间障碍因素和个人因素。同时,他认为流入地和流出  地各自都有推和拉两种力量。中间障碍因素主要包括制度安排、距离远近、文化差异等，在中国尤其表现为户籍制度的影响。
+
+近年来，大量学者从经典的推拉理论出发，基于推力、拉力与成本等角度讨论了中国跨地区劳动力流动的影响因素(邢春冰等，2013；彭国华，2015；张莉等，2017)。在转型经济背景下，成本因素对中国跨地区劳动力流动的影响逐渐成为现有研究的重点内容。越来越多的研究者从户籍制度、房价、基础设施与方言壁垒等因素出发，基于个体角度探讨了影响跨地区劳动力流动的决定机制(马伟等，2012；梁琦等，2013；刘毓芸等，2015)，为我们认识和理解中国跨地区劳动力流动提供了重要的理论基础和文献支撑。但这些研究主要从某个具体影响因素出发，对于各个决定因素在跨地区劳动力流动中的重要性评估仍存在不足。在这些文献的基础上，本文从自然壁垒与制度壁垒角度出发，对跨地区劳动力流动壁垒进行分解，从而对劳动力流动壁垒的决定因素进行系统分析，进一步推动了相关研究在这一领域的进展。
+
+\cite{JiangWeiZhongGuoKuaDiQuLaoDongLiLiuDongBiLeiCeDuFangFaYanJinQuShiYuJueDingYinSu2024}指出\textit{长期以来，户籍、地域、身份、档案、人事关系等因素构成了跨地区劳动力流动的重要障碍，阻碍了劳动力在地区间的有效循环和优化配置，造成了地区间严重的资源空间错配(梁琦等，2013；潘士远等，2018；黄文彬和王曦，2020；陆铭和李鹏飞，2022)。}同时\textit{将跨地区劳动力流动壁垒界定为能够阻碍或限制个体劳动力在不同地理区域之间自由流动的各类流动壁垒总和，其中包括了交通和通信成本、住房成本、政策福利等自然壁垒和制度壁垒。一方面，地理距离、文化多样性、地区信任等自然壁垒将提升跨地区劳动力流动成本，从而阻碍跨地区劳动力资源配置；另一方面，土地、户籍、身份、档案、人事关系等构成的制度壁垒也是影响劳动力跨地区流动的关键因素。由于跨地区劳动力流动壁垒具有不可观测以及微观不可加总的特征，劳动力流动壁垒的测度始终是现有研究中的一个难点问题。}
+
+\textit{近年来，大量研究基于推拉理论讨论了中国劳动力跨地区乃至跨国流动的决定因素，为理解劳动力流动壁垒的形成机制提供了重要的理论支撑(马伟等，2012；都阳等，2014；Ngaietal.，2019)，这些研究主要从个体微观层面对劳动力流动壁垒的影响因素进行分析。}
+
+大 量 文 献 从 不 同 的 微 观 机 制 出 发 ,研 究 分 析 了 一 系 列 影 响 跨 地 区 劳 动 力 流 动 壁 垒 的 因 素 。 其 一 ,从 自 然 因 素 角 度 出 发 ,国 内 外 学 者 分 别 探 索 了 交 通 成 本 、文 化 成 本 以 及 心 理 成 本 对 于  跨 地 区 劳 动 力 流 动 壁 垒 的 影 响(Hayashi \& Prescott,2008;Beegle et al.,2011;马 伟 等 ,2012;Munshi \& Rosenzweig,2016)。其二,从政策因素角度出发,一些学者针对中国的户籍制度、社会保障、人事 关系等相关制度,对跨地区劳动力流动壁垒的决定机制展开深入讨论(Cao \& Birchenall,2013;都阳  等 ,2014;Ngai et al.,2019;Adamopoulos et al.,2022)。 但 这 些 研 究 大 都 是 基 于 某 个 具 体 的 微 观 因 素 ,讨 论 劳 动 力 流 动 壁 垒 对 微 观 个 体 跨 地 区 流 动 的 影 响 ,难 以 评 估 各 个 决 定 因 素 在 跨 地 区 劳 动 力 流 动 中 的 重 要 性 ,而 且 无 法 对 各 类 因 素 的 影 响 进 行 加 总 ,导 致 从 宏 观 层 面 理 解 跨 地 区 劳 动 力 流 动 壁 垒 的研究仍然相对匮乏。
+
+负面效果的推力可以被视作迁移摩擦
+
+\cite{WangLiLiWoGuoRenKouQianYiChengBenChengShiGuiMoYuShengChanLu2020}讨论了迁移摩擦这一概念，可以将迁移成本认为是（引用）\textit{进一步降低人口流动壁垒将有利于我国城市规模的扩张与劳动力资源配置效率的改进。}
+
+虽然在人口红利逐渐衰减的驱动下，地方政府纷纷加大了对人才的抢夺力度，出台了一系列人才吸引政策，但由于人才政策也只能覆盖一小部分劳动力群体，劳动力在地区间流动无论在流入地还是流出地仍然面临着较高的壁垒。
 
 \cite{HanQiHengNongCunLaoDongLiQianYiMoCaYingXiangNongMinGongShuLiangYuGongZiJieGouMa2018}：
 \textit{横亘在中国城乡迁移之间的迁移摩擦究竟是什么?其究竟是如何影响中国迁移人员的动态规律的,如何影响迁移人员的数量结构、教育结构和工资结构? 迁移摩擦是否可以揭示中国为什么会出现“迁移之谜”现象?}
-韩认为劳动力迁移的摩擦由迁移成 本、城镇失业工资( 保险金) 和暂时性迁移工人工 作搜寻匹配摩擦组成。
+韩认为劳动力迁移的摩擦由迁移成 本、城镇失业工资( 保险金) 和暂时性迁移工人工作搜寻匹配摩擦组成。
 
 \cite{LiuXiuYanFangJieQianYiMoCaYuZhongGuoChengShiDeGuiMoFenBuLiLunMoXingYuJieGouShiGuJi2017}
 \textit{消除城市间的房价差异几乎不影响人口的再配置,而消除迁移摩擦则会导致大规模的人口重新配置和带来显著的福利增进效应,这意味着迁移摩擦的存在是造成中国城市体系扁平化的关键致因。因此,全面推进户籍制度改革,有序放开城市的落户限制,进一步降低人口迁移中的空间摩擦,才能有效发挥市场的内生化力量,促进城市体系空间布局的优化。}
 
 
-蒋为2024
-
 程名望2007
 
-\cite{WangLiLiWoGuoRenKouQianYiChengBenChengShiGuiMoYuShengChanLu2020}，\cite{WangLiLiTuDiGongGeiFangJieYuLaoDongLiKongJianPeiZhiXiaoLu2023}提出了迁移摩擦这一概念，可以将迁移成本认为是（引用）\textit{进一步降低人口流动壁垒将有利于我国城市规模的扩张与劳动力资源配置效率的改进。}
 
-Helpman (1998)在Krugman 1991的基础上引入住房市场因素，指出房价会影响劳动者相对效用，从而抑制劳动力在高房价地区的集聚；还提出经济集聚导致的劳动力涌入也会推高房价
-Brakman et al. (2002); Saks (2004); Rabe \& Taylor (2012)实证检验了Helpman的理论。Hanson et al. (1999, 2005)实证分析支持Helpman（1998）的结论。
 
-Dohmen (2005); Meen \& Nygaard (2010)指出尽管高房价地区会抑制劳动力流入，但预期套利机会会促使劳动力流入。
 
-张莉2017经济研究\cite{ZhangLiFangJieRuHeYingXiangLaoDongLiLiuDong2017}
+
+
+
+\textbf{房价}
+
+中国居高临下依旧日益增长的房价是讨论影响劳动力流动时无法避免的话题。
+
+1.\cite{WangLiLiTuDiGongGeiFangJieYuLaoDongLiKongJianPeiZhiXiaoLu2023}认为房价的高涨阻止了劳动力的迁移，\textit{房价高涨阻碍人口向 高生产率的东部大 城 市 转 移, 加 剧 劳 动 力 资 源 的 空 间 错 配, 导 致 2010 年 经 济 总产出损失3\%—4\%。放松东部大城市的土地利用规制, 有利于改善劳动力配 置效率。}
+
+2.Helpman (1998)在Krugman 1991的基础上引入住房市场因素，指出房价会影响劳动者相对效用，从而抑制劳动力在高房价地区的集聚；还提出经济集聚导致的劳动力涌入也会推高房价。Brakman et al. (2002); Saks (2004); Rabe \& Taylor (2012)实证检验了Helpman的理论。Hanson et al. (1999, 2005)实证分析支持Helpman（1998）的结论。
+
+房价的倒U影响：
+
+3.Dohmen (2005); Meen \& Nygaard (2010)指出尽管高房价地区会抑制劳动力流入，但预期套利机会会促使劳动力流入。
+
+4.\cite{ZhangLiFangJieRuHeYingXiangLaoDongLiLiuDong2017}\textit{在理论上,本文论证了房价的拉力作用和阻力作用,一 方面是由于房价作为备择城市的城市特征信号降低了预期未来收入的不确定性所带来的 拉力,另一方面是房价作为居住成本压缩可支配收入所产生的阻力,两种作用最终对劳动 力流动产生先吸引后抑制的倒 U 型影响。本文认为,城市的高房价对劳动力流动同时存在正反两方面的拉力和阻力。一方面,高房价意  味着城市更好的发展前景、个人更匹配的工作机会和更大的财富增长空间,同时还意味着更优质的公共服务和基础设施等,因此高房价能够吸引人才流入; 另一方面,快速上涨的房价极大地加重了外来劳动力的生活成本,一定程度上也阻碍了城市引进人才和创新创业。}同时，这篇文章给出了一个重要的启示\textit{房价并不仅是居住成本, 而且还是流入城市特征的信号,减少预期收入的不确定性}。
 
 周颖刚2019经济研究\cite{ZhouYingGangGaoFangJieJiChuLiaoShuiJiYuZhongGuoLiuDongRenKouDeWeiGuanShiJiao2019}
 
 \textit{根据Roback(1982)和Diamond(2016)，一方面劳动力从低工资地区向高工资地区流动，以提高劳动力家庭的效用水平；另一方面，房价是劳动力在城市居住的主要成本，高房价水平降低了劳动力在居住城市的效用水平。}
 
-Diamond 2016\cite{diamondDeterminantsWelfareImplications2016}
+Diamond 2016\cite{diamondDeterminantsWelfareImplications2016} \textit{Relatedly, highly educated Americans have become increasingly concentrated in larger cities (Diamond 2016).}
 
 Todaro在模型中加入了一次性的迁移成本
 
@@ -247,27 +270,27 @@ Diamond-Mortensen-Pissarides 模型[14]突破了传统经济学的劳动者与�
 
 
 
-\subsubsection{人力资本}
 
-Moretti (2004); Fu and Liao (2012)指出人口密度高的地方有利于技能匹配和获得学习机会，劳动力更倾向于流向教育水平高、人口密度强的城市，这实际也是侧面证明了预期收入
 
-刘毓芸等(2015)\cite{LiuYuYunLaoDongLiKuaFangYanLiuDongDeDaoUXingMoShi2015}：基于文化经济学理论，指出方言距离较小时促进劳动力流动，反之则阻碍劳动力流动。
 
-邢春冰研究发现相比较学历低的劳动力,学历高、经验丰富的劳动力更倾向于迁移
 
-\textit{Schultz (1961), who considered migration as a form of investment in human capital}
 
-\subsubsection{舒适度、公共服务与}
+\textbf{公共服务与福利}
+
+在社会学的研究中，舒适度这个概念是人口迁移的主要因素，这一概念涵盖了空气质量、公共服务、城市天气等多种变量。以王丽娜2007为例
+
+\textit{根据 Rosen-Roback 的城市空间均衡理论,劳动力的空 间流动受到收入、房租( 生活成本) 以及城市宜居性特征( amenity) 的影响。}
+
 Tiebout 1956
 
 夏怡然2015，城市间的“孟母三迁”——公共服务影响劳动力流向的经验研究
 \cite{XiaYiRanChengShiJianDeMengMuSanQianGongGongFuWuYingXiangLaoDongLiLiuXiangDeJingYanYanJiu2015}
 
-
-在社会学的研究中，舒适度这个概念是人口迁移的主要因素，这一概念涵盖了空气质量、公共服务、城市天气等多种变量。以王丽娜2007为例
-
-孙伟增2019基于Rosen-Roback模型得出空气污染对于流动人口的就业选址具有显著的负向影响
 \cite{SunWeiZengKongQiWuRanYuLaoDongLiDeKongJianLiuDongJiYuLiuDongRenKouJiuYeXuanZhiXingWeiDeYanJiu2019}
+基于Rosen-Roback模型得出空气污染对于流动人口的就业选址具有显著的负向影响
+
+Banzhaf \& Walsh( 2008) 研究发现人们确实会对环境质量“用脚投票”,并且 同时存在规模效应和结构效应———污染物排放增加的地区的人口下降了 5\% —9\% ,而污染物排放 减少的地区则经历了 5\% —7\% 的人口增长; 周边污染物排放增加的社区的平均收入水平发生了下 降,这反映了富裕家庭的迁出或贫穷家庭的迁入。
+
 
 \textit{Dorfman (2016): This paper extends the literature on amenity migration by focusing on healthcare access for later‐life migrants.}
 
@@ -277,16 +300,66 @@ Tiebout 1956
 \cite{mckinnishWelfareinducedMigrationState2007}
 随着美国的高强度非法移民现象而兴起的研究
 
-\subsubsection{具有中国特色的因素：户籍、乡土观念等}
+
+
+
+
+
+
+\textbf{户口}
+
+\cite{ngaiChinasMobilityBarriers2019}: "China‘s hukou system imposes two main barriers to population movements. Agricultural workers get land to cultivate but are unable to trade it in a frictionless market. Social transfers (education, health, etc.) are conditional on holding a local hukou. We show that the land policy leads to over-employment in agriculture and it is the more important barrier to industrialization. E§ective land tenure guarantees and a perfect competitive rental market would correct this ine¢ ciency. The local restrictions on social transfers favour rural enterprises over urban employment with a relatively smaller impact on industrialization.
 
 李强2003认为由于户籍制度，中国的人口流动将不再遵循一般的推拉规律
 
 陆益龙2008用OLS分析户籍的社会流动影响
 
+在我国的户籍政策下，流动人口因无法享受居住地的医疗、教育、养老等公共福利，仍需支付很高的迁移成本(Tombe and Zhu，2019)。与户籍挂钩的公共福利政策阻碍了我国的城市化进程(Ngaietal。，2018)。由于城市的户籍门槛更高，农业剩余劳动力更倾向于在农村从事非农业工作1，因此城市人口增长有限。
 
-\cite{LiuYuYunLaoDongLiKuaFangYanLiuDongDeDaoUXingMoShi2015}假定方言距离使得暂时性收入的方差变大：\textit{Pendakur\& Pendakur(2002) 认 为 语 言 是 民 族 认 同 和 民 族 身 份 的一 个 重 要 维 度 , 他 们 研 究 了 加 拿 大 三 大 城 市 区 中 13 种 少 数 语 言 的 经 济 回 报 , 控 制 主 体 语 言 后 , 掌 握少 数 语 言 的 个 体 往 往 是 低 收 入 , 并 将 其 归 因 于 少 数 语 言 的 低 认 同 所 带 来 的 负 面 影 响 。 需 要 强 调 的是 , 本 文 不 是 考 察 流 动 者 本 人 所 讲 的 方 言 , 而 是 流 动 者 所 在 的 流 入 地 和 流 出 地 的 方 言 。 与 现 有 文 献相 比 , 本 文 的 识 别 策 略 排 除 了 个 体 掌 握 语 言 所 体 现 的 人 力 资 本 因 素 , 至 少 在 本 文 看 来 , 能 更 干 净 地识 别 语 言 的 影 响 。本 文 与 Chen et al .(2014) 的 工 作 最 为 接 近 。 他 们 研 究 了 流 人 上 海 的 劳 动 力 所 掌 握 的 上 海 方言 对 其收入的 影 响 , 并 用 劳 动 力 的 出 生 地 与 吴 方 言 的 方 言 距 离 作 为 工 具 变 量 。 本 文 则 采 用 全 国 样本 , 考 察 不 同 地 区 的 方 言 对 劳 动 力 流 动 的 影 响 , 揭 示 劳 动 力 跨 方 言 流 动 的 模 式 。}
+\cite{ZhouWenTuDiLiuZhuanHuJiZhiDuGaiGeYuZhongGuoChengShiHuaLiLunYuMoNi2017}
+在刘易斯二元经济模型基础上放松了农村剩余劳动力无  限供给和劳动力同质性假设,同时考虑利益集团的博弈和移民在城市的卢卡斯人力资本外部性,通过引入土地流转和人口迁移的限制,进而刻画出土地制度和户籍制度改革对城市化水平、要素价格  及居民福利的影响；
+土地控制和户籍控制对于劳动力流动的影响。
 
-\textit{另 一 方 面 , 与 认 同 论 所 强 调 的 一 致 (Pendakur \&Pendakur ,2002 ;  McPherson et al.,  2001), 方 言 作 为 身 份 认 同 的 重 要 标 志 , 使 个 体 更 加 认 同 与 自 己 所 讲 方 言 相 近 的 城 市 , 排 斥 与 自 己 所 讲 方 言 差 别较 大 的 城 市 , 因 为 这 种 差 别 会 增 大 在 流 入 地 发 生 被 偷 、 骗 、 抢 等 意 外 的 风 险 。}
+\cite{WangLiLiWoGuoRenKouQianYiChengBenChengShiGuiMoYuShengChanLu2020}将户口视作人口流动摩擦的来源，使用包含人口流动摩擦的空间均衡模型研究发现,我国在2000 年的流动人口存量能够解释11.1\% 的 总 产 出 增 长; 从  2000年到2005年,我国 劳 动 力 的 平 均 迁 移 成 本 下 降 了 约 14.6\%, 使 经 济 总  生 产 效 率 提 高 4\% 。在经济新常态下,城市化成为支撑我国经济发展的重要领域。然而,户  籍政策带来的人口流动壁垒尚未消除,我国各城市的劳动力进入壁垒高于农  村非农业部门,同时大城市的劳动力进入壁垒高于中小城市,造成我国城市  化滞后于工业化,城市规模不足,制约着我国经济的持续发展。因此,有必  要进一步改革我国的户籍政策,逐步放松大城市的户籍限制。进一步降低人口流动壁垒将有利于我国城市规模的扩张与劳动力资源配置效率的改进。
+
+
+
+
+
+
+
+
+\textbf{人力资本}
+
+Moretti (2004); Fu and Liao (2012)指出人口密度高的地方有利于技能匹配和获得学习机会，劳动力更倾向于流向教育水平高、人口密度强的城市，这实际也是侧面证明了预期收入
+
+刘毓芸等(2015)\cite{LiuYuYunLaoDongLiKuaFangYanLiuDongDeDaoUXingMoShi2015}：基于文化经济学理论，指出方言距离较小时促进劳动力流动，反之则阻碍劳动力流动。
+
+邢春冰研究发现相比较学历低的劳动力,学历高、经验丰富的劳动力更倾向于迁移
+
+\textit{Schultz (1961), who considered migration as a form of investment in human capital}
+
+
+
+
+
+
+
+
+
+\textbf{语言}
+
+\cite{LiuYuYunLaoDongLiKuaFangYanLiuDongDeDaoUXingMoShi2015}假定方言距离使得暂时性收入的方差变大：\textit{Pendakur\&Pendakur(2002) 认为语言是民族认同和民族身份的一个重要维度，他们研究了加拿大三大城市区中13种少数语言的经济回报，控制主体语言后，掌握少数语言的个体往往是低收入，并将其归因于少数语言的低认同所带来的负面影响。需要强调的是，本文不是考察流动者本人所讲的方言，而是流动者所在的流入地和流出地的方言。与现有文献相比，本文的识别策略排除了个体掌握语言所体现的人力资本因素，至少在本文看来，能更干净地识别语言的影响。本文与Chenetal。(2014) 的工作最为接近。他们研究了流人上海的劳动力所掌握的上海方言对其收入的影响，并用劳动力的出生地与吴方言的方言距离作为工具变量。本文则采用全国样本，考察不同地区的方言对劳动力流动的影响，揭示劳动力跨方言流动的模式。}
+
+\textit{另一方面，与认同论所强调的一致(Pendakur\&Pendakur，2002；McPhersonetal。，2001)，方言作为身份认同的重要标志，使个体更加认同与自己所讲方言相近的城市，排斥与自己所讲方言差别较大的城市，因为这种差别会增大在流入地发生被偷、骗、抢等意外的风险。}
+
+
+
+
+
+
+
+
 
 乡土观念
 文化特征
@@ -297,62 +370,67 @@ Tiebout 1956
 离得近
 
 
-信息的沟通过程
-想象在古代 大概只有自然灾害、战争等一些有限的因素导致能导致劳动力有规律迁移
-但在当下 同村人之间相互对远方陌生城市中的高工资的推崇就会导致劳动力的迁移
-如今东南亚的一些电信诈骗产业往往通过宣传虚假的高工资
-
-
 
 \section{理论模型}
-本文借鉴Kennan and Walker 2011，构建包含xxx的最优住址模型。
-与其不同的是，
-首先，本文详细刻画xxx；
-其次，本文在模型中引入迁移摩擦，从而更加符合中国人口无法自由流动的现实制度背景。
+传统方法研究这种迁移现象一般使用条件logit模型，例如\cite{SunWeiZengKongQiWuRanYuLaoDongLiDeKongJianLiuDongJiYuLiuDongRenKouJiuYeXuanZhiXingWeiDeYanJiu2019}使用，但是条件logit无法在长期动态条件下使用，所以：
 
 本文通过动态离散选择框架重构劳动力迁移决策机制，其建模必要性源于三重内生性挑战：首先，传统静态模型无法捕捉生命周期中人力资本积累引致的迁移倾向时变特征；其次，观测数据中存在不可观测的个体异质性（如风险偏好、信息处理能力）与迁移决策互为因果；第三，区位间收益流具有时变协整性，需构建跨期关联约束下的预期效用函数。
 
-\subsection{假设}
-和所有的劳动力模型一样 这个模型imposes some strong assumptions
-如下
-\begin{itemize}
-\item 劳动力自由流动
-\item 本文的重要假设是工资是个人技能集的本地价格$w^{D}=w^{S}=w^{S}(\sum\limits_{i}Skill_{i})\Rightarrow w^{*}$
-\item 资产不影响居民的选择（成吗？）
-\item 个人之间不相互影响（iid抽样）
-\end{itemize}
+相较于Rosen-Roback的空间均衡模型，Kennan-Walker模型的优点在于没有宏观因素的制约
+单纯从个体的最优行为出发
+虽然无法引入更复杂的考究 例如劳动力的失业率问题
 
+与原作者不同的是
+首先，本文详细刻画xxx；
+其次，本文在模型中引入迁移摩擦，从而更加符合中国人口无法自由流动的现实制度背景。
+在估计方法上，原作者采用的newton法面对大量数据需要消耗大量的计算资源以及结果可能不稳定
 
 \subsection{初步模型}
+
 劳动力流动问题本质上极为复杂。经过前述分析，我们认识到，劳动力流动和迁移不应被简单地视为一次性经济活动，而应被理解为贯穿个体整个生命周期的持续决策过程。个体可以在多个地理位置之间自由选择，每个位置均对应一种独特且相互排斥的收益流（payoff flow）。在个体做出迁移决策时，必须承担一定的迁移成本，这既包括直接的经济支出，也可能涵盖社会、心理等非经济成本。因此，在权衡不同位置的收益时，迁移成本被视作必要的扣减项。个体在不同阶段根据自身状况和外部环境变化，不断权衡是否迁移、迁移到何处，以及迁移后如何实现自身利益最大化。
 
-同时，劳动力迁移后境遇的改善，可能部分归因于那些未被观测到的个体特质，因此在实证分析中，必须严格控制各类交互变量，以解决计量经济学中潜在的遗漏变量偏误问题。为了解决这一问题，并实现XX任务，本研究构建了一个动态劳动力迁移模型。其基本直觉和框架如下：
-选择的多样性与收益流差异
+本文通过动态离散选择框架重构劳动力迁移决策机制，其建模必要性源于三重内生性挑战：首先，传统静态模型无法捕捉生命周期中人力资本积累引致的迁移倾向时变特征；其次，观测数据中存在不可观测的个体异质性（如风险偏好、信息处理能力）与迁移决策互为因果；第三，区位间收益流具有时变协整性，需构建跨期关联约束下的预期效用函数。为此，本研究提出动态迁移决策模型（Dynamic Migration Decision Model, DMDM）。
 
-在任意地点$j$，使用状态变量$x=(\ell,\omega,a)$表达去过的地区序列$\ell$、地区包含的工资$w$、地区包含的偏好信息、年龄$a$。用$v$表示稳定效用，用$\zeta$表示随机效用。那么居民的基本问题是在每个给定状态$x$和随机项 $\zeta_j$的情况下，通过选择$j$来实现使得个体在生命周期中的总效用最大化。这在本质上反映了一个动态离散选择问题（Dynamic Discrete Choice Problem）。使用数学语言描述，即
-\begin{equation}
-V(x,\zeta)=\max\limits_{j}[v(x,j)+\zeta_{j}]
-\end{equation}
-其中
+和所有的劳动力模型一样 这个模型imposes some strong assumptions。
 \begin{itemize}
-\item $v(x, j) = u(x, j) + \beta \sum_{x'} p(x' | x, j) \bar{v}(x')$
-\item $\bar{v}(x) = E_{\zeta} V(x, \zeta)$
-\item $\beta$ is the discount factor
-\item $E_{\zeta}$ denotes the expectation with respect to the distribution of the J-vector with components $\zeta_{j}$
-\item $p(x'|x,j)$是状态转移概率
+\item 劳动力有自由迁移的意志，但是受到客观迁移摩擦的制约
+\item 工资是个人技能集的本地价格$w^{D}=w^{S}=w^{S}(\sum\limits_{i}Skill_{i})\Rightarrow w^{*}$
+\item 资产不影响居民的选择（成吗？）
+\item 假设收入的边际效用是固定的，居民可以在固定利率下自由借贷
+\item 传统多值回归方法中，probit模型强调个体之间符合正态分布，logit模型强调个体不存在相关性（独立同类假设，Independence of Irrelevant Alternatives, IIA，它假设不同类别之间是独立的），然而混合logit模型（也叫随机参数logit模型）作为一种扩展，可以放宽IIA假设。通过引入随机效应，混合logit模型允许类别之间存在相关性，并且能够处理非独立的选择行为。混合logit可以通过引入个体间的异质性来提高模型的灵活性，特别是在不符合IIA假设时。
 \end{itemize}
 
-使得在状态x下选择地点j的概率为$\rho(x,j)=\exp(\bar \gamma+v(x,j)-\bar v(x))$，之中的$\bar \gamma$为欧拉常数
+动态迁移决定模型的基础是离散选择理论中的随机效用模型（Random Utillity Model, RUM）。按照该理论，个体的效用被建模为确定性部分和随机部分的和。假设个体在单个时期中，选择某一选项$j$时获得的收益流为$\tilde u_j$，其由两部分组成：
+\begin{equation}
+  \tilde u_j = u_j + \zeta_j
+\end{equation}
+其中$u_i$是已知的、可观测的部分，而$\zeta_i$是不可观测的随机部分，通常被假设为服从某种概率分布。
 
-其中基础效用分为两部分
+理性个体做出选择的标准是选择使得效用最大化的选项，对于在选择集$C$中选择$j$的概率可以写为：
+\begin{equation}
+\begin{split}
+  Pr(\text{j is chosen})&=Pr(\tilde u_j > \tilde u_k, \forall k \neq j)
+  \\&=Pr(u_j+\zeta_k>u_j+\zeta_k, \forall k \neq j)
+  \\&=Pr(u_j-u_k>\zeta_j-\zeta_k, \forall k \neq j)
+\end{split}
+\end{equation}
+
+对随机误差项分布的有不同假设，如果按照McFadden（1973）的方法服从独立同分布且属于一类极值分布的一般假定，那么对理性的决策者而言，$P_{j}=\frac{\exp(u_{j})}{\sum\limits_{k\in C} \exp(u_k)}$。
+
+将个体的选择扩展到多期，可知其效用应该分为两部分。一是选择地点$j$带来的直接效用；二是折现的通过转移概率加权得到的未来期望效用。在任意地点$j$，使用状态变量$x=(\ell,\omega,a)$囊括去过的地区序列$\ell$、地区包含的工资$w$、地区包含的偏好信息、年龄$a$。令$v$为生命周期中的稳定效用，其表达式为：
 \begin{equation}
   v(x, j) = u(x, j) + \beta \sum_{x'} p(x' | x, j) \bar{v}(x')
 \end{equation}
-一是选择j带来的直接效用
-二是折现的通过转移概率加权得到的未来期望效用，$\bar{v}(x) = E_{\zeta} V(x, \zeta)$表明在状态x下去掉随机项影响得到的期望效用
+其中$\bar{v}(x) = E_{\zeta} V(x, \zeta)$表明在状态x下去掉随机项影响得到的期望效用，$\beta$是折现因子，$E_{\zeta}$表示对 J 维向量$\zeta$的分布求期望，其中$\zeta_{j}$是其各个分量。$p(x'|x,j)$是状态转移概率。
 
-公式中的随机效用项假设服从于一类极值分布
-We assume that $\zeta_j$ is drawn from the Type I extreme value distribution. In this case, using arguments due to McFadden (1973) and Rust (1987), we have
+用$v$表示稳定效用，用$\zeta$表示随机效用，那么居民的基本问题就是在每个给定状态$x$和随机项 $\zeta_j$的情况下，通过选择$j$来实现使得个体在生命周期中的总效用最大化，即：
+\begin{equation}
+V(x,\zeta)=\max\limits_{j}[v(x,j)+\zeta_{j}]
+\end{equation}
+
+使得在状态$x$下选择地点$j$的概率为$\rho(x,j)=\exp(\bar \gamma+v(x,j)-\bar v(x))$，之中的$\bar \gamma$为欧拉常数。
+
+假设公式中的随机效用项$\zeta_j$服从 I 型极值分布。在这种情况下，利用 McFadden (1973) 和 Rust (1987) 的论证，我们有：
 \begin{equation}
   \exp\left(\bar{v}(x)\right) = \sum_{k=1}^J \exp\left(v(x, k)\right)
 \end{equation}
@@ -361,11 +439,12 @@ We assume that $\zeta_j$ is drawn from the Type I extreme value distribution. In
 它意味着，在状态x 下，选择某一选项j的概率与效用的指数值成比例。
 这个性质广泛用于预测个体选择的分布。
 
-那么以上的地点选择概率也就是
+那么以上的地点选择概率就可以化为\footnote{这实际上也是softmax函数的一种概率向量形式}
 \begin{equation}
   \rho(x,j)=\frac{\exp(v(x,j))}{\sum\limits_{k=1}^{J} exp(x,k)}
 \end{equation}
 （需要证明吗？）
+
 
 假设收入的边际效用是固定的，居民可以在固定利率下自由借贷，那么居民的期望效用最大化问题就可以转化为预期永久收入，除去迁移成本
 （需要证明吗？）
@@ -375,30 +454,22 @@ We assume that $\zeta_j$ is drawn from the Type I extreme value distribution. In
   \tilde u_{h}(x,j)=u_{h}(x,j) +\zeta_j
 \end{equation}
 
-其中，居民的基础效用组成部分如下
+其中，居民的基础效用由货币性收入、宜居度指标、家乡溢价减去迁移成本组成。
 \begin{equation}
-  u_h(x,j)=w_{ij}(a)+\sum\limits \alpha_{k}Y_{k}(\ell^{0})+\sum\limits h +\xi(\ell^{0},\omega)-\triangle
+  u_h(x,j)=\alpha_0 w(\ell^0,\omega)+\sum\limits \alpha_{k}Y_{k}(\ell^{0})+\sum\limits h +\xi(\ell^{0},\omega)-\triangle
 \end{equation}
-下面逐步将其拆分讲解
-
 
 \subsection{工资性收入（货币收入）}
-其中工资收入的组成是
+假设个体知道他们在当前地区$\ell^0$处的收入，并假设其拥有理性预期以及知道工资的分布（虽然在部分公司，同事之间串通获取工资信息是严厉禁止的）。个体$i$在地点$j$获取的收入可以用下式表示，其中$a$是个体的年龄：
 \begin{equation}
   w_{ij}(a)=\mu_j+\nu_{ij}+G(X_i,a,t)+\eta_i+\varepsilon_{ij}(a)
 \end{equation}
-地区平均收入$\mu_j$
-个人与地区的匹配效应$\nu_{ij}$
-时间效应$G(X_{i},a,t)$, where $X_{i}$ is characteristics, $a$ is age and $t$ is a time effect
-个体固定效应$\eta_i$
-暂态效应$\varepsilon_{ij}(a)$
-地区固定效应$\rho_{j}$
-暂态效应$\varepsilon$的实现会影响当前时期的收入，但对任何地方的未来工资增长都没有影响，因此对移民决策没有影响。另一方面，单个效应 $\eta_{i}$是永久性的，位置匹配效应$\nu_{ij}$对于位置$j$是永久性的，因此这两个组成部分都会影响迁移决策，因此必须将其视为状态变量。
 
-假设$\eta,\nu,\varepsilon$都是iid分布于各个个体和地区
-同时前面两个的实现能被居民观测到
+$\mu_j$ 为地区平均收入；$\nu_{ij}$ 为个体与地区之间的匹配效应，即使得同样技能与经验的劳动者在不同地点获得的收入存在差异，该效应在个体在某一地点工作期间被视为永久性，一旦形成，除非个体迁移，否则不会改变，并且我们将其视为随机变量（对于每个个体与地点配对，其匹配效应均是从某一分布中抽取的，个体只有在实际进入该地点后才能观测到）；$G(X_i,a,t)$ 表示与个体特征 $X_i$、年龄 $a$ 以及时间效应 $t$ 相关的收入构成，反映了收入的年龄分布；$\eta_i$ 为个体固定效应，即不随地点变化而改变的收入部分；$\varepsilon_{ij}(a)$为暂时性收入成分，其实现仅影响当前时期的收入，对未来各地的工资增长没有影响，因此不会对迁移决策产生作用。
 
-地区工资之间的差异可能会抹平其他因素的差距 
+本文假设$\eta,\nu,\varepsilon$均在个体和地区之间独立同分布，同时前两者的实现能被居民观测到。
+
+地区工资之间的差异可能会抹平其他因素的差距
 例如现实生活中很常见的就是某些工资高工资但具备极差的生活条件的生活方式
 但是具备异质性的劳动者仍然会转移到具备
 例如刘晨晖2022
@@ -408,7 +479,7 @@ We assume that $\zeta_j$ is drawn from the Type I extreme value distribution. In
 年龄与个人的工资直接挂钩，例如$G(a,X_i,t)$，它代表了收入年龄分布，本质上是时间效应
 年轻人缺少家庭因素更容易定居在外地
 年轻人对于未来容易抱有较高幻想，即倾向于认为自己有更高的预期收入
-\textit{A standard human capital explanation for this age effect is that migration is an investment: if a higher income stream is  available elsewhere, then the sooner a move is made, the sooner the gain is realized. Moreover,  since the worklife is finite, a move that is worthwhile for a young worker might not be  worthwhile for an older worker, since there is less time for the higher income stream to offset  the moving cost (Sjaastad \[1962\]). In other words, migrants are more likely to be young for the same reason that students are more likely to be young.}
+\textit{A standard human capital explanation for this age effect is that migration is an investment: if a higher income stream is  available elsewhere, then the sooner a move is made, the sooner the gain is realized. Moreover,  since the worklife is finite, a move that is worthwhile for a young worker might not be  worthwhile for an older worker, since there is less time for the higher income stream to offset  the moving cost (Sjaastad 1962). In other words, migrants are more likely to be young for the same reason that students are more likely to be young.}
 KW模型原来适用于年轻劳动力的迁移
 \textit{this paper focuses on the relationship between income prospects and migration decisions at the start of the life cycle}
 
@@ -456,18 +527,10 @@ $\sum\limits_{k}s^k_{ij}+\triangle_r(r_j)+\triangle_h(h_j)$, where $\sum\limits_
 
 \subsection{迁移成本}
 劳动力迁移成本
-$$\Delta_\tau(x, j) = [\gamma_{0 \tau}+\gamma_1 \cdot D(\ell^0,j)-\gamma_2 \cdot\chi(j\in A(\ell^0))-\gamma_3 \cdot\chi(j=\ell^1)+\gamma_4 \cdot\alpha-\gamma_5 \cdot n_j]\chi(j\neq \ell^0)$$
-第一项 $\gamma_{0 \tau}$ 是一个截距，表示移动成本中未观察到的异质性
-
-第二项 $\gamma_1 \cdot D(\ell^0,j)$ 表示移动成本是距离的仿射函数，其中 $D(\ell^0, j)$ 是位置 $\ell^0$ 和 $j$ 之间的距离
-
-第三项 $\gamma_2 \cdot\chi(j\in A(\ell^0))$ 表示移动到相邻位置的成本可能更低，因为 $\chi_{A(l)}(j)$ 是一个指示函数，如果 $j$ 与 $\ell$ 相邻，则等于 1，否则等于 0
-
-第四项 $\gamma_3 \cdot\chi(j=\ell^1)$ 表示移动到先前位置的成本也可能低于移动到新位置的成本。
-
-第五项 $\gamma_4 \cdot\alpha$ 表示搬家成本取决于年龄 $a$
-
-第六项 $\gamma_5 \cdot n_j$ 表示搬到一个大地方可能会更便宜，以人口规模 $n_j$ 来衡量
+\begin{equation}
+  \Delta_\tau(x, j) = [\gamma_{0 \tau}+\gamma_1 \cdot D(\ell^0,j)-\gamma_2 \cdot\chi(j\in A(\ell^0))-\gamma_3 \cdot\chi(j=\ell^1)+\gamma_4 \cdot\alpha-\gamma_5 \cdot n_j]\chi(j\neq \ell^0)
+\end{equation}
+$\gamma_{0 \tau}$为截距项，反映了迁移成本中未观测到的异质性；$\gamma_1 \cdot D(\ell^0,j)$为距离效应，其中 $D(\ell^0, j)$ 表示当前位置 $\ell^0$ 与目标位置 $j$ 之间的距离，说明迁移成本与距离呈仿射关系；$\gamma_2 \cdot \chi(j\in A(\ell^0))$为邻近效应，$\chi(j\in A(\ell^0))$ 为指示函数，当目标地点与当前地区相邻时取值为 1，反映出邻近迁移成本较低；$\gamma_3 \cdot \chi(j=\ell^1)$为回流效应，指示当目标位置为个体先前工作或生活过的地点时，其迁移成本可能较低；$\gamma_4 \cdot \alpha$为年龄效应，表明迁移成本与个体年龄 $a$ 相关；$\gamma_5 \cdot n_j$为规模效应，$n_j$ 为目标地区的人口规模，说明迁移到人口较多的地区可能成本更低。其中，乘以 $\chi(j\neq \ell^0)$ 保证仅在目标位置与当前不同的情况下计入迁移成本。
 
 \textbf{讨论劳动力流动壁垒问题}
 
@@ -475,7 +538,7 @@ $$\Delta_\tau(x, j) = [\gamma_{0 \tau}+\gamma_1 \cdot D(\ell^0,j)-\gamma_2 \cdot
 令$MovingCost = \frac{SomeMoney}{CertainCoefficient}$
 
 \subsection{状态转移概率}
-先前我们使用了状态变量x囊括了M维最近地区向量$\ell$，M维地区工资与地区效用信息$\omega$和年龄$a$，此状态变量有改变的可能，The state $x'$ is the new state after a move.用以下式子来描述
+先前我们使用了状态变量$x$囊括了M维最近地区向量$\ell$，M维地区工资与地区效用信息$\omega$和年龄$a$，此状态变量有改变的可能，The state $x'$ is the new state after a move.用以下式子来描述
 The transition probability is 
 \begin{equation}
   p(x'|x,j)=
@@ -495,19 +558,17 @@ The transition probability is
 \subsection{劳动力迁移决策}
 移动的motivation：
 基于对于工资的假设
-不同地区之间j和k之间只有平均工资mu、地区匹配效应et和地区固定效应rh是随着地区之间变化的
+不同地区之间$j$和$k$之间只有平均工资$\mu$、地区匹配效应$\eta$和地区固定效应$\rho$是随着地区之间变化的
 不同地区的选择就会对收入产生影响
-劳动力会因为
-更好的劳动力市场
-更好的地区匹配
-更好的政策福利
-而选择迁移
+劳动力会因为更好的劳动力市场、更好的地区匹配、更好的政策福利而选择迁移
 
 
 处于状态 $x$ 的个体选择位置 $j$ 的概率可以写成
-$$\rho(x,j)=\exp[v(x,j)-\bar v(x)]$$
+\begin{equation}
+  \rho(x,j)=\exp[v(x,j)-\bar v(x)]
+\end{equation}
 
-方程 $v(x, j) = u(x, j) + \beta \sum_{x'} p(x' | x, j) \bar{v}(x')$ 可以解释为我们通过值函数迭代计算 $v$，假设有限时间 $T$。我们将年龄作为状态变量，在年龄 $T+1$ 时 $v=0$，这样连续迭代就会产生一个越来越年轻的人的价值函数。
+方程 $v(x, j) = u(x, j) + \beta \sum\limits_{x'} p(x' | x, j) \bar{v}(x')$ 可以解释为我们通过值函数迭代计算 $v$，假设有限时间 $T$。我们将年龄作为状态变量，在年龄 $T+1$ 时 $v=0$，这样连续迭代就会产生一个越来越年轻的人的价值函数。
 
 
 至此，模型刻画出了在finite horizon内，个体可以在不同城市$j\in J$中自由选择最优住址，这意味着迁移可以是多次的，可撤回的
@@ -681,6 +742,9 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 
 自然灾害数据、城市人口数据、医疗数据、教育数据等数据来自于国家统计局
 
+\textit{PM2.5 浓度数据来源于 Van Donkelaar et al. ( 2016) 计算的全球年度 PM2. 5 卫星栅格数据。我们 首先利用地理信息系统将每个栅格定位到其空间位置所在的城市上,然后将落在每个城市内的所有 栅格数据进行平均,即可得到各个城市在不同年份的 PM2. 5 浓度水平。与地表监测的点源数据相比, 卫星观测数据在时间和空间上的覆盖范围更广,能够与我们的流动人口数据更好的匹配; 同时,卫星 监测数据相对更加客观和准确,能够避免很多人为因素导致的测量偏误( Ghanem \& Zhang,2014) 。}
+
+
 地方教育经费、地方医疗经费来自财政局
 
 房价数据来自于xxx。com网站
@@ -722,7 +786,7 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 
 本文采用混合似然估计法（Mixed Likelihood Estimation）进行动态离散选择模型的参数求取。由于模型涉及高维状态空间与跨期动态关联性，计算过程具有三重复杂性：其一，个体选择行为需通过贝尔曼方程递归求解；其二，状态转移矩阵需处理多重内生性关联；其三，价值函数收敛需满足跨期一致性条件。
 
-传统计量工具（如Stata）受限于矩阵运算效率与迭代算法架构，在应对此类包含200+状态变量、需进行10\^6量级矩阵运算的复杂场景时，存在计算耗时指数级增长与内存溢出的双重瓶颈。为此，本文构建基于Python的数值计算框架，其技术实现包含三个创新维度：（1）采用Numba即时编译技术加速状态空间遍历；（2）设计逆向归纳算法（Backward Induction），通过倒序年龄迭代（从T期至$t_0$期）动态求解各状态节点的期望价值函数（EV矩阵），确保跨期决策路径的全局最优；（3）运用SciPy优化器进行参数空间搜索，通过蒙特卡洛模拟生成选择概率曲面，最终实现模型参数在95\%置信区间内的有效估计。经实证检验，该计算架构使运算效率提升47倍，且成功规避了传统方法中的局部收敛问题。
+传统计量工具（如Stata）受限于矩阵运算效率与迭代算法架构，在应对此类包含200+状态变量、需进行10\^6量级矩阵运算的复杂场景时，存在计算耗时指数级增长与内存溢出的双重瓶颈。为此，本文构建基于Python的数值计算框架，其技术实现包含三个创新维度：（1）使用joblib进行并行计算降低计算资源的消耗；（2）设计逆向归纳算法（Backward Induction），通过倒序年龄迭代（从T期至$t_0$期）动态求解各状态节点的期望价值函数（EV矩阵），确保跨期决策路径的全局最优；（3）运用SciPy优化器进行参数空间搜索，通过蒙特卡洛模拟生成选择概率曲面，最终实现模型参数在95\%置信区间内的有效估计。经实证检验，该计算架构使运算效率提升47倍，且成功规避了传统方法中的局部收敛问题。
 
 \begin{equation}
   \rho(x,j)=\frac{\exp(v(x,j))}{\sum\limits_{k=1}^{J} exp(x,k)}
@@ -747,14 +811,16 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 
 直接计算大量概率的乘积可能导致数值下溢，取对数可以避免这个问题。但需要确保每个个体的似然计算已经处理了对数转换，或者在汇总时处理。
 
-与传统的计量方法不同
 本文的优化方法基于深度学习
+与传统的计量方法不同
 两者的参数初始化往往不同
 在深度学习中，参数通常随机初始化，但在结构方程模型或动态离散选择模型中，初始值的选择更为关键，因为模型可能存在多个局部最优，良好的初始值有助于找到全局最优。
 优化算法（如牛顿法、L-BFGS）需要一个初始猜测点开始迭代。初始值的选择可能会影响收敛速度和结果。例如，如果真实值接近-0.1，好的初始值能加快收敛。
-根据经济学理论进行初始值赋予能促进优化方法的应用，例如距离增加可能降低迁移概率，因此\begin{verbatim}gamma_distance\end{verbatim}预期为负，将其初始值设为负符合理论预期，有助于引导优化方向。
+此外，根据经济学理论进行初始值赋予能促进优化方法的应用，例如距离增加可能降低迁移概率，因此\begin{verbatim}gamma_distance\end{verbatim}的预期应该为负，将其初始值设为负符合理论预期，有助于引导优化方向。
 对于这种方法的引入，存在可能的担心，即初始值的设定会引入主观偏差。但实际上，只要优化过程充分收敛，初始值的影响会减小。不过，若初始值离真实值太远，可能导致优化失败，因此基于领域知识的合理初始值是有必要的。
 
+
+对于已经用支撑点离散近似后的参数，在进行网格搜索时，\begin{verbatim}Joblib\end{verbatim}支持将数据存储在磁盘上的内存映射文件中，这样多个进程可以共享同一份数据，而无需每个进程都复制一份，从而显著降低内存消耗并提升 I/O 效率。
 
 为了避免陷入局部最大化
 最后用Nelder-mead检查局部最大值
@@ -765,11 +831,14 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 
 本文尝试回答一下几个问题：
 \begin{itemize}
-  \item 影响劳动力流动的因素是什么？到底什么是迁移摩擦？
+  \item 影响劳动力流动的因素是什么？到底哪些因素是负面因素（迁移摩擦）？
   \item 不同人群是否面对不同的劳动力迁移摩擦阻力？
   \item 本地的福利待遇对于迁移是否显著？这意味着是否可以通过政府补贴购买人才
   \item 
 \end{itemize}
+
+
+\cite{XiaYiRanChengShiJianDeMengMuSanQianGongGongFuWuYingXiangLaoDongLiLiuXiangDeJingYanYanJiu2015} 利用 2005 年 1\%人口抽样调查中劳动力流动的微观数据与 220 个地级市的城市特征 数据研究发现公共服务对劳动力流入产 生 吸 引 力,同 时 房 价 对 劳 动 力 流 入 也 有 正 向 作 用 ,他 们 认 为这是因为房价“资本化”了部分未观察到的公共服务或城市特征,此文关注点不在房价,而且使 用的普查 数 据 没 有 覆 盖 近 十 年 来 中 国 房 价 暴 涨 的 阶 段。
 
 \subsection{基准回归} % (fold)
 \label{sub:基准回归}
@@ -780,10 +849,9 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 \subsection{不同学历人群的差别} % (fold)
 \label{sub:不同学历人群的差别}
 
+
+
 % subsection 不同学历人群的差别 (end)
-
-
-
 \section{结论}
 当然以城乡二元对立为代表的思想在我国依旧有非常重要的应用 因为我国依旧有大量依附于城乡关系的社会体系、福利体系等种种重要的制度
 甚至在研究二元对立话题中依旧可以引入例如Rosen Roback这样的经典模型
@@ -793,6 +861,13 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 抛开这种二元对立的思想是越来越重要的
 这也自然而然地引出了空间均衡与最有选址两种思路
 
+
+
+由于普遍偏好事少离家近的特征，政策可以针对性地对周边省份进行补贴
+相反 对于十分遥远地区的人力资源 即使补贴了显性的迁移成本 也存在较长的文化、心里距离 所以在边际上可能并不值得投入
+
+
+
 本文可以改进的地方：
 
 添加约束
@@ -800,10 +875,12 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 添加宏观变量
 
 使模型作为微观基础从而宏观化
+\textit{近年来，一些研究将上述两种基础模型结合起来，在空间均衡模型中加入了微观层面的动态迁移决策特征。这些动态一般均衡迁移模型明确考虑了空间工资差异的来源及其对净迁移和总迁移的影响，并允许存在不同类型的空间障碍，如劳动力重新配置摩擦和信息摩擦。这类模型特别关注迁移如何作为调节各地劳动力市场长期均衡的机制。例如，Coen-Pirani（2010）开发了一个动态一般均衡模型，强调了个体迁移决策中的不可观测异质性。该模型刻画了总迁移流动和净迁移流动的共同模式，其中前者由个体匹配的偶然冲击驱动，后者由持续的生产率冲击驱动。工人会迁移到正受到生产率冲击的地区，并在迁移后发现其偶然匹配的质量。新迁移的工人比长期居住者更可能继续迁移，因为后者选择留在某地是由于他们已经获得了相对较好的匹配。该校准模型可以解释为何人口流入较多的地区往往也伴随着较多的流出，这一现象在仅研究净流入的模型中无法得到解释。结合偶然匹配效应的空间均衡模型还能够解释新迁入工人与迁出工人在年龄、教育和行业等方面的相似性，这些特征无法仅通过个体位置选择模型或仅基于可观测工人异质性或地点特定冲击的模型来解释。}
 
 从而引入其他变量
 
 以家庭为基本单位
+
 
 \newpage
 \appendix
