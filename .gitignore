@@ -9,6 +9,7 @@
 *.fls
 *.fdb_latexmk
 *.xdv
+*.toc
 ztest.py
 function/__pycache__/
 data/geo/backup/
