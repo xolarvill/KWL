@@ -1,13 +1,13 @@
 %!TEX program = Traditional Builder with XeLaTeX
-\documentclass[a4paper,12pt]{article}
+\documentclass[a4paper,12pt]{book}
 \usepackage[UTF8]{ctex}
 \usepackage{graphicx} % Required for inserting images
 \usepackage{amsmath,amsthm} % Math
 \usepackage{wasysym,MnSymbol} % Greek alphabets
 \usepackage{mathrsfs,amsfonts,calrsfs} % Math fonts
 \usepackage{geometry} % Formatting
-\usepackage{hyperref}
-\usepackage{listings}
+\usepackage{hyperref} % 引用链接
+\usepackage{listings} % 代码输入
 \usepackage{fancyhdr} % 引入fancyhdr宏包来控制页眉页脚
 
 % 添加首行缩进，两个字符
@@ -30,7 +30,7 @@
 % \fancyhead[C]{\rule{\paperwidth}{0.4pt} \\ 浙江财经大学硕士毕业论文}
 
 % document headings
-\title{动态迁移决策模型下的劳动力迁移行为考察}
+\title{基于个人动态最优居住地选择视角的劳动力回流行为考察}
 \author{Suicidal Bumblebee}
 \date{Jan 2025}
 
@@ -39,28 +39,31 @@
 
 \maketitle
 
-
+\frontmatter
 % ---------------------------------------- 摘要 ----------------------------------------
-\newpage
-\begin{abstract}
+\chapter{zhaiyao}
   随着经济的发展与社会工业化带来的社会关系剧变，劳动力迁移形成有规律的迁移模式是必然的。不同于我国研究中的传统城乡二元对立语境，本文基于理性预期构造了动态最优住址选择模型，基于CFPS数据对2010年至2022年间我国各省的人口流动进行实证检验，并得到的结论是（xxx、xxx、xxx）。本文的贡献在于（xxx、xxx、xxx）。
 
   \textbf{关键词：} 动态迁移决策模型、劳动力迁移、收入引致、迁移摩擦
-\end{abstract}
+
 
 % ---------------------------------------- Abstract ----------------------------------------
-% \newpage
-% \textbf{Abstract}
+\chapter{Abstract}
+
+Here is the english version of abstract
+
+keywords：a，b，c
 
 % ---------------------------------------- 目录 ----------------------------------------
-% \newpage
-% \thispagestyle{empty}
-% \tableofcontents
+\thispagestyle{empty}
+\tableofcontents
 
+
+\mainmatter
 % ---------------------------------------- 绪论 ----------------------------------------
-% \newpage
-\setcounter{page}{1} % 页码从此处开始记录
-\section{引言}
+\newpage
+% \setcounter{page}{1} % 页码从此处开始记录
+\chapter{引言}
 
 纵观古今内外，“人往高处走，水往低处流”的规律总是屡试皆准。早在上世纪末，以\cite{krugmanIncreasingReturnsEconomic1991}和\cite{fujitaSpatialEconomyCities1999}为代表的新经济地理学就指出经济活动的集中会产生规模经济和网络效应，促成产业集聚。经济的聚集会导致区域不平衡发展，人们倾向于从“边缘”地区流向产业集聚、薪资较高和就业机会多的“中心”地区，形成“吸引效应”，这使得劳动力迁移有了移动的规律。欧美国家作为世界上人均GDP最高的区域，吸引大量来自其他相对落后国家的居民。根据世界银行（World Bank Group）和美国移民委员会（American Immigration Councile）公布的数据，
 2023年美国的人均GDP为82769美元，外来人口达到了4780万，移民占美国人口的 14.3\%，比 1970 年的 4.7\% 增长了约三倍。相似地，在我国内部不同省份之间也发生着同样的人口迁移现象。改革开放以来，随着交通工具的进步和政策的放宽，劳动力自由流动在我国成为可能。解放的经济活力逐渐形成了“东富西穷、南富北穷”的局面。经济发展的不平衡不仅表现在地区收入差距上，也体现在人口分布的变化中。富裕地区吸引了大量来自相对贫困地区的劳动力。国家统计局2020年发布的《第七次人口普查》显示，流动人口达到3.76亿，占全国总人口比重分别为34.90\%和26.62\%，较2010年分别上涨88.52\%和69.72\%。
@@ -104,7 +107,7 @@
 
 
 % ---------------------------------------- 文献综述 ----------------------------------------
-\section{文献综述}
+\chapter{文献综述}
 
 \begin{center}
   \textit{
@@ -114,10 +117,39 @@
 
 
 Before introducing a proper method to study migration as a sequence, it is also useful to understand the popular domestic ways to study migratory problem. According to the \cite{jiaEconomicsInternalMigration2023}, there are generally two seperable ways to study migratory dynamic. The first method is, as mention before, the spatial equilibrium way. 
+本文采取的方法实则将迁移决策视作选择序列，在介绍这种方法之前，同样重要的是了解当下一种更受青睐的方法，即空间均衡方法。根据\cite{jiaEconomicsInternalMigration2023}的研究，通常有两种方式来研究劳动力迁移问题。第一种方法，如前所述，是空间均衡方法。
+
+It considers a spatial general equilibrium must exist after migration moves, and they examine how population flows work to balance market-level outcomes like local wages or housing  prices across space.
+这种方法认为在迁移行为之后必然存在新的空间一般均衡，从而检视人口流动是如何影响各种变量的出清，例如本地工资、不同地区的房价等因素。
+
+Foundation works are:
+基础性工作有：
+
+
+\cite{tieboutPureTheoryLocal1956} assumes no migration costs and complete information. Consumers move freely across locations and choose the community that best satisfies their preferences patterns; that is, they “vote with their feet”. 
+\cite{tieboutPureTheoryLocal1956}假设没有迁移成本且信息完全。消费者可以自由地在不同地点之间移动，并选择最能满足其偏好模式的社区；也就是说，他们“用脚投票”。
+
+\cite{harrisMigrationUnemploymentDevelopment1970} develop a two-sector internal trade model of rural–urban migration where the urban minimum wage is higher than rural earnings. An equilibrium is reached when the expected wage in the urban sector, i.e., actual wage adjusted for unemployment, equals the average wage in the rural sector.
+\cite{harrisMigrationUnemploymentDevelopment1970}提出了一个两部门的内部贸易模型，研究农村到城市的迁移，其中城市的最低工资高于农村收入。当城市部门的预期工资（即经失业调整后的实际工资）等于农村部门的平均工资时，达到均衡。
 
 
 
+In the basic version of \cite{robackWagesRentsQuality1982}, workers’  indirect utility depends on nominal wages, housing costs, and local amenities. Workers are  homogeneous and perfectly mobile. Land is fixed in supply, with limited elasticity of housing  supply. An important implication from this framework is that any shock to the local economy is fully capitalized in land prices, thus leaving worker utility unaffected. For example, a positive  productivity shock raises nominal wages and demand for housing. Workers consume less housing in  response to higher housing prices, thereby allowing some in-migration.15 In the new equilibrium,  workers are not better off, and the amount of the productivity increase accrues to landowners.
+在\cite{robackWagesRentsQuality1982}的基本版本中，工人的间接效用取决于名义工资、住房成本和地方便利设施。工人是同质的且完全流动的。土地供应固定，住房供应弹性有限。该框架的一个重要含义是，任何对本地经济的冲击都会完全体现在土地价格中，从而不影响工人的效用。例如，正面的生产力冲击会提高名义工资和住房需求。工人因房价上涨而减少住房消费，从而允许一定程度的迁入。在新的均衡中，工人的福利并未改善，生产力的增加全部归土地所有者所有。
 
+Application in our country is wild. Some of the best applied papers are:
+
+Glaeser和Gottlieb（2009）以及Moretti（2011）概述了一些重要例子。例如，Moretti（2011）提出了一个一般均衡模型，假设工人的流动性不一定是无限的，因为对某些地点的特殊偏好，住房供应也不一定是固定的。
+
+\cite{diamondDeterminantsWelfareImplications2016}估计了一个结构性空间均衡模型，研究技能分类增加的原因及其福利影响。
+
+例如，Coen-Pirani（2010）开发了一个动态一般均衡模型，强调个体异质性在迁移决策中的作用。
+
+\cite{LiuHuaRenLiZiBenKongJianPeiZhiDeSheHuiFuLiXiaoYingYanJiuJiYuLiangHuaKongJianYiBanJunHengMoXingDeFenXi2024}
+
+\cite{WangLiLiLaoDongLiLiuDongDuiChengShiGongZiYuFuLiDeYingXiangJiYuKongJianJunHengMoXingDeFenXi2024}
+
+Spatial equilibrium method can be powerful in cases more macro, but it works with micro data with hardship. A non-equilibrium method is need for supplement.
 
 
 
@@ -127,28 +159,128 @@ In the late 70s,
 \textit{Sjaastad’s (1962) treatment of migration as an investment emphasizes the dynamic aspect of migration – expected costs and payoffs to migration change over time. Viewed  within a life cycle perspective, individuals (or families) decide whether and when to  move. Allowing households to make multiple migration decisions substantially increases the model’s complexity. Decisions made in previous periods (e.g., savings, education,  marriage, fertility) determine choices available in the current period, and expectations  of future events also influence current decisions. Within this perspective migration and  fertility choices are connected through the “primitives” of the decision making process:  current opportunities (determined in part by decisions made in the past), expectations (anticipated future events and outcomes), and preferences (values assigned to different outcomes). The economic perspective thus provides a unified framework connecting several important demographic behaviors.}
 
 
-Tiebout模型（“用脚投票”理论）： Tiebout 模型是最早描述个体在多个区域之间迁移选择的理论。该模型假设个体根据不同地区提供的公共产品和税收水平来选择居住地，像是在“用脚投票”。如果一个地区提供的公共服务较好、税负较低，个体会倾向于选择该地区。
+\cite{sjaastadCostsReturnsHuman1962} gave a model assuming that individuals make location decisions based on the costs of and returns to migration. Returns include monetary returns as well as non-monetary returns based on locational preferences.
 
-\cite{leeTheoryMigration1966}\textit{在推拉理论的基础上加入中间障碍因素和个人因素。同时,他认为流入地和流出  地各自都有推和拉两种力量。中间障碍因素主要包括制度安排、距离远近、文化差异等,在中国尤  其表现为户籍制度的影响。}
 
-Bagne 1969推出了推拉模型，系统阐述推拉理论，指出流入地的有利生活条件为拉力，流出地的不利生活条件为推力，劳动力流动受这两股力量的影响。可以将其视作计量经济学线形多元回归，通过添加多种推拉因素作为控制变量，消除
+- \cite{mincerFamilyMigrationDecisions1978} develops a model to allow a joint family migration decision, recognizing that the optimal location choice for the family could differ from that for individual spouses.
 
-......
 
-All the works in this area has been outshined by spatial equilibrium, until the birth of modern DOMM.
-(\textit{\textbf{Or say:} Come into 21st century, a more modern version of DOMM is developed.})
+Over the next 40 years, these models were extended in many important dimensions including the  factors in the utility function, the time horizon, and the set of location choices. A number of these  advances are combined in the prominent Kennan and Walker model of individual migration choices  from 2011; hereafter we refer to this model as KW. The structural dynamic model in KW permits a  rich decision-making process for individuals. It allows for individual heterogeneity in skills and  location preferences, as well as heterogeneity in moving costs. It also allows for many alternative  location choices each with payoff flow generally uncertain, for location match components in wages  and preferences, and for sequential location decisions rather than a single choice. The model solves  individual migration decisions as an optimal search process and aims to describe the partial  equilibrium response of workers to wage differentials across locations, assuming that the individual  maximizes expected lifetime income, net of moving costs.
 
-To understand modern DOMM, 
+
+
+Come into 21st century, a new trend of DOMM is introduced. To combine dynamic discrete model, DOMM finds new destiny.
+进入21世纪，DOMM出现了新的趋势。结合动态离散模型，DOMM找到了新的命运。
+
+To understand this modern version of DOMM, 
 we should know the root of it lies in dynamic discrete choice (DDC) theory, which follows the study pattern of single-agent dynamics.
-Major papers of dynamic discrete choice (DDC) models are 
+要理解这个现代版本的DOMM，
+我们应该知道它的根源在于动态离散选择（DDC）理论，该理论遵循单主体动态的研究模式。
 
-- inspired by McFadden 1973
 
-- Rust 1987
 
-- Keane 2009
+Key traits in a discrete choice model are:
 
-- Aguirregabiria and Mira 2010
+1, Multiple, finite, discrete, complete and seperable choices are faced by the individual.
+
+2, A choice will not be eliminated whether chosen or not.
+
+3, Uncertainty
+
+4, Revealed preference and micro data
+
+离散选择模型的关键特征是：
+
+1，个人面临多个、有限、离散、完整和可分离的选择。
+
+2，无论选择与否，选择都不会被淘汰。
+
+3，不确定性
+
+4，显示偏好和微观数据
+
+The basic discrete model developes random utilly model to depict decision among choices. With key assumption of the error term in RUM, logit model was created. 
+基本离散模型开发了随机效用模型来描述选择之间的决策。基于RUM中误差项的关键假设，创建了logit模型。
+
+Prominent works in the field are:
+该领域的杰出作品有：
+
+
+- 最初 Thurstone (1927) 从心理激励的角度 引入了比较判定定律 (a Law of Comparative Judgment)。定律 指出具有真实激励水平的选择项$i$被感知含有一个正态误差:$V_i+\epsilon_i$。
+
+- Marschak (1960) 将这种感知到的刺激$V_i+\epsilon_i$解释为效用 并对包含随机因素的效用最大化的选择概 率进行了理论上的推导。Marschak 将其称为随机效用最大化 (Random Utility Maximization, RUM) 模型。
+
+- 起初 logit 公式是 Luce (1959) 通过对选择概率的特性进行假设推导而得 他引入了 被称为 “不相关选项间的独立性” (Independence from Irrelevant Alternatives, IIA) 特性 (或公理) 通过允许从二元选择的实验中推断多元选择概率来简化实验选择数据的收集。Luce (1959) 告诉我们当选择项 i 在选择集合$C$中 IIA 特性意 味着精确的效用 (strict utilities)。
+
+- Marschak (1960) 揭示了这一公理意味着对于一个有限的范围而言 IIA 特性就意味着 RUM。
+
+- logit 公式与不可观测效用之间的联系是由 Marley 发展起来的，他揭示极值分布导致了 logit 公式的产生。
+
+- McFadden (1974) 从反面论证用于选择概率的 logit 公式必然暗含着不可观测效用服从极值分布，并从计量经济学的视角研究了 Luce 的模型 并将精确的效用设定为选择项可观测变量 的函数。决策者 n 选择选项 i 的概率写成一种简洁的封闭型的表达形式:
+
+- 随后GEV，probit，mixed logit等多种办法被研发突破传统logit的局限性
+
+
+
+
+
+As the academia developed, the need to apply discrete choice to a dynamic framework is more significant than ever. Under repeating summon, DDC emerged.
+
+Establishing papers in this area are:
+
+- The roots trace back to Richard Bellman's 1957 work on dynamic programming, providing the mathematical backbone for these models. David Blackwell's 1962 paper further solidified the theoretical framework for Markov decision processes, essential for dynamic discrete choice models.
+The history of DDC models is deeply rooted in the development of dynamic programming, a concept introduced by Richard Bellman in 1957 in his book Dynamic Programming (Dynamic Programming). Bellman's work provided the mathematical framework for solving sequential decision-making problems, which became foundational for Markov decision processes (MDPs). David Blackwell's 1962 paper, Discrete Dynamic Programming (Annals of Mathematical Statistics, 33, 719-726), further advanced this by establishing theoretical foundations for MDPs, particularly in discrete settings, which are central to DDC models.
+
+By the early 1980s, MDPs had become widespread in micro- and macroeconomic theory, finance, and operations research, as noted in John Rust's 1994 survey, Structural Estimation of Markov Decision Processes (Handbook of Econometrics, Vol. 4, Chapter 51, 3081-3143, Chapter 51 Structural estimation of markov decision processes). This period saw applications in optimal inventory policy (Arrow et al., 1951), investment under uncertainty (Lucas and Prescott, 1971), and optimal growth under uncertainty (Brock and Mirman, 1972; Leland, 1974), among others. These works, while not exclusively DDC, set the stage for applying dynamic programming to discrete choice problems in economics.
+
+
+
+- Ariel Pakes in 1986 applied these models to estimate the value of holding European patent stocks, showing how they handle decisions under uncertainty. 
+The field of DDC models in economics began to take shape in the mid-1980s, with Ariel Pakes' 1986 paper, Patents as Options: Some Estimates of the Value of Holding European Patent Stocks (Econometrica, 54(4), 755-784, Patents as Options), marking an early application. Pakes modeled patent renewal decisions as a dynamic discrete choice problem, estimating the value of holding patents using a stochastic control model, which highlighted the models' utility in handling uncertainty and discrete choices over time.
+
+
+- John Rust's 1987 study on bus engine replacements was a landmark, offering one of the first real-world applications in economics. 
+John Rust's 1987 paper, Optimal Replacement of GMC Bus Engines: An Empirical Model of Harold Zurcher (Econometrica, 55(5), 999-1033, Optimal Replacement), is often cited as a seminal work. It provided one of the first empirical applications in economics, modeling the decision-making process of Harold Zurcher, a bus company maintenance supervisor, on whether to replace bus engines. This study used maximum likelihood estimation and introduced the nested fixed point (NFXP) algorithm, becoming a classical example in the field.
+
+
+- Later, V. Joseph Hotz and Robert A. Miller's 1993 paper introduced conditional choice probabilities, making estimation easier by avoiding full dynamic programming solutions for each parameter guess.
+The 1990s saw further methodological advancements, with V. Joseph Hotz and Robert A. Miller's 1993 paper, Conditional Choice Probabilities and the Estimation of Dynamic Models (Review of Economic Studies, 60(3), 497-529, Conditional Choice Probabilities), introducing the conditional choice probabilities method. This approach avoided the need to solve the full dynamic programming problem for each parameter guess, significantly improving computational feasibility and becoming a leading non-solution method for estimation.
+
+
+Surveys like Zvi Eckstein and Kenneth I. Wolpin's 1989 paper, The Specification and Estimation of Dynamic Stochastic Discrete Choice Models: A Survey (Journal of Human Resources, 24(4), 562-598, Survey of Dynamic Stochastic Models), and Rust's 1994 work provided comprehensive overviews, updating the field and highlighting its growth. These surveys noted the natural extension from static discrete choice models, with applications expanding into labor economics, industrial organization, and beyond.
+
+随着学术界的发展，将离散选择应用于动态框架的需求比以往任何时候都更加重要。在反复的召唤下，DDC 应运而生。
+
+该领域的开创性论文包括：
+
+- DDC 模型的历史深深植根于动态规划的发展，这是 Richard Bellman 于 1957 年在其著作《动态规划》（Dynamic Programming）中提出的一个概念。Bellman 的工作为解决顺序决策问题提供了数学框架，这成为马尔可夫决策过程 (MDP) 的基础。 
+
+David Blackwell 于 1962 年发表的论文《离散动态规划》（《数理统计年鉴》，33，719-726）进一步推进了这一研究，为 MDP 建立了理论基础，尤其是在离散环境中，这是 DDC 模型的核心。
+
+到 20 世纪 80 年代初，MDP 已在微观和宏观经济理论、金融和运筹学中得到广泛应用，正如 John Rust 于 1994 年发表的调查《马尔可夫决策过程的结构估计》（《计量经济学手册》，第 4 卷，第 51 章，3081-3143，第 51 章马尔可夫决策过程的结构估计）中所述。这一时期，MDP 的应用包括最优库存政策（Arrow 等人，1951 年）、不确定性下的投资（Lucas 和 Prescott，1971 年）和不确定性下的最佳增长（Brock 和 Mirman，1972 年；Leland，1974 年）等。这些研究虽然并非 DDC 的独有，但为将动态规划应用于经济学中的离散选择问题奠定了基础。
+
+经济学中的 DDC 模型领域开始于 20 世纪 80 年代中期，\cite{pakesPatentsOptionsEstimates1986}将专利续展决策建模为动态离散选择问题，使用随机控制模型估计持有专利的价值，这突出了模型在处理不确定性和离散选择方面的效用。
+
+\cite{rustOptimalReplacementGMC1987}经常被引用为开创性著作。它提供了经济学中最早的实证应用之一，为公交公司维护主管 Harold Zurcher 是否更换巴士发动机的决策过程建模。这项研究使用了最大似然估计并引入了嵌套不动点 (NFXP) 算法，成为该领域的经典示例。
+
+- 后来，\cite{hotzConditionalChoiceProbabilities1993}引入了条件选择概率方法。这种方法避免了为每个参数猜测求解完整动态规划问题的需要，大大提高了计算可行性，并成为一种领先的非解估计方法。
+
+Zvi Eckstein 和 Kenneth I. Wolpin 于 1989 年发表的论文《动态随机离散选择模型的规范和估计：一项调查》（《人力资源杂志》，24(4)，562-598，《动态随机模型调查》）和 Rust 于 1994 年发表的论文提供了全面的概述，更新了该领域并强调了其发展。这些调查注意到静态离散选择模型的自然延伸，其应用扩展到劳动经济学、产业组织等领域。
+
+
+- \cite{keaneEmpiricalApplicationsDiscrete2009}
+
+- Miller 1984建立 了一个关于工作匹配的模型研究了工作类型和职业趋向对体现具体工作价值的差异性，其实证表 明前期的职业选择会影响对后期职业的抉择。
+
+- Stock和Wise1990在他们早期的一篇论文中 用选择模型来模拟  在一个公司的退休金计划变化对于退休的影响与在社会安全供给变化对退休 的影响。
+
+- 也有学者将此研 究领域扩展到生育研究，Wolpin于1984年构造 了一个关于生育率和儿童死亡率的动态随机模型 。
+
+- 更有学者将此应用于犯罪研究，Imai和Krishna 2004采用月度面板数据和  极大似然方法 构造和估计 了犯罪行为动态模型。
+
+
+
+
 
 
 
@@ -158,7 +290,7 @@ Fundamental traits in DDC are listed as below
 
 1, Dynamic in a discrete time series.
 
-2, Multiple, finite, discrete and seperable choices are faced by the individual.
+2, Multiple, finite, discrete, complete and seperable choices are faced by the individual.
 
 3, A choice will not be eliminated whether chosen or not.
 
@@ -169,6 +301,23 @@ Fundamental traits in DDC are listed as below
 6, Revealed preference and micro data
 
 7, Single-agent
+
+
+DDC 的基本特征如下：
+
+1、离散时间序列中的动态性。
+
+2、个体面临多个、有限、离散、完整且可分离的选择。
+
+3、无论选择与否，选择都不会被淘汰。
+
+4、马尔可夫决策过程。
+
+5、不确定性，或者说随机决策环境
+
+6、显示偏好和微观数据
+
+7、单个agent
 
 
 
@@ -186,8 +335,28 @@ It is, without doubt, the most suitable tool to study a dynamic migration decisi
 
 - it took Random Utility Model (RUM) as base in utility theory, allowing for uncertainty随机效用最大化模型（Random Utility Maximization, RUM），这一类模型假设个体的居住地选择是基于效用最大化。每个居住地对应一个效用函数，个体通过权衡不同地区的效用，选择效用最大的地区。
 
+毫无疑问，它是研究动态迁移决策过程最合适的工具。动态最优迁移模型（DOMM）当然是 DDC 模型的一部分，或者至少与之有着深厚的联系。我们可以看到相似之处：
 
-\cite{kennanEffectExpectedIncome2011} used a DDC-based way to study migratory phenomenom in US, setting the cornerstone of modern DOMM study.
+- 在离散时间序列的每个时期做出的动态迁移选择
+
+- 迁移目的地是广阔的、有限的、离散的和可分离的
+
+- 代理人可以是个人或家庭
+
+- 由于在整个时间序列中始终存在选择，因此 DOM 描述了可撤回的迁移行为。
+
+- it took Random Utility Model (RUM) as base in utility theory, allowing for uncertainty随机效用最大化模型（Random Utility Maximization, RUM），这一类模型假设个体的居住地选择是基于效用最大化。每个居住地对应一个效用函数，个体通过权衡不同地区的效用，选择效用最大的地区。
+
+
+
+Generally, there are two ways of constructing a dynamic discrete choice model.
+\cite{}
+考虑时间背景的模型常 被称为动态选择模型(dynamic choice model),其典 型的两种处理方式如下。 第一种是滞后因变量的运用。一些研究参照 时间序列分析方法,将上一期或多期的选择结果作 为本期解释变量纳入模型,试图追踪并解释同一类 行为随时间变化的规律。例如
+,Smith(2005)在利用 混合 Logit 模型研究渔民 10 年间的捕渔地选择时, 将过去所有的选择结果全部纳入,结果表明自变量 的瞬时变化具有不同的近期和远期效应;Dargay 等 (2007)在对居民小汽车保有水平和交通模式选择进 行跟踪研究时,发现将滞后因变量分别纳入定序 Logit 和二项 Logit 模型均取得良好的解释力;Chatterjee(2011)在使用定序 Logit 模型预测公共汽车的 使用频率时,发现滞后因变量的加入显著提高了预 测精度;Grigolon 等(2014)建立了动态混合 Logit 模 型以研究 7 年间人们对不同长度假期的选择,通过 将同年、去年、两年前的选择结果纳入模型,发现与 中短假期相比,长假的选择更易受前期选择结果的 影响。
+
+第 二 种 是 期 望 贴 现 效 用 (expected discounted utility)的运用。如果说前类研究主要关注过去,则 此类研究更多着眼于未来,它试图反映个体在进行 选择决策时,会考虑到当前结果将影响未来的选择 情景,因此以更长远的眼光选择能使总体期望贴现 效用最大化的选项。例如,Attanasio 等(2012)在研 究儿童上学的选择中,除纳入上学、工作两个选项 的当前效用外,还考虑了上学投资对未来工作的预期回报及其不确定性;McKee(2006)用类似方法研 究了中老年人的退休选择决策,其中考虑了基于未 来收入、开支、健康状况等因素的期望效用的影响; Todd 等(2010)将此类方法统称为动态规划离散选 择 模 型 (discrete choice dynamic programming model, DCDP),并总结了其在教育、经济、移民等政策评 价中的应用;Lapparent 等(2012)在研究居民是否保 有车辆的选择时,发现其重要决策因素之一是对未 来车辆使用的预期以及由此折算的当前需求,指出 将未来考虑纳入模型对理解决策过程具有重要意义。
+
+\cite{kennanEffectExpectedIncome2011} used a DDC-based way to study migratory phenomenom in US
 
 Using DDC to work with migration problem is at its core a method of non-equilibrium study (\cite{jiaEconomicsInternalMigration2023}). 
 It is 用于分析个体或家庭如何在多个备选居住地之间做出最优选择的模型，考虑各种经济、社会、地理和政策因素，以解释人口迁移、城市发展和住房市场的动态。其背后的基本思想是，当搬迁的净预期收益超过成本时，个人会选择搬迁假设迁移是对外部冲击或永久性工资增长机会的响应，从而提高个体的效用水平。Such ideas were seen as early as in the work of Greenwood (1975)。This enable the users to apply individual-level heterogeneity.
@@ -239,7 +408,9 @@ DOMM can care about family decisions
 DDC models can be solved by full-solution method and non-solution method.
 
 Methodologically involved
+
 - McFadden 1973 on conditional Logit model
+
 - Hotz and Miller 
 
 
@@ -248,17 +419,31 @@ Methodologically involved
 
 
 
-\textbf{To expand the DOM model into a more useful empirical tool, another range of papers discussing migration factors should be listed.}
+\textbf{To expand the DOM model into a more useful empirical tool, another range of papers discussing migratory factors should be listed.}
 
 DOM模型可以在随机效用函数的确定性部分中嵌入多种因素从而考察他们对迁移行为的影响。Similar notion can be seen in push-pull model or many other econometric papers. A Push-pull model considers all kinds of factors during the migration process. It is the epitome method of studying the causes of migration decision.
 
+Tiebout模型（“用脚投票”理论）： Tiebout 模型是最早描述个体在多个区域之间迁移选择的理论。该模型假设个体根据不同地区提供的公共产品和税收水平来选择居住地，像是在“用脚投票”。如果一个地区提供的公共服务较好、税负较低，个体会倾向于选择该地区。
+
+\cite{leeTheoryMigration1966}\textit{在推拉理论的基础上加入中间障碍因素和个人因素。同时,他认为流入地和流出  地各自都有推和拉两种力量。中间障碍因素主要包括制度安排、距离远近、文化差异等,在中国尤  其表现为户籍制度的影响。}
+
+Bagne 1969推出了推拉模型，系统阐述推拉理论，指出流入地的有利生活条件为拉力，流出地的不利生活条件为推力，劳动力流动受这两股力量的影响。可以将其视作计量经济学线形多元回归，通过添加多种推拉因素作为控制变量，消除
+
+
 To specification, factors including but not limited to as follow:
+
 - income improvement. Higher income by comparison induces migration. 
+
 - house price. Most researches agree the effect coulde be U-shaped.
+
 - public service is a very large genre, we try to avoid such big word. It is a combination of all kinds of government-provided goods and natural resources. And the richer diveristy and better quality local government can provide, more migration is induced.
+
 - weather
+
 - hazzards
+
 - cultural barrier is another big word genre, including but not limited to language barrier, habits, identity recognition and 
+
 - direct migration cost, a total amount of present money paid for the transfer from one place to another. 迁移成本模型： 迁移成本模型考虑了个体在选择居住地时需要支付的成本（如搬家费用、适应新环境的成本等）。在考虑这些成本的情况下，个体可能会选择效用次优的居住地以避免高迁移成本。
 
 And with so many discussions at depth and length, a concept called migration friction has emerged from researches unanimously. 
@@ -305,9 +490,6 @@ Sjaastad (1962) 将移民视为一项投资，强调了移民的动态方面—�
 
 与本文相关的另一类文献是影响劳动力流动的因素的研究
 
-\cite{tieboutPureTheoryLocal1956}提出用脚投票，发现具有更高生活质量的城市更容易吸引劳动力的进入，第一次用模型将宜居度这个概念引入对劳动人口的流动进行考察。
-
-其中公共服务水平,如 基础教育和医疗水平等,作为生活质量的重要组成因素,会对劳动力的选址行为产生显著影响( 夏怡然和陆铭,2015) 。
 
 \textbf{迁移摩擦（劳动力壁垒）}
 
@@ -344,9 +526,6 @@ Sjaastad (1962) 将移民视为一项投资，强调了移民的动态方面—�
 
 
 
-
-
-
 \textbf{房价}
 
 中国居高临下依旧日益增长的房价是讨论影响劳动力流动时无法避免的话题。
@@ -367,11 +546,9 @@ Sjaastad (1962) 将移民视为一项投资，强调了移民的动态方面—�
 
 Diamond 2016\cite{diamondDeterminantsWelfareImplications2016} \textit{Relatedly, highly educated Americans have become increasingly concentrated in larger cities (Diamond 2016).}
 
-Todaro在模型中加入了一次性的迁移成本
 
-Egglestondd等研究了新农村医保给老年人提供了更多医疗保障,缓解了年轻人的迁移成本压力,增强了年轻人的迁移意愿
 
-Diamond-Mortensen-Pissarides 模型[14]突破了传统经济学的劳动者与企业之间无摩擦就业的限制,将搜寻摩擦纳入模型来分析均衡工资问题，结论是搜寻摩擦与技能水平对工资有显著决定作用。Rama[15],Petrongolo等[11]研究表明学历越高,工作技能专一性更强,就业匹配摩擦越大,失业率越高。
+
 
 
 
@@ -409,6 +586,8 @@ Banzhaf \& Walsh( 2008) 研究发现人们确实会对环境质量“用脚投�
 \cite{mckinnishWelfareinducedMigrationState2007}
 随着美国的高强度非法移民现象而兴起的研究
 
+Egglestondd等研究了新农村医保给老年人提供了更多医疗保障,缓解了年轻人的迁移成本压力,增强了年轻人的迁移意愿
+
 
 
 
@@ -417,13 +596,13 @@ Banzhaf \& Walsh( 2008) 研究发现人们确实会对环境质量“用脚投�
 
 \textbf{户口}
 
-\cite{ngaiChinasMobilityBarriers2019}: "China‘s hukou system imposes two main barriers to population movements. Agricultural workers get land to cultivate but are unable to trade it in a frictionless market. Social transfers (education, health, etc.) are conditional on holding a local hukou. We show that the land policy leads to over-employment in agriculture and it is the more important barrier to industrialization. E§ective land tenure guarantees and a perfect competitive rental market would correct this ine¢ ciency. The local restrictions on social transfers favour rural enterprises over urban employment with a relatively smaller impact on industrialization.
+与户籍挂钩的公共福利政策阻碍了我国的城市化进程(Ngaietal。，2018)。\cite{ngaiChinasMobilityBarriers2019}: "China‘s hukou system imposes two main barriers to population movements. Agricultural workers get land to cultivate but are unable to trade it in a frictionless market. Social transfers (education, health, etc.) are conditional on holding a local hukou. We show that the land policy leads to over-employment in agriculture and it is the more important barrier to industrialization. E§ective land tenure guarantees and a perfect competitive rental market would correct this ine¢ ciency. The local restrictions on social transfers favour rural enterprises over urban employment with a relatively smaller impact on industrialization.
 
 李强2003认为由于户籍制度，中国的人口流动将不再遵循一般的推拉规律
 
-陆益龙2008用OLS分析户籍的社会流动影响
+\cite{LuYiLongHuKouHuanQiZuoYongMaHuJiZhiDuYuSheHuiFenCengHeLiuDong2008}用OLS分析户籍的社会流动影响
 
-在我国的户籍政策下，流动人口因无法享受居住地的医疗、教育、养老等公共福利，仍需支付很高的迁移成本(Tombe and Zhu，2019)。与户籍挂钩的公共福利政策阻碍了我国的城市化进程(Ngaietal。，2018)。由于城市的户籍门槛更高，农业剩余劳动力更倾向于在农村从事非农业工作1，因此城市人口增长有限。
+在我国的户籍政策下，流动人口因无法享受居住地的医疗、教育、养老等公共福利，仍需支付很高的迁移成本(Tombe and Zhu，2019)。
 
 \cite{ZhouWenTuDiLiuZhuanHuJiZhiDuGaiGeYuZhongGuoChengShiHuaLiLunYuMoNi2017}
 在刘易斯二元经济模型基础上放松了农村剩余劳动力无  限供给和劳动力同质性假设,同时考虑利益集团的博弈和移民在城市的卢卡斯人力资本外部性,通过引入土地流转和人口迁移的限制,进而刻画出土地制度和户籍制度改革对城市化水平、要素价格  及居民福利的影响；
@@ -448,7 +627,7 @@ Moretti (2004); Fu and Liao (2012)指出人口密度高的地方有利于技能�
 
 \textit{Schultz (1961), who considered migration as a form of investment in human capital}
 
-
+Diamond-Mortensen-Pissarides 模型[14]突破了传统经济学的劳动者与企业之间无摩擦就业的限制,将搜寻摩擦纳入模型来分析均衡工资问题，结论是搜寻摩擦与技能水平对工资有显著决定作用。Rama[15],Petrongolo等[11]研究表明学历越高,工作技能专一性更强,就业匹配摩擦越大,失业率越高。
 
 
 
@@ -480,7 +659,7 @@ Moretti (2004); Fu and Liao (2012)指出人口密度高的地方有利于技能�
 
 
 % ---------------------------------------- 理论模型 ----------------------------------------
-\section{理论模型}
+\chapter{理论模型}
 传统方法研究这种迁移现象一般使用条件logit模型，例如\cite{SunWeiZengKongQiWuRanYuLaoDongLiDeKongJianLiuDongJiYuLiuDongRenKouJiuYeXuanZhiXingWeiDeYanJiu2019}使用，但是条件logit无法在长期动态条件下使用，所以：
 
 本文通过动态离散选择框架重构劳动力迁移决策机制，其建模必要性源于三重内生性挑战：首先，传统静态模型无法捕捉生命周期中人力资本积累引致的迁移倾向时变特征；其次，观测数据中存在不可观测的个体异质性（如风险偏好、信息处理能力）与迁移决策互为因果；第三，区位间收益流具有时变协整性，需构建跨期关联约束下的预期效用函数。
@@ -494,7 +673,7 @@ Moretti (2004); Fu and Liao (2012)指出人口密度高的地方有利于技能�
 其次，本文在模型中引入迁移摩擦，从而更加符合中国劳动力流动在客观上受到诸多制约的现实背景。
 在估计方法上，原作者采用的newton法面对大量数据需要消耗大量的计算资源以及结果可能不稳定，本文采用拟牛顿法解决大量数值计算的不稳定性
 
-\subsection{初步模型}
+\section{初步模型}
 
 劳动力流动问题本质上极为复杂。经过前述分析，我们认识到，劳动力流动和迁移不应被简单地视为一次性经济活动，而应被理解为贯穿个体整个生命周期的持续决策过程。个体可以在多个地理位置之间自由选择，每个位置均对应一种独特且相互排斥的收益流（payoff flow）。在个体做出迁移决策时，必须承担一定的迁移成本，这既包括直接的经济支出，也可能涵盖社会、心理等非经济成本。因此，在权衡不同位置的收益时，迁移成本被视作必要的扣减项。个体在不同阶段根据自身状况和外部环境变化，不断权衡是否迁移、迁移到何处，以及迁移后如何实现自身利益最大化。
 
@@ -598,7 +777,7 @@ $U_p=a(\frac{Y_p}{r}-M)$
   u_h(x,j)=\alpha_0 w(\ell^0,\omega)+\sum\limits \alpha_{k}Y_{k}(\ell^{0})+\sum\limits h +\xi(\ell^{0},\omega)-\triangle
 \end{equation}
 
-\subsection{工资性收入（货币收入）}
+\section{工资性收入（货币收入）}
 假设个体知道他们在当前地区$\ell^0$处的收入，并假设其拥有理性预期以及知道工资的分布（虽然在部分公司，同事之间串通获取工资信息是严厉禁止的）。个体$i$在地点$j$获取的收入可以用下式表示，其中$a$是个体的年龄：
 \begin{equation}
   w_{ij}(a)=\mu_j+\nu_{ij}+G(X_i,a,t)+\eta_i+\varepsilon_{ij}(a)
@@ -644,7 +823,7 @@ $\rho_j$ is the location effect，这会捕捉一些受地区影响的经济变�
 
 多地采用了人才补贴的做法，以杭州市为例。。此种做法即地方的政策性福利
 
-\subsection{宜居度}
+\section{宜居度}
 舒适度由各种变量组成
 对于住房成本而言
 分成短期成本（例如租房成本），长期成本（例如住房成本和维护成本）
@@ -653,7 +832,7 @@ $\sum\limits_{k}s^k_{ij}+\triangle_r(r_j)+\triangle_h(h_j)$, where $\sum\limits_
 这会将租房和住房市场同时纳入模型中考察其对劳动力流入与流出的影响
 
 
-\subsection{乡土文化}
+\section{乡土文化}
 家乡溢价$\sum\limits_{i}\alpha^{H}_{i}$
 个体可能出于恋家、乡土文化等各种原因更偏好家乡，从而宁愿降低一些收入而选择家乡，这种溢价用参数$a^H$捕捉
 
@@ -663,7 +842,7 @@ $\sum\limits_{k}s^k_{ij}+\triangle_r(r_j)+\triangle_h(h_j)$, where $\sum\limits_
 
 包含家乡这一因素是极具理论进步性的一步 对于劳动力回流的研究可以从这个角度突破
 
-\subsection{迁移成本}
+\section{迁移成本}
 劳动力迁移成本
 \begin{equation}
   \Delta_\tau(x, j) = [\gamma_{0 \tau}+\gamma_1 \cdot D(\ell^0,j)-\gamma_2 \cdot\chi(j\in A(\ell^0))-\gamma_3 \cdot\chi(j=\ell^1)+\gamma_4 \cdot\alpha-\gamma_5 \cdot n_j]\chi(j\neq \ell^0)
@@ -675,7 +854,7 @@ $\gamma_{0 \tau}$为截距项，反映了迁移成本中未观测到的异质性
 所以可以采用Samuelson的iceburg理论 流动壁垒可以被认为是一次性付清的迁移成本
 令$MovingCost = \frac{SomeMoney}{CertainCoefficient}$
 
-\subsection{状态转移概率}
+\section{状态转移概率}
 先前我们使用了状态变量$x$囊括了M维最近地区向量$\ell$，M维地区工资与地区效用信息$\omega$和年龄$a$，此状态变量有改变的可能，The state $x'$ is the new state after a move.用以下式子来描述
 The transition probability is 
 \begin{equation}
@@ -693,7 +872,7 @@ The transition probability is
 
 此概率描述的是在选择了特定位置 $j$ 的情况下，从一个状态 $x$ 移动到新状态 $x'$ 的可能性。这是一个条件概率，它关注状态如何根据位置决策而变化的机制。它既包括确定性变化（如年龄增长），也包括随机变化（如位置匹配效应的随机抽取）。
 
-\subsection{劳动力迁移决策}
+\section{劳动力迁移决策}
 移动的motivation：
 基于对于工资的假设
 不同地区之间$j$和$k$之间只有平均工资$\mu$、地区匹配效应$\eta$和地区固定效应$\rho$是随着地区之间变化的
@@ -716,9 +895,9 @@ The transition probability is
 这点对于年岁较大的人更甚
 
 % ---------------------------------------- 实证部分 ----------------------------------------
-\section{实证检验}
+\chapter{实证检验}
 
-\subsection{实证模型} % (fold)
+\section{实证模型} % (fold)
 \label{sub:实证模型}
 \subsubsection{年龄效应}
 出于简化
@@ -850,7 +1029,7 @@ $L_i(\theta_{\tau})$捕捉了该个体数据与类型$\tau$相关的匹配度。
 
 % subsection 实证模型 (end)
 
-\subsection{数据上}
+\section{数据上}
 
 地区数据的界限
 由于劳动力的迁移在不同省之间呈现趋势 但在迁入大省中仍然存在人口净流出市 这说明劳动力移动的法律边界和现实边界存在重合 但是最好应该以市为标准 当然这一准则不包括某些政策带来的效应
@@ -915,7 +1094,7 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 同样的
 对于医疗资源使用熵值法合成一个指标
 
-\subsection{方法上} % (fold)
+\section{方法上} % (fold)
 \label{sub:方法上}
 基于以上的推导
 在代码中需要先求出个体的似然
@@ -972,7 +1151,7 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 
 
 % ---------------------------------------- 估计结果 ----------------------------------------
-\section{估计结果}
+\chapter{估计结果}
 
 本文尝试回答一下几个问题：
 \begin{itemize}
@@ -985,13 +1164,13 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 
 \cite{XiaYiRanChengShiJianDeMengMuSanQianGongGongFuWuYingXiangLaoDongLiLiuXiangDeJingYanYanJiu2015} 利用 2005 年 1\%人口抽样调查中劳动力流动的微观数据与 220 个地级市的城市特征 数据研究发现公共服务对劳动力流入产 生 吸 引 力,同 时 房 价 对 劳 动 力 流 入 也 有 正 向 作 用 ,他 们 认 为这是因为房价“资本化”了部分未观察到的公共服务或城市特征,此文关注点不在房价，而且使 用的普查 数 据 没 有 覆 盖 近 十 年 来 中 国 房 价 暴 涨 的 阶 段。
 
-\subsection{基准回归} % (fold)
+\section{基准回归} % (fold)
 \label{sub:基准回归}
 
 
 
 % subsection 基准回归 (end)
-\subsection{不同学历人群的差别} % (fold)
+\section{不同学历人群的差别} % (fold)
 \label{sub:不同学历人群的差别}
 
 
@@ -999,7 +1178,7 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 % subsection 不同学历人群的差别 (end)
 
 % ---------------------------------------- 结论 ----------------------------------------
-\section{结论}
+\chapter{结论}
 当然以城乡二元对立为代表的思想在我国依旧有非常重要的应用 因为我国依旧有大量依附于城乡关系的社会体系、福利体系等种种重要的制度
 甚至在研究二元对立话题中依旧可以引入例如Rosen Roback这样的经典模型
 例如 
@@ -1033,7 +1212,7 @@ CFPS数据记录了个人的迁移轨迹（将访问当年的地址视作居住�
 \newpage
 \appendix
 
-\section{McFadden条件概率}
+\chapter{McFadden条件概率}
 
 个体选择选项j的条件是其总效用最大，即
 $u_j + \zeta_j > u_k + \zeta_k, \forall k \neq j$。
@@ -1050,7 +1229,7 @@ $\ln P_j = - \sum_{k \neq j} \ln(1 + \exp(u_k - u_j))$。
 通过指数函数的性质，将上述表达式转换为
 $P_j = \frac{\exp(u_j)}{\sum\limits_{k \in C} \exp(u_k)}$。
 
-\section{效用等价于收入的特殊情况}
+\chapter{效用等价于收入的特殊情况}
 假设效用函数的线性形式为$U(x)=a X$，其中a为边际效用参数。居民可在固定利率$r$下无限制借贷，预算约束满足消费现值等于收入现值。
 居民可以留在原地（永久收入为$Y_h$）或迁移（永久收入为$Y_p$，后者需支付一次性迁移成本 $M$。
 假设迁移成本 
@@ -1073,7 +1252,7 @@ $U_p=a(\frac{Y_p}{r}-M)$
 迁移的条件为$U_p>U_h \Rightarrow a(\frac{Y_p}{r}-M) > a \frac{ Y_h}{r} \Rightarrow Y_p-Y_h > rM$。
 期望效用最大化等价于选择净现值更高的选项，即$\max{a(\frac{Y_p}{r}-M), a \frac{ Y_h}{r}}$。
 
-\section{Rust极值分布}
+\chapter{Rust极值分布}
 公式中的随机效用项假设服从于一类极值分布
 We assume that $\zeta_j$ is drawn from the Type I extreme value distribution. In this case, using arguments due to McFadden (1973) and Rust (1987), we have
 $$\exp\left(\bar{v}(x)\right) = \sum_{k=1}^J \exp\left(v(x, k)\right)$$
@@ -1082,7 +1261,7 @@ $$\exp\left(\bar{v}(x)\right) = \sum_{k=1}^J \exp\left(v(x, k)\right)$$
 它意味着，在状态x 下，选择某一选项j的概率与效用的指数值成比例。
 这个性质广泛用于预测个体选择的分布。
 
-\section{地点选择概率}
+\chapter{地点选择概率}
 $\rho(x,j)=\frac{\exp(v(x,j))}{\sum\limits_{k=1}^{J} exp(x,k)}$
 
 Probability that a person in state $x$ will choose location $j$ can then be written as
