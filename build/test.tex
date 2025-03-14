@@ -1,14 +1,21 @@
 %!TEX program = Traditional Builder with XeLaTeX
-\documentclass[a4paper,12pt]{book}
+\documentclass[a4paper,12pt,oneside]{book} % 使文档按单面打印模式排版
 \usepackage[UTF8]{ctex}
 \usepackage{graphicx} % Required for inserting images
-\usepackage{amsmath,amsthm} % Math
-\usepackage{wasysym,MnSymbol} % Greek alphabets
-\usepackage{mathrsfs,amsfonts,calrsfs} % Math fonts
+\usepackage{amsmath, amsthm, amssymb} % Math
+\usepackage{wasysym, MnSymbol} % Greek alphabets
+\usepackage{mathrsfs, amsfonts} % Math fonts ,calrsfs
 \usepackage{geometry} % Formatting
 \usepackage{hyperref} % 引用链接
 \usepackage{listings} % 代码输入
 \usepackage{fancyhdr} % 引入fancyhdr宏包来控制页眉页脚
+\usepackage{titlesec} % 定制章节标题样式
+\usepackage{tikz} % 绘制动态规划决策图
+\usepackage{caption} % Optional, for caption customization
+\usepackage{xcolor} % color
+
+% 启用tikz
+\usetikzlibrary{arrows.meta, positioning, calc, shapes.geometric, fit, backgrounds, matrix, decorations.pathreplacing}
 
 % 添加首行缩进，两个字符
 \usepackage{indentfirst}
@@ -29,6 +36,10 @@
 % \fancyhead[C]{\makebox[\paperwidth][c]{浙江财经大学硕士毕业论文}} % 使用纸张宽度居中
 % \fancyhead[C]{\rule{\paperwidth}{0.4pt} \\ 浙江财经大学硕士毕业论文}
 
+% 重新定义\chapter的样式，使编号和标题在同一行
+\titleformat{\chapter}[hang] % 表示标题采用“悬挂”样式，即编号和标题在同一行。
+  {\normalfont\huge\bfseries}{\thechapter}{1em}{}
+
 % document headings
 \title{基于个人动态最优居住地选择视角的劳动力回流行为考察}
 \author{Suicidal Bumblebee}
@@ -41,10 +52,10 @@
 
 \frontmatter
 % ---------------------------------------- 摘要 ----------------------------------------
-\chapter{zhaiyao}
-  随着经济的发展与社会工业化带来的社会关系剧变，劳动力迁移形成有规律的迁移模式是必然的。不同于我国研究中的传统城乡二元对立语境，本文基于理性预期构造了动态最优住址选择模型，基于CFPS数据对2010年至2022年间我国各省的人口流动进行实证检验，并得到的结论是（xxx、xxx、xxx）。本文的贡献在于（xxx、xxx、xxx）。
+\chapter{摘要}
+随着经济的发展与社会工业化带来的社会关系剧变，劳动力迁移形成有规律的迁移模式是必然的。不同于我国研究中的传统城乡二元对立语境，本文基于理性预期构造了动态最优住址选择模型，基于CFPS数据对2010年至2022年间我国各省的人口流动进行实证检验，并得到的结论是（xxx、xxx、xxx）。本文的贡献在于（xxx、xxx、xxx）。
 
-  \textbf{关键词：} 动态迁移决策模型、劳动力迁移、收入引致、迁移摩擦
+\textbf{关键词：} 动态迁移决策模型、劳动力迁移、收入引致、迁移摩擦
 
 
 % ---------------------------------------- Abstract ----------------------------------------
@@ -52,12 +63,11 @@
 
 Here is the english version of abstract
 
-keywords：a，b，c
+\textbf{keywords}：a，b，c
 
 % ---------------------------------------- 目录 ----------------------------------------
 \thispagestyle{empty}
 \tableofcontents
-
 
 \mainmatter
 % ---------------------------------------- 绪论 ----------------------------------------
@@ -688,50 +698,185 @@ Diamond-Mortensen-Pissarides 模型[14]突破了传统经济学的劳动者与�
 \item 传统多值回归方法中，probit模型强调个体之间符合正态分布，logit模型强调个体不存在相关性（独立同类假设，Independence of Irrelevant Alternatives, IIA，它假设不同类别之间是独立的），然而混合logit模型（也叫随机参数logit模型）作为一种扩展，可以放宽IIA假设。通过引入随机效应，混合logit模型允许类别之间存在相关性，并且能够处理非独立的选择行为。混合logit可以通过引入个体间的异质性来提高模型的灵活性，特别是在不符合IIA假设时。
 \end{itemize}
 
-动态迁移决定模型的基础是离散选择理论中的随机效用模型（Random Utillity Model, RUM）。按照该理论，个体的效用被建模为确定性部分和随机部分的和，个体不明确考虑消费和储蓄的问题。假设个体在单个时期中，选择某一选项$j$时获得的收益流为$\tilde u_j$，其由两部分组成：
-\begin{equation}
-  \tilde u_j = u_j + \zeta_j
-\end{equation}
-其中$u_i$是已知的、可观测的部分，而$\zeta_i$是不可观测的随机部分，通常被假设为服从某种概率分布。
+考虑一个理性的决策者在$T$期生命周期内选择最优居住地序列。令$\mathcal{C} = \{1,2,\dots,m\}$表示居住地选择集，$j_t \in \mathcal{C}$表示第$t$期的居住地选择，那么完整的选择序列可表示为$\mathcal{J}=\{j_1, j_2 ,\dots,j_T\}$。典型的居住地选择模式包括：
+\begin{itemize}
+  \item 长期定居：决策者在特定时间段内总是停留在同一个地区，例如$\mathcal{J}=\{\dots, 1,1,1,1,1,\dots\}$
+  \item 单向迁移：如果$j_p\neq j_q,\forall p \neq q$，那么个体就进行了迁移，例如$\mathcal{J}=\{\dots, 1,2,3,4,5,\dots\}$
+  \item 回流迁移：返回到先前居住过的地区，例如 $\mathcal{J}=\{\dots, 1,2,2,1,1,\dots\}$
+\end{itemize}
 
-理性个体做出选择的标准是选择使得效用最大化的选项，对于在选择集$C$中选择$j$的概率可以写为：
+决策问题由状态变量$x_t$刻画，其包含
+个体特征（年龄、收入、家庭规模等）、
+地区属性（房价、公共设施等）、
+历史居住选择记录、
+宏观经济环境、
+等因素。
+状态转移服从马尔可夫过程，其转移概率为$p(x_{t+1}|x_t,j_t)$。
+
+决策者在第$t$期从居住地$j$获得的效用为：
+\begin{equation}
+  \tilde{u}_t(j, x_t) = u_t(j, x_t) + \zeta_{jt}
+\end{equation}
+其中$u_t(j, x_t)$为可观测效用项，$\zeta_{jt}$为在任意时期和地点都独立同分布的随机扰动项，服从标准Gumbel分布$F(\zeta) = \exp(-\exp(-\zeta))$，且与状态变量$x$无关。
+
+
+理性个体做出选择的标准是选择使得效用最大化的选项：
+\begin{equation}
+  j_t^* = \arg\max_{j \in C} \{\tilde{u}_t(j, x_t)\}
+\end{equation}
+
+对于在选择集$\mathcal{C}$中选择$j$的概率可以写为：
 \begin{equation}
 \begin{split}
   Pr(\text{j is chosen})&=Pr(\tilde u_j > \tilde u_k, \forall k \neq j)
-  \\&=Pr(u_j+\zeta_k>u_j+\zeta_k, \forall k \neq j)
-  \\&=Pr(u_j-u_k>\zeta_j-\zeta_k, \forall k \neq j)
+  \\&=Pr(u_j+\zeta_j>u_k+\zeta_k, \forall k \neq j)
+  \\&=Pr(u_j-u_k>\zeta_k-\zeta_j, \forall k \neq j)
 \end{split}
 \end{equation}
 
-
-
-
-
-
-
-
-
-
-
-
-将个体的选择扩展到多期，可知在任意一期选择中其效用可以分为两部分，一是选择地点$j$带来的当期效用，二是折现的通过转移概率加权得到的未来期望效用。在任意地点$j$，使用状态变量$x=(\ell,\omega,a)$囊括去过的地区序列$\ell$、地区包含的工资$w$、地区包含的偏好信息、年龄$a$。令$v$为生命周期中的稳定效用，其表达式为：
+而$\zeta_j$服从Gumbel分布，根据\cite{mcfaddenConditionalLogitAnalysis1973}的结论，我们可以得出选择具体地点$j$的概率为
 \begin{equation}
-  v(x, j) = u(x, j) + \beta \sum_{x'} p(x' | x, j) \bar{v}(x')
+  \rho(x,j)=\frac{f}{f} 
+  \label{McFadden1973result}
 \end{equation}
-其中$\bar{v}(x) = E_{\zeta} V(x, \zeta)$表明在状态x下去掉随机项影响得到的期望效用，$\beta$是折现因子，$E_{\zeta}$表示对 J 维向量$\zeta$的分布求期望，其中$\zeta_{j}$是其各个分量。$p(x'|x,j)$是状态转移概率。
 
-用$v$表示稳定效用，用$\zeta$表示随机效用，那么居民的基本问题就是在每个给定状态$x$和随机项 $\zeta_j$的情况下，通过选择$j$来实现使得个体在生命周期中的总效用最大化，即：
+
+在动态框架下，决策者具有前瞻性，并且通过最大化期望折现效用进行跨期优化。决策者在每期进行最优的居住地选择，或者说决策者选择$T$维的最优居住地选择序列$\mathcal{J}^*=\{j_1^*,j_2^*,\ldots,j_T^*\}$。每期的效用可以分为两部分，一是选择地点$j \in \mathcal{C}$带来的当期效用，二是折现的通过转移概率加权得到的未来期望效用。
+
+假设折现因子为$\beta$，决策者的目标是为从$t$期开始的期望折现效用最大值，这可以表示为：
+\begin{equation}
+  V_t(x_t, \zeta_{j_t}) = \max_{j_t \in \mathcal{C}} 
+  \left\{ 
+  \tilde{u}(j_t, x_t) + \beta \sum_{x_{t+1}} p(x_{t+1} | x_t, j_t) \cdot \mathbb{E}_{\zeta_{j_{t+1}}} [ V_{t+1}(x_{t+1}, \zeta_{j_{t+1}}) ]
+  \right\}
+\end{equation}
+其中$\mathbb{E}_{\zeta_{j+1}} v_{t+1}(x_{t+1},\zeta_{j+1})$
+为在状态 
+$x_{t+1}$下，对所有可能随机扰动 
+$\zeta$取期望后的长期效用。
+
+那么居民的基本问题就是在每个给定状态$x$和随机项 $\zeta_j$的情况下，决策者选择最优居住序列$\mathcal{J}^*$使得全生命周期中的期望折现效用最大化
+\begin{equation}
+  \max_{\mathcal{J}=\{j_1,j_2,\ldots,j_T\}} \mathbb{E} [ \sum_{t=1}^{T} \beta^{t-1} \tilde{u}_{j_t}(x_t, j_t) ]
+\end{equation}
+
+也可以使用迭代形式，即决策者每期都选择$j$来实现使得个体在生命周期中的总效用最大化，
+令
+$\begin{cases}
+  v(x_{t},j_{t})=u(x_{t} , j_{t} )+\beta \sum_{x_{t+1}} p(x_{t+1}|x_t,j_t) \cdot \mathbb{E}_{\zeta_{j+1}} V_{t+1}(x_{t+1},\zeta_{j+1})
+  \\
+  \bar v(x_{t})=\mathbb{E}_{\zeta_{j_t}} v_{t}(x_{t},\zeta_{j})
+\end{cases}$
+，其中$E_{\zeta}$表示对 J 维向量$\zeta$的分布求期望\footnote{对于决策者而言收益冲击$\zeta$在做出居住地选择决策之前就已经实现，而$v(x,j)$ 和 $\bar v(x)$ 之间的区别在于，一个表示每个替代选择的延续值，而另一个表示在收益冲击实现之前所取的优化延续值的期望。}，决策者基本问题的迭代形式为：
 \begin{equation}
 V(x,\zeta)=\max\limits_{j}[v(x,j)+\zeta_{j}]
 \end{equation}
 
-假设随机效用项$\zeta_j$独立同分布且服从 I 型极值分布，
-其概率累积分布为
-$F(\zeta_j)=\exp(-\exp(-\zeta_j+\bar \gamma))$，其中$\bar \gamma$为欧拉常数。
-$\max\limits_j (v(x,j)+\zeta_j)$的期望为$\bar v(x) = E_\zeta V(x,\zeta)= \ln(\sum\limits_{k=1}^J \exp(v(x,k)))+\bar \gamma$。这表明$\exp(\bar v(x)-\bar \gamma)=\sum\limits_{k=1}^J \exp(v(x,k))$。将其简化为，$\exp(\bar v(x))=\sum\limits_{k=1}^J \exp(v(x,k))$。
+Figure (xxx) illustrates a dynamic programming decision process where, at the end of each discrete period, the agent makes a decision, gains utility, and moves to the next period.
 
-利用Gumbel分布的封闭性质，将选择地点$j$的概率事件表达式化为$\rho(x,j)=\exp(\bar \gamma + v(x,j) - \bar v(x))$，
-将$\bar v(x)$的定义式代入其中，化简后利用指数运算的特性可得动态离散选择中的地点选择概率\footnote{这实际上也是softmax函数的一种概率向量形式，可以在动态模型中通过$\bar v(x) = \ln (\sum \exp(v(x,k)))+\bar \gamma $将未来效用递归嵌入当前选择。}
+\begin{figure}
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{tikzpicture}[
+    node distance=2cm and 2.5cm,
+    decision/.style={diamond, draw, text width=2.2cm, text centered, minimum height=1cm, fill=blue!10},
+    process/.style={rectangle, draw, text width=3cm, text centered, rounded corners, minimum height=0.8cm, fill=blue!10},
+    state/.style={rectangle, draw, text width=2.5cm, text centered, minimum height=0.8cm, fill=orange!20},
+    utility/.style={rectangle, rounded corners, draw = gray!20, fill=gray!20, text width=2.8cm, text centered, minimum height=0.8cm},
+    transition/.style={rectangle, draw, text width=2.5cm, text centered, minimum height=0.8cm, fill=purple!10},
+    probability/.style={rectangle, draw, text width=2.5cm, text centered, minimum height=0.8cm, fill=red!10},
+    random/.style={ellipse, draw, text width=2.5cm, text centered, minimum height=0.8cm, fill=yellow!20},
+    discount/.style={trapezium, draw, text width=2.5cm, text centered, minimum height=0.8cm, fill=cyan!20},
+    migration/.style={-Stealth, thick, color=blue},
+    annotation/.style={->, dashed, thick, color=gray},
+    highlight/.style={->, thick, color=red!70},
+    emphasis/.style={rectangle, rounded corners, draw=red, dashed, thick},
+    every node/.style={font=\scriptsize}
+]
+
+% 第一行：初始状态和随机扰动
+\node[state] (state_t) {期初状态 $x_t$};
+\node[random, right=of state_t] (random_shock) {随机扰动抽取\\$\zeta_{jt} \sim$ Gumbel分布};
+
+% 第二行：效用计算和概率计算
+\node[utility, below=1.5cm of state_t] (utility) {计算各地点效用\\$\tilde{u}_t(j, x_t) = u_t(j, x_t) + \zeta_{jt}$};
+\node[probability, right=of utility] (probability) {计算选择概率\\$\rho(x_t,j) = \frac{\exp(v(x_t,j))}{\sum_{k} \exp(v(x_t,k))}$};
+
+% 第三行：延续价值和最优决策
+\node[utility, below=1.5cm of utility] (continuation) {计算延续价值\\$v(x_t,j) = u(x_t,j) + \color{cyan}\boldsymbol{\beta}\color{black} \mathbb{E}[V_{t+1}]$};
+\node[decision, right=of continuation] (decision) {选择最优地点\\$j_t^* = \arg\max_{j} \{\tilde{u}_t(j) + \beta V_{next}\}$};
+
+% 第四行：折现因子和状态转移
+\node[discount, below=1.5cm of continuation] (discount) {折现因子 $\beta$\\未来效用折现};
+\node[state, right=of discount] (state_next) {状态转移 $x_{t+1} \sim p(x_{t+1}|x_t,j_t)$};
+
+% 第五行：期望值函数和贝尔曼方程
+\node[utility, below=1.5cm of state_next] (value_func) {期望值函数\\$\bar{v}(x_{t+1}) = \mathbb{E}_{\zeta}[V_{t+1}(x_{t+1},\zeta)]$};
+\node[process, left=of value_func] (bellman) {贝尔曼方程\\$V_t(x_t,\zeta_{jt}) = \max_{j_t} \{ \tilde{u}(j_t, x_t) + \beta \mathbb{E}[\bar{v}(x_{t+1})] \}$};
+
+% 迁移结果标注
+\node[process, right=of random_shock, fill=blue!30] (migrate) {迁移结果: $j_t \neq j_{t-1}$\\产生迁移成本};
+
+% 基本连接线
+\draw[migration] (state_t) -- (utility);
+\draw[migration] (random_shock) -- (utility);
+\draw[migration] (utility) -- (continuation);
+\draw[migration] (utility) -- (probability);
+\draw[migration] (continuation) -- (decision);
+\draw[migration] (discount) -- (continuation);
+\draw[migration] (decision) -- (state_next);
+\draw[migration] (state_next) -- (value_func);
+\draw[migration] (value_func) -- (bellman);
+\draw[migration] (bellman) to[bend left=90] node[left] {递归更新} (state_t);
+\draw[migration] (probability) -- (migrate);
+
+% 随机扰动连接 - 高亮
+\draw[highlight] (random_shock) -- (utility) node[midway, above, sloped, text=red] {效用冲击};
+
+% 折现因子连接 - 高亮
+\draw[highlight] (discount) -- (continuation) node[midway, left, text=red] {未来折现};
+\draw[highlight] (discount) to[bend right=20] (bellman) node[midway, below, sloped, text=red] {价值折现};
+
+% 添加简洁版迁移特征说明
+\node[draw, text width=3cm, right=of decision, fill=blue!5, font=\tiny] {
+    \textbf{劳动力迁移特征:}
+    \begin{itemize}
+        \item 当期位置: $j_t$
+        \item 上期位置: $j_{t-1}$
+        \item 迁移条件: $j_t \neq j_{t-1}$
+    \end{itemize}
+};
+
+% 添加简洁版随机扰动分布解释
+\node[draw, text width=3cm, above right=0.2cm and 0.2cm of random_shock, fill=yellow!5, font=\tiny] {
+    \textbf{随机扰动特性:}
+    \begin{itemize}
+        \item 独立同分布
+        \item I型极值分布
+        \item 捕捉不可观测效用
+    \end{itemize}
+};
+
+\end{tikzpicture}
+}
+\caption{动态离散选择模型下的劳动力迁移决策流程图}
+\label{fig:migration_flow_resized}
+\end{figure}
+
+\begin{figure}
+  
+\end{figure}
+
+
+由于随机效用项$\zeta_j$独立同分布且服从 I 型极值分布，根据\cite{mcfaddenConditionalLogitAnalysis1973,rustOptimalReplacementGMC1987,rustStructuralEstimationMarkov1994}的结论，
+\begin{equation}
+  \exp(\bar v(x_t))=\sum\limits_{k=1}^{J}\exp(v(x_t,k_t))
+\end{equation}
+可知选择地点j的概率为
+\begin{equation}
+  \rho(x,j)=\exp(v(x,j)-\bar v(x))
+\end{equation}
+即
 \begin{equation}
   \rho(x,j)=\frac{\exp(v(x,j))}{\sum\limits_{k=1}^J \exp(v(x,k))}
 \end{equation}
@@ -740,8 +885,29 @@ $\max\limits_j (v(x,j)+\zeta_j)$的期望为$\bar v(x) = E_\zeta V(x,\zeta)= \ln
 
 
 
+由于随机效用项$\zeta_j$独立同分布且服从 I 型极值分布，
+其概率累积分布为
+$F(\zeta_j)=\exp(-\exp(-\zeta_j+\bar \gamma))$，其中$\bar \gamma$为欧拉常数。
 
-假设收入的边际效用是固定的，居民可以在固定利率下自由借贷，那么居民的期望效用最大化问题就可以转化为预期永久收入\footnote{永久收入以现值形式记录。}减去一次性付清的迁移成本。
+$\max_j \left(v(x,j)+\zeta_j\right)$的期望为$\bar v(x) = E_\zeta V(x,\zeta)= \ln(\sum\limits_{k=1}^J \exp(v(x,k)))+\bar \gamma$。这表明$\exp(\bar v(x)-\bar \gamma)=\sum\limits_{k=1}^J \exp(v(x,k))$。将其简化为，$\exp(\bar v(x))=\sum\limits_{k=1}^J \exp(v(x,k))$。
+
+利用Gumbel分布的封闭性质，将选择地点$j$的概率事件表达式化为$\rho(x,j)=\exp(\bar \gamma + v(x,j) - \bar v(x))$，
+将$\bar v(x)$的定义式代入其中，化简后利用指数运算的特性可得动态离散选择中的地点选择概率\footnote{这实际上也是softmax函数的一种概率向量形式，可以在动态模型中通过$\bar v(x) = \ln (\sum \exp(v(x,k)))+\bar \gamma $将未来效用递归嵌入当前选择。}
+\begin{equation}
+  \rho(x,j)=\frac{\exp(v(x,j))}{\sum\limits_{k=1}^J \exp(v(x,k))}
+\end{equation}
+
+
+\section{效用函数的构成}
+
+接下来为效用函数赋予具体形式，从而使其具有经济意义。
+假设决策者的家乡是h，那么地点h上可能的效用流为：
+\begin{equation}
+  \tilde u_{t}^h(x_t,j_t)=u_{t}^h(x_t,j_t) +\zeta_{jt}
+\end{equation}
+
+其中，居民的基础效用由货币性收入、城市宜居度、家乡溢价减去迁移成本组成。假设收入的边际效用是固定的，居民可以在固定利率下自由借贷，那么居民的期望效用最大化问题就可以转化为预期永久收入\footnote{永久收入以现值形式记录。}
+减去一次性付清的迁移成本。
 \footnote{
 假设效用函数的线性形式为$U(x)=a X$，其中a为边际效用参数。居民可在固定利率$r$下无限制借贷，预算约束满足消费现值等于收入现值。
 居民可以留在原地（永久收入为$Y_h$）或迁移（永久收入为$Y_p$，后者需支付一次性迁移成本 $M$。
@@ -765,19 +931,17 @@ $U_p=a(\frac{Y_p}{r}-M)$
 迁移的条件为$U_p>U_h \Rightarrow a(\frac{Y_p}{r}-M) > a \frac{ Y_h}{r} \Rightarrow Y_p-Y_h > rM$。
 期望效用最大化等价于选择净现值更高的选项，即$\max\{a(\frac{Y_p}{r}-M), a \frac{ Y_h}{r}\}$。
 }
-
-
-居民的迁移行为具体而言由以下因素刻画，假设居民的家乡是h，那么地点h上可能的效用流为：
 \begin{equation}
-  \tilde u_{h}(x,j)=u_{h}(x,j) +\zeta_j
+  u_t^h(x_t,j_t)=\alpha_0 \cdot w(j_t,\omega_t)+\sum\limits_{s} \alpha_{s} \cdot y_{s}(j_t)+\alpha_h \cdot I(j_t=h)+\xi(j_t,\omega)-\kappa(x,j)
 \end{equation}
+其中$w(j_t,\omega_t)$为货币性收入，
+$y_{s}(j_t)$为该居住地提供的各种宜居度，
+$I(j_t=h)$为指示性函数,
+$\xi$为无法解释的偏好冲击或者迁移成本冲击,
+$\kappa$为前往其他区域j的迁移成本。
 
-其中，居民的基础效用由货币性收入、宜居度指标、家乡溢价减去迁移成本组成。
-\begin{equation}
-  u_h(x,j)=\alpha_0 w(\ell^0,\omega)+\sum\limits \alpha_{k}Y_{k}(\ell^{0})+\sum\limits h +\xi(\ell^{0},\omega)-\triangle
-\end{equation}
 
-\section{工资性收入（货币收入）}
+
 假设个体知道他们在当前地区$\ell^0$处的收入，并假设其拥有理性预期以及知道工资的分布（虽然在部分公司，同事之间串通获取工资信息是严厉禁止的）。个体$i$在地点$j$获取的收入可以用下式表示，其中$a$是个体的年龄：
 \begin{equation}
   w_{ij}(a)=\mu_j+\nu_{ij}+G(X_i,a,t)+\eta_i+\varepsilon_{ij}(a)
@@ -823,7 +987,7 @@ $\rho_j$ is the location effect，这会捕捉一些受地区影响的经济变�
 
 多地采用了人才补贴的做法，以杭州市为例。。此种做法即地方的政策性福利
 
-\section{宜居度}
+% \subsection{宜居度}
 舒适度由各种变量组成
 对于住房成本而言
 分成短期成本（例如租房成本），长期成本（例如住房成本和维护成本）
@@ -832,7 +996,7 @@ $\sum\limits_{k}s^k_{ij}+\triangle_r(r_j)+\triangle_h(h_j)$, where $\sum\limits_
 这会将租房和住房市场同时纳入模型中考察其对劳动力流入与流出的影响
 
 
-\section{乡土文化}
+% \subsection{乡土文化}
 家乡溢价$\sum\limits_{i}\alpha^{H}_{i}$
 个体可能出于恋家、乡土文化等各种原因更偏好家乡，从而宁愿降低一些收入而选择家乡，这种溢价用参数$a^H$捕捉
 
@@ -842,12 +1006,14 @@ $\sum\limits_{k}s^k_{ij}+\triangle_r(r_j)+\triangle_h(h_j)$, where $\sum\limits_
 
 包含家乡这一因素是极具理论进步性的一步 对于劳动力回流的研究可以从这个角度突破
 
-\section{迁移成本}
+% \subsection{迁移成本}
 劳动力迁移成本
 \begin{equation}
   \Delta_\tau(x, j) = [\gamma_{0 \tau}+\gamma_1 \cdot D(\ell^0,j)-\gamma_2 \cdot\chi(j\in A(\ell^0))-\gamma_3 \cdot\chi(j=\ell^1)+\gamma_4 \cdot\alpha-\gamma_5 \cdot n_j]\chi(j\neq \ell^0)
 \end{equation}
 $\gamma_{0 \tau}$为截距项，反映了迁移成本中未观测到的异质性；$\gamma_1 \cdot D(\ell^0,j)$为距离效应，其中 $D(\ell^0, j)$ 表示当前位置 $\ell^0$ 与目标位置 $j$ 之间的距离，说明迁移成本与距离呈仿射关系；$\gamma_2 \cdot \chi(j\in A(\ell^0))$为邻近效应，$\chi(j\in A(\ell^0))$ 为指示函数，当目标地点与当前地区相邻时取值为 1，反映出邻近迁移成本较低；$\gamma_3 \cdot \chi(j=\ell^1)$为回流效应，指示当目标位置为个体先前工作或生活过的地点时，其迁移成本可能较低；$\gamma_4 \cdot \alpha$为年龄效应，表明迁移成本与个体年龄 $a$ 相关；$\gamma_5 \cdot n_j$为规模效应，$n_j$ 为目标地区的人口规模，说明迁移到人口较多的地区可能成本更低。其中，乘以 $\chi(j\neq \ell^0)$ 保证仅在目标位置与当前不同的情况下计入迁移成本。
+
+
 
 \textbf{讨论劳动力流动壁垒问题}
 
