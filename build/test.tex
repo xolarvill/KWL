@@ -13,6 +13,7 @@
 \usepackage{tikz} % 绘制动态规划决策图
 \usepackage{caption} % Optional, for caption customization
 \usepackage{xcolor} % color
+\usepackage{booktabs} % 使用booktabs表格形式
 
 % 启用tikz
 \usetikzlibrary{arrows.meta, positioning, calc, shapes.geometric, fit, backgrounds, matrix, decorations.pathreplacing}
@@ -425,6 +426,16 @@ Methodologically involved
 
 
 
+最优居住地序列选择模型的关系如图\ref{fig:最优居住地序列选择问题的理论来源venn diagram}所示。
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=0.8\textwidth]{images/optimal_residential_sequence.drawio.pdf}
+\caption{最优居住地序列选择问题的理论来源}
+\label{fig:最优居住地序列选择问题的理论来源venn diagram}
+\end{figure}
+
+
 
 
 
@@ -459,14 +470,26 @@ To specification, factors including but not limited to as follow:
 And with so many discussions at depth and length, a concept called migration friction has emerged from researches unanimously. 
 
 
+影响劳动力迁移的因素如表格\ref{tab:影响劳动力迁移的因素}归纳。
 
-
-
-
-
-
-
-
+\begin{table}[!ht]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\multicolumn{1}{c}{\textbf{影响劳动力迁移的因素}} &  & \multicolumn{1}{c}{\textbf{主要讨论文献}} \\ \midrule
+收入差异 &  &  \\
+房价 &  &  \\
+户籍 &  &  \\
+公共服务 &  &  \\
+天气 &  &  \\
+自然灾害 &  &  \\
+迁移成本 &  &  \\
+文化壁垒 &  &  \\
+地区偏好 &  &  \\ \bottomrule
+\end{tabular}
+\caption{影响劳动力迁移的因素}
+\label{tab:影响劳动力迁移的因素}
+\end{table}
 
 
 
@@ -654,6 +677,61 @@ Diamond-Mortensen-Pissarides 模型[14]突破了传统经济学的劳动者与�
 
 
 
+\textbf{不完全信息下的偏好信息——知名度}
+
+
+
+
+假设决策者在知道他们在当前地区$j$的收入，并假设其拥有理性预期以及知道工资的分布（虽然在部分公司，同事之间串通获取工资信息是严厉禁止的）。决策者$i\in \mathcal{N}$在地点$j\in \mathcal{C}$获取的收入可以用下式表示，其中$a$是个体的年龄：
+\begin{equation}
+  w_{ij}(a)=\mu_j+\nu_{ij}+G(X_i,a,t)+\eta_i+\varepsilon_{ij}(a)
+\end{equation}
+其中$\mu_j$ 为地区平均收入；$\nu_{ij}$ 为个体与地区之间的匹配效应，即使得同样技能与经验的劳动者在不同地点获得的收入存在差异，该效应在个体在某一地点工作期间被视为永久性，一旦形成，除非个体迁移，否则不会改变，并且我们将其视为随机变量（对于每个个体与地点配对，其匹配效应均是从某一分布中抽取的，个体只有在实际进入该地点后才能观测到）；$G(X_i,a,t)$ 表示与个体特征 $X_i$、年龄 $a$ 以及时间效应 $t$ 相关的收入构成，反映了收入的年龄分布；$\eta_i$ 为个体固定效应，即不随地点变化而改变的收入部分；$\varepsilon_{ij}(a)$为暂时性收入成分，其实现仅影响当前时期的收入，对未来各地的工资增长没有影响，因此不会对迁移决策产生作用。
+本文假设$\eta,\nu,\varepsilon$均在个体和地区之间独立同分布，同时前两者的实现能被居民观测到。
+地区工资之间的差异可能会抹平其他因素的差距
+例如现实生活中很常见的就是某些工资高工资但具备极差的生活条件的生活方式
+但是具备异质性的劳动者仍然会转移到具备
+例如刘晨晖2022
+>\textit{研究发现：技能匹配度是劳动力流动所形成的地区经济差距是否稳定的关键因素；当不考虑高技能劳动者时，劳动力流动能够推动地区经济差距收敛，但考虑高技能劳动者集聚效应与技术溢出后，劳动力流动不再必然推动地区经济差距收敛；迁移成本在不同情形下对地区经济差距的影响是异质性的：当不考虑高技能劳动者时，迁移成本是区域均衡发展的阻力；而考虑高技能劳动者之后，集聚效应、技术溢出以及技能匹配均可能成为地区经济差距扩大的原因，迁移成本有时反而会起到缩小地区经济差距的作用。}
+
+年龄$a$是讨论个体迁移问题中很重要的一环
+年龄与个人的工资直接挂钩，例如$G(a,X_i,t)$，它代表了收入年龄分布，本质上是时间效应
+年轻人缺少家庭因素更容易定居在外地
+年轻人对于未来容易抱有较高幻想，即倾向于认为自己有更高的预期收入
+\textit{A standard human capital explanation for this age effect is that migration is an investment: if a higher income stream is  available elsewhere, then the sooner a move is made, the sooner the gain is realized. Moreover,  since the worklife is finite, a move that is worthwhile for a young worker might not be  worthwhile for an older worker, since there is less time for the higher income stream to offset  the moving cost (Sjaastad 1962). In other words, migrants are more likely to be young for the same reason that students are more likely to be young.}
+KW模型原来适用于年轻劳动力的迁移
+\textit{this paper focuses on the relationship between income prospects and migration decisions at the start of the life cycle}
+
+$\nu_{ij}$ 是位置匹配效应
+这意味着，即使技能和经验相同，工人在一个地方的收入可能比另一个地方多或少
+这种效应在个人在某个地方工作期间被认为是永久性的。一旦个人在某个特定地点体验到位置匹配效应，除非工人搬到另一个地方，否则它不会改变。
+位置匹配效应被视为随机变量。这意味着对于每个个人-位置配对，都会从可能的匹配效应分布中抽取一个。个人只有在访问该地点后才会了解这种匹配效应的实现。
+
+个体固定效应$\eta_i$
+个体不随着地区变化的工资收入
+
+$\rho_j$ is the location effect，这会捕捉一些受地区影响的经济变量
+- 某些产业在特定地区呈现区域产业集聚（Regional Economic Clustering），例如北京相较于其他城市有极强的新闻媒体产业，山西某些城市有丰厚的煤矿资源带来的矿物资源产业繁荣。
+- 特定城市会受到政策照顾，使得所在地区的劳动力税收减免
+- 地区通过人才政策进行额外补贴等
+- 特定的政策效应
+
+舒适度由各种变量组成
+例如气候、自然灾害、教育资源、医疗资源等
+同时如果不同地区具有相似的文化特征，这种文化相似性有助于减少劳动力迁移中的适应成本，从而使得劳动力的迁移决策变得更加容易；同时，这种相似性往往呈现出地域上的相近，这种文化的相似性可以用参数捕捉
+刘毓芸2015提出劳动力倾向于在方言区内进行流动 这种观点实则属于文化特征的一部分
+是否能融入是劳动力是否回流问题中非常重要的因素 这与文化特征相关（reference some 回流文章 其中特别喜欢讲劳动力能否融入）
+
+
+家乡溢价$\alpha_h \cdot I(j_t = h)$
+个体可能出于恋家、乡土文化等各种原因更偏好家乡，从而宁愿降低一些收入而选择家乡，这种溢价用参数$\alpha_h$捕捉
+包含家乡这一因素是极具理论进步性的一步 对于劳动力回流的研究可以从这个角度突破
+
+劳动力迁移成本
+\begin{equation}
+  \kappa_\tau(x, j) = [\gamma_{0 \tau}+\gamma_1 \cdot D(\ell^0,j)-\gamma_2 \cdot\chi(j\in A(\ell^0))-\gamma_3 \cdot\chi(j=\ell^1)+\gamma_4 \cdot\alpha-\gamma_5 \cdot n_j]\chi(j\neq \ell^0)
+\end{equation}
+$\gamma_{0 \tau}$为截距项，反映了迁移成本中未观测到的异质性；$\gamma_1 \cdot D(\ell^0,j)$为距离效应，其中 $D(\ell^0, j)$ 表示当前位置 $\ell^0$ 与目标位置 $j$ 之间的距离，说明迁移成本与距离呈仿射关系；$\gamma_2 \cdot \chi(j\in A(\ell^0))$为邻近效应，$\chi(j\in A(\ell^0))$ 为指示函数，当目标地点与当前地区相邻时取值为 1，反映出邻近迁移成本较低；$\gamma_3 \cdot \chi(j=\ell^1)$为回流效应，指示当目标位置为个体先前工作或生活过的地点时，其迁移成本可能较低；$\gamma_4 \cdot \alpha$为年龄效应，表明迁移成本与个体年龄 $a$ 相关；$\gamma_5 \cdot n_j$为规模效应，$n_j$ 为目标地区的人口规模，说明迁移到人口较多的地区可能成本更低。其中，乘以 $\chi(j\neq \ell^0)$ 保证仅在目标位置与当前不同的情况下计入迁移成本。
 
 
 
@@ -698,33 +776,36 @@ Diamond-Mortensen-Pissarides 模型[14]突破了传统经济学的劳动者与�
 传统多值回归方法中，probit模型强调个体之间符合正态分布，logit模型强调个体不存在相关性（独立同类假设，Independence of Irrelevant Alternatives, IIA，它假设不同类别之间是独立的），然而混合logit模型（也叫随机参数logit模型）作为一种扩展，可以放宽IIA假设。通过引入随机效应，混合logit模型允许类别之间存在相关性，并且能够处理非独立的选择行为。混合logit可以通过引入个体间的异质性来提高模型的灵活性，特别是在不符合IIA假设时。
 
 
-考虑一个理性的决策者在$T$期生命周期内选择最优居住地序列。令$\mathcal{C} = \{1,2,\dots,m\}$表示居住地选择集，$j_t \in \mathcal{C}$表示第$t$期的居住地选择，那么完整的选择序列可表示为$\mathcal{J}=\{j_1, j_2 ,\dots,j_T\}$。典型的居住地选择模式如表格\ref{tab:居住地选择序列形式展示}所示
+考虑一个理性的决策者在$T$期生命周期内选择最优居住地序列。令$\mathcal{C} = \{1,2,\dots,m\}$表示居住地选择集，$j_t \in \mathcal{C}$表示第$t$期的居住地选择，那么完整的选择序列可表示为$\mathcal{J}=\{j_1, j_2 ,\dots,j_T\}$。典型的居住地选择模式如表格\ref{tab:居住地选择序列可能的形式}所示：
 
-\begin{table}[htbp]
-\begin{tabular}{|l|l|}
+\begin{table}[!ht]
+\centering
+\begin{tabular}{@{}ll@{}}
 \hline
-\multicolumn{1}{|c|}{\textbf{个体流动形式}} & \multicolumn{1}{c|}{\textbf{居住地选择序列}} \\ \hline
-长期定居：决策者在特定时间段内总是停留在同一个地区 & $\mathcal{J}=\{\dots, 1,1,1,1,1,\dots\}$ \\ \hline
-单向迁移：如果$j_p\neq j_q,\forall p \neq q$，那么个体就进行了迁移 & $\mathcal{J}=\{\dots, 1,2,3,4,5,\dots\}$ \\ \hline
-回流迁移：返回到先前居住过的地区 & $\mathcal{J}=\{\dots, 1,2,2,1,1,\dots\}$ \\ \hline
+\multicolumn{1}{c}{\textbf{个体流动形式}} & \multicolumn{1}{c}{\textbf{居住地选择序列}}    \\ \midrule
+\begin{tabular}[c]{@{}l@{}}\textbf{长期定居}：决策者在特定时间段内总是\\ 停留在同一个地区\end{tabular}                          & $\mathcal{J}=\{\dots, 1,1,1,1,1,\dots\}$ \\
+\begin{tabular}[c]{@{}l@{}}\textbf{单向迁移}：如果 $j_p \neq j_q, \forall p\neq q$，那么\\ 个体就进行了迁移\end{tabular} & $\mathcal{J}=\{\dots, 1,2,3,4,5,\dots\}$ \\ 
+\textbf{回流迁移}：返回到先前居住过的地区                      & $\mathcal{J}=\{\dots, 1,2,2,1,1,\dots\}$ \\ \bottomrule
 \end{tabular}
 \caption{居住地选择序列可能的形式}
-\label{tab:居住地选择序列形式展示}
+\label{tab:居住地选择序列可能的形式}
 \end{table}
 
 决策问题由状态变量$x_t$刻画，其包含
 个体特征（年龄、收入、家庭规模等）、
 地区属性（房价、公共设施等）、
 历史居住选择记录、
-宏观经济环境、
+宏观经济环境
 等因素。
 状态转移服从马尔可夫过程，其转移概率为$p(x_{t+1}|x_t,j_t)$。
 
-决策者在第$t$期从居住地$j$获得的效用为：
+决策者在第$t$期从居住地$j$
+\footnote{本文中$j$代表可选择的地点，而$j_t$代表个体在$t$期做出的具体选择。}
+获得的效用为：
 \begin{equation}
   \tilde{u}_t(j, x_t) = u_t(j, x_t) + \zeta_{jt}
 \end{equation}
-其中$u_t(j, x_t)$为可观测效用项，$\zeta_{jt}$为在任意时期和地点都独立同分布的随机扰动项，服从标准Gumbel分布$F(\zeta) = \exp(-\exp(-\zeta))$，且与状态变量$x$无关。
+其中$u_t(j, x_t)$为可观测效用项，$\zeta_{jt}$为在任意时期和地点都独立同分布的随机扰动项，服从标准Gumbel分布$F(\zeta) = \exp(-\exp(-\zeta))$，且与状态变量$x_t$无关。
 
 
 理性个体做出选择的标准是选择使得效用最大化的选项：
@@ -735,7 +816,7 @@ Diamond-Mortensen-Pissarides 模型[14]突破了传统经济学的劳动者与�
 对于在选择集$\mathcal{C}$中选择$j$的概率可以写为：
 \begin{equation}
 \begin{split}
-  Pr(\text{j is chosen})&=Pr(\tilde u_j > \tilde u_k, \forall k \neq j)
+  Pr(\text{选择地点j})&=Pr(\tilde u_j > \tilde u_k, \forall k \neq j)
   \\&=Pr(u_j+\zeta_j>u_k+\zeta_k, \forall k \neq j)
   \\&=Pr(u_j-u_k>\zeta_k-\zeta_j, \forall k \neq j)
 \end{split}
@@ -779,11 +860,11 @@ $\begin{cases}
 V(x,\zeta)=\max\limits_{j}[v(x,j)+\zeta_{j}]
 \end{equation}
 
-图片\ref{fig:migration_flow_resized} 展示了一个动态规划决策过程，其中在每个离散周期结束时，决策者在随机收益冲击$\zeta$和状态转移概率$p(x_{t+1}|x_t,j_t)$双重不确定性的影响下通过Bellman方程做出决策，并进入下一个周期获得效用。
+图片\ref{fig:migration_flow_resized} 展示了一个动态规划决策过程，其中在上个离散周期$t-1$结束时或者下个周期$t$即将开始时，决策者根据在随机收益冲击$\zeta$和状态转移概率$p(x_{t+1}|x_t,j_t)$双重不确定性的影响下通过Bellman方程做出决策，进入下一个周期$t$后获得效用。
 
-\begin{figure}[htbp]
+\begin{figure}[!ht]
 \centering
-\includegraphics[width=0.9\textwidth]{images/dynamicsequence.drawio.pdf} %插入图片，[]中设置图片大小，{}中是图片文件名
+\includegraphics[width=0.9\textwidth]{images/dynamicsequence.drawio.pdf}
 \caption{动态离散选择模型下的劳动力迁移决策流程图}
 \label{fig:migration_flow_resized}
 \end{figure}
@@ -847,243 +928,250 @@ $U_p=a(\frac{Y_p}{r}-M)$
 期望效用最大化等价于选择净现值更高的选项，即$\max\{a(\frac{Y_p}{r}-M), a \frac{ Y_h}{r}\}$。
 }
 \begin{equation}
-  u_t^h(x_t,j_t)=\alpha_0 \cdot w(j_t,\omega_t)+\sum\limits_{s} \alpha_{s} \cdot y_{s}(j_t)+\alpha_h \cdot I(j_t=h)+\xi(j_t,\omega)-\kappa(x,j)
+  u_t^h(x_t,j_t)=\alpha_0 \cdot w(j_t,\omega_t)+\sum\limits_{s} \alpha_{s} \cdot y_{s}(j_t)+\alpha_h \cdot I(j_t=h)+\xi(j_t,\omega)-\kappa
 \end{equation}
-其中$w(j_t,\omega_t)$为货币性收入，
-$y_{s}(j_t)$为该居住地提供的各种宜居度，
-$I(j_t=h)$为指示性函数,
-$\xi$为无法解释的偏好冲击或者迁移成本冲击,
-$\kappa$为前往其他区域j的迁移成本。
+其中$w(j_t,\omega_t)$为经济收益，衡量个体在当前位置通过劳动获得的经济收益，$\alpha_0$表示工资收入对效用的权重（边际效用）；
+$y_{s}(j_t)$为该居住地提供的非货币性舒适度（amenity）价值，如气候、公共服务、文化等，反映地理位置的非经济吸引力，$y_s$是第$s$种舒适度的量化指标（如教育质量指数），其边际效用由$\alpha_s$表示；
+$\alpha_h \cdot I(j_t=h)$是对家乡的偏好溢价，$\alpha_h$衡量个体对出生地的情感依恋强度，其中$I(\cdot)$为指示性函数，当其中判断为真时返回1，否则为0，这意味着若当前所在地是家乡则效用增加$\alpha_h$，否则为0；
+$\xi(j_t,\omega)$为与地理位置匹配的永久性随机效用成分，
+反映个体对某地点的长期偏好匹配（如文化契合度），仅当个体访问该地点时才能获知其具体值（不完全信息），
+类似工资中的匹配项 $\nu$，但仅能通过迁移选择推断，而 $\nu$可通过工资和迁移选择共同推断；
+$-\kappa$为从其他区域前往地区$j$的迁移成本，负号表示迁移成本会降低效用，包括直接费用（如搬家费）和间接成本（如适应新环境的心理成本）。
 
 
 
+\subsection{收入}
 
-假设个体决策者$i \in \mathcal{N}$具有理性预期，能够准确预知各地工资分布（尽管企业间可能存在工资信息管制），其在地区$j \in \mathcal{C}$的收入设定为以下函数形式：
+决策者的经济收益$w_{ij}$由多种因素组成。假设个体决策者$i \in \mathcal{N}$在地区$j \in \mathcal{C}$的收入设定为以下函数形式：
 \begin{equation}
   w_{ij}(a)=\mu_j + \nu_{ij} + G(X_i,a,t) + \eta_i + \varepsilon_{ij}(a)
 \end{equation}
 
-决策者的货币性收入由多种因素组成。
-地区基准收入$\mu_j$反映地区$j$的平均工资水平 % 包含区域产业集聚效应（如北京的传媒业、山西的采矿业）、政策红利（税收减免、人才补贴）等结构性特征。
+地区基准收入$\mu_j$反映地区$j$的平均工资水平，
+代表地区的经济基本面，如生活成本、区域产业聚集效应（如北京的传媒业、山西的采矿业）、政策红利（税收减免、人才补贴）等结构性特征，是所有在该地点个体的工资基准，
+其与个体无关，仅取决于地点特征。
+
 个体-地区匹配效应$\nu_{ij}$表征相同技能劳动者在不同地区的收入差异，
-其具备匹配效应在个体驻留期间保持稳定，仅随迁移行为改变
-匹配效应实现值$\nu_{ij} \sim F_\nu$在个体进入地区$j$后方可观测
+捕捉个体与地区的特殊适配性（如技能需求匹配、文化契合度），例如，程序员在科技中心可能获得更高的$\nu_{ij}$，
+其具备匹配效应在个体驻留期间保持稳定，一旦个体进入地区 $j$，
+$\nu_{ij}$固定不变，但迁移到新地区$k$ 时会生成新的 $\nu_{ik}$。
+匹配效应实现值$\nu_{ij} \sim F_\nu$在个体进入地区$j$后方可观测。
 
-  
-生命周期收入$G(X_i,a,t)$包含三重要素
-个体特征$X_i$教育程度、专业技能等、
-年龄效应$a$反映人力资本积累曲线、
+生命周期收入$G(X_i,a,t)$为线性函数，其包含三重要素，
+个体特征$X_i$包含教育程度、性别等，
+年龄效应$a$反映人力资本积累曲线，
 时间趋势$t$捕捉技术进步等外生冲击。
-年龄的调节作用
-年龄$a$通过双重渠道影响迁移决策：
-\textbf{收入渠道}：生命周期曲线$G(a,X_i,t)$决定不同年龄段的收入潜力。年轻劳动者的人力资本回报期更长，迁移投资收益更高（）
-\textbf{成本渠道}：家庭约束随年龄增长而增强。年轻劳动者具有：
-更低的家庭锚定成本（子女教育、配偶工作等）
-更强的风险承受能力
-更高的预期收入贴现率
+量化系统性因素对工资的影响（如工作经验随年龄增长、宏观经济波动）。
+$G$ 的影响在不同地区间相同（如教育回报无地区差异）。
+
+个体固定效应$\eta_i$表征表示个体 $i$ 异质性中不随地区改变的固有能力或特质，
+如先天能力、家庭背景等，无论迁移到哪里均保持恒定。
+假设个体已知 $\eta_i$ 的值，并在决策中利用此信息。
+
+暂时性随机效应$\varepsilon_{ij}(a)$代表短期波动或随机扰动项，服从i.i.d分布的当期扰动，
+捕捉不可预测的工资波动（如临时绩效波动、经济冲击）。  
+假设其独立于其他变量，随年龄和时间变化，个体无法预知其实现值，对跨期决策无持续影响。
 
 
-引入扩展的舒适度函数$\Psi_j$捕捉非经济因素：
-\begin{equation}
-  \Psi_j = \underbrace{\beta_1 Q_j^{climate} + \beta_2 Q_j^{public}}_{\text{客观条件}} + \underbrace{\beta_3 \cdot S(j,\ell^0)}_{\text{文化适配}} + \alpha_h \cdot I(j = h)
-\end{equation}
 
-其中：
+
+
+\subsection{宜居度、家乡溢价和地区匹配偏好}
+
+引入扩展的舒适度函数$\Psi_j$捕捉非经济因素
+
 $Q_j^{climate}$：气候条件与自然灾害风险；
 $Q_j^{public}$：教育、医疗等公共服务质量；
-$S(j,\ell^0)$：文化相似性指标，方言一致性可作为代理变量（）；
+$S(j,\ell^0)$：文化相似性指标，方言一致性可作为代理变量；
+
 $\alpha_h \cdot I(j = h)$：家乡溢价，反映乡土认同等社会文化因素。
 
 
-个体固定效应$\eta_i$表征个体异质性中不随地区改变的部分，如先天能力、家庭背景等。
-  
-暂时性冲击$\varepsilon_{ij}(a)$服从i.i.d分布的当期扰动，对跨期决策无持续影响。
+$\xi$：地区匹配偏好
+
+
+\subsection{迁移成本}
 
 迁移成本函数设定为：
 \begin{equation}
-  \kappa_\tau(x, j) = \chi(j\neq \ell^0) \cdot \left[ 
-  \begin{aligned}
-    &\gamma_{0 \tau} &&\text{(异质性成本)}\\
-    +&\gamma_1 D(\ell^0,j) &&\text{(距离成本)}\\
-    -&\gamma_2 \chi(j\in A(\ell^0)) &&\text{(邻近便利)}\\
-    -&\gamma_3 \chi(j=\ell^1) &&\text{(回流效应)}\\
-    +&\gamma_4 a &&\text{(年龄障碍)}\\
-    -&\gamma_5 n_j &&\text{(规模经济)}
-  \end{aligned}
-  \right]
+\begin{split}
+  \kappa(x_t,j_t)=I(j_t \neq j_{t-1}) \cdot [& 
+  \gamma_{0 \tau}
+  + \gamma_1 D(j_{t-1},j_t)
+  - \gamma_2 I(j_t \in Adj(j_{t-1}))
+  \\&
+  - \gamma_3 I(j_t \in Pre)
+  + \gamma_4 a
+  -\gamma_5 n_j
+  ]
+\end{split}
 \end{equation}
 
-参数的经济含义如Table \ref{tab:cost_param}所示：
-\begin{table}[htbp]
+$\gamma_{0\tau}$迁移中类型相关的的固定成本，随个体类型 $\tau$ 变化，从而捕捉未观测的异质性。例如：  
+“定居型”个体（stayer type）的 $\gamma_{0\tau}$ 极高，几乎禁止迁移；  
+“流动型”个体的 $\gamma_{0\tau}$ 较低，更易迁移。  
+不同 $\tau$ 对应不同 $\gamma_0$，需通过数据估计类型分布。
+$\gamma_1 D(\ell^0, j)$为迁移距离效应，是 $D(\ell^0, j)$ 的线性成本（以大圆距离衡量），距离越远，成本越高（$\gamma_1 > 0$）。  
+$-\gamma_2 \chi(j \in A(\ell^0))$是相邻地区效应，若目标地点 $j$ 与当前地点 $\ell^0$ 相邻（即 $j \in A(\ell^0)$），则成本减少 $\gamma_2$。
+相邻地区迁移可能因文化相似、信息透明或交通便利而成本更低（$\gamma_2 > 0$）。  
+$-\gamma_3 \chi(j = \ell^{-1})$为历史地区效应（回流效应），
+其定义为若目标地点 $j$ 是个体曾居住过的历史地点 $\ell^{-1}$，则成本减少 $\gamma_3$。
+这是因为返回熟悉地区可能因现存社会网络或无需重新适应而成本更低（$\gamma_3 > 0$）。  
+$+\gamma_4 a$代表年龄障碍效应，表明迁移成本随年龄 $a$ 线性增加，年龄越大，迁移的心理或生理成本越高（$\gamma_4 > 0$）。  
+$-\gamma_5 n_j$为目标地区规模成本效应，
+目标地区人口规模 $n_j$ 越大，迁移成本减少 $\gamma_5 n_j$。  
+这是因为
+大规模地区可能有更多潜在支持（如亲友网络、服务机构），减少安家难度，从而降低迁移成本（$\gamma_5 > 0$），符合“引力模型”中人口规模吸引迁移的经典结论。  
+$I(j_t \neq j_{t-1})$为迁移指示函数 ，仅当目标地点 $j \neq \ell^0$ 时，迁移成本生效（否则为0）。  这确保个体留在原地时无需支付迁移成本。
+
+参数的经济含义如表格\ref{tab:迁移成本参数释义}所示：
+\begin{table}[!ht]
   \centering
-  \caption{迁移成本参数释义}
-  \label{tab:cost_param}
-  \begin{tabular}{cll}
+  \begin{tabular}{@{}lll@{}}
     \toprule
-    参数 & 含义 & 理论依据 \\
-    \midrule
-    $\gamma_1$ & 距离弹性 & 引力模型 \\
-    $\gamma_2$ & 边界效应 & 新经济地理 \\
-    $\gamma_3$ & 路径依赖 & 累积因果论 \\
-    $\gamma_4$ & 生命周期 & 人力资本理论 \\
-    $\gamma_5$ & 集聚经济 & 中心-外围理论 \\
-    \bottomrule
+    \multicolumn{1}{c}{\textbf{参数符号}} & \multicolumn{1}{c}{\textbf{参数含义}} & \multicolumn{1}{c}{\textbf{参数意义}} \\ \midrule
+    \multicolumn{1}{c}{$\gamma_{0\tau}$} & 类型异质效应 & \begin{tabular}[c]{@{}l@{}}捕捉不同类型的异质性，可以解释为何有些人从不迁移，识\\ 别“定居型”人群可针对性地设计激励措施（如搬迁补贴）。\end{tabular} \\ 
+    \multicolumn{1}{c}{$\gamma_1$} & 物理迁移成本 & 个体与其携带物必然因为物理法则而产生运输成本。 \\ 
+    \multicolumn{1}{c}{$\gamma_2$} & 相邻地区效应 & 反映地理邻近性的普遍优势。 \\ 
+    \multicolumn{1}{c}{$\gamma_3$} & 历史地区效应 & 返回历史地区因熟悉度获得折扣，体现路径依赖。 \\ 
+    \multicolumn{1}{c}{$\gamma_4$} & 年龄障碍效应 & \begin{tabular}[c]{@{}l@{}}针对不同年龄群体制定差异化迁移政策（如青年人才引进\\ 计划）。\end{tabular} \\ 
+    \multicolumn{1}{c}{$\gamma_5$} & 规模成本效应 & \begin{tabular}[c]{@{}l@{}}大地区吸引力不仅体现在经济机会（如工资 $\mu_j$），也\\ 直接降低迁移成本。\end{tabular} \\ \bottomrule
   \end{tabular}
+  \caption{迁移成本参数释义}
+  \label{tab:迁移成本参数释义}
 \end{table}
 
-该设定能够捕捉揭示的复杂作用机制：当考虑高技能劳动者时，匹配效应与集聚经济的交互作用可能导致地区差距的持续存在，此时迁移成本反而可能成为区域均衡的调节器。
-
-
-
-
-假设决策者在知道他们在当前地区$j$的收入，并假设其拥有理性预期以及知道工资的分布（虽然在部分公司，同事之间串通获取工资信息是严厉禁止的）。决策者$i\in \mathcal{N}$在地点$j\in \mathcal{C}$获取的收入可以用下式表示，其中$a$是个体的年龄：
-\begin{equation}
-  w_{ij}(a)=\mu_j+\nu_{ij}+G(X_i,a,t)+\eta_i+\varepsilon_{ij}(a)
-\end{equation}
-其中$\mu_j$ 为地区平均收入；$\nu_{ij}$ 为个体与地区之间的匹配效应，即使得同样技能与经验的劳动者在不同地点获得的收入存在差异，该效应在个体在某一地点工作期间被视为永久性，一旦形成，除非个体迁移，否则不会改变，并且我们将其视为随机变量（对于每个个体与地点配对，其匹配效应均是从某一分布中抽取的，个体只有在实际进入该地点后才能观测到）；$G(X_i,a,t)$ 表示与个体特征 $X_i$、年龄 $a$ 以及时间效应 $t$ 相关的收入构成，反映了收入的年龄分布；$\eta_i$ 为个体固定效应，即不随地点变化而改变的收入部分；$\varepsilon_{ij}(a)$为暂时性收入成分，其实现仅影响当前时期的收入，对未来各地的工资增长没有影响，因此不会对迁移决策产生作用。
-本文假设$\eta,\nu,\varepsilon$均在个体和地区之间独立同分布，同时前两者的实现能被居民观测到。
-地区工资之间的差异可能会抹平其他因素的差距
-例如现实生活中很常见的就是某些工资高工资但具备极差的生活条件的生活方式
-但是具备异质性的劳动者仍然会转移到具备
-例如刘晨晖2022
->\textit{研究发现：技能匹配度是劳动力流动所形成的地区经济差距是否稳定的关键因素；当不考虑高技能劳动者时，劳动力流动能够推动地区经济差距收敛，但考虑高技能劳动者集聚效应与技术溢出后，劳动力流动不再必然推动地区经济差距收敛；迁移成本在不同情形下对地区经济差距的影响是异质性的：当不考虑高技能劳动者时，迁移成本是区域均衡发展的阻力；而考虑高技能劳动者之后，集聚效应、技术溢出以及技能匹配均可能成为地区经济差距扩大的原因，迁移成本有时反而会起到缩小地区经济差距的作用。}
-
-年龄$a$是讨论个体迁移问题中很重要的一环
-年龄与个人的工资直接挂钩，例如$G(a,X_i,t)$，它代表了收入年龄分布，本质上是时间效应
-年轻人缺少家庭因素更容易定居在外地
-年轻人对于未来容易抱有较高幻想，即倾向于认为自己有更高的预期收入
-\textit{A standard human capital explanation for this age effect is that migration is an investment: if a higher income stream is  available elsewhere, then the sooner a move is made, the sooner the gain is realized. Moreover,  since the worklife is finite, a move that is worthwhile for a young worker might not be  worthwhile for an older worker, since there is less time for the higher income stream to offset  the moving cost (Sjaastad 1962). In other words, migrants are more likely to be young for the same reason that students are more likely to be young.}
-KW模型原来适用于年轻劳动力的迁移
-\textit{this paper focuses on the relationship between income prospects and migration decisions at the start of the life cycle}
-
-$\nu_{ij}$ 是位置匹配效应
-这意味着，即使技能和经验相同，工人在一个地方的收入可能比另一个地方多或少
-这种效应在个人在某个地方工作期间被认为是永久性的。一旦个人在某个特定地点体验到位置匹配效应，除非工人搬到另一个地方，否则它不会改变。
-位置匹配效应被视为随机变量。这意味着对于每个个人-位置配对，都会从可能的匹配效应分布中抽取一个。个人只有在访问该地点后才会了解这种匹配效应的实现。
-
-个体固定效应$\eta_i$
-个体不随着地区变化的工资收入
-
-$\rho_j$ is the location effect，这会捕捉一些受地区影响的经济变量
-- 某些产业在特定地区呈现区域产业集聚（Regional Economic Clustering），例如北京相较于其他城市有极强的新闻媒体产业，山西某些城市有丰厚的煤矿资源带来的矿物资源产业繁荣。
-- 特定城市会受到政策照顾，使得所在地区的劳动力税收减免
-- 地区通过人才政策进行额外补贴等
-- 特定的政策效应
-
-舒适度由各种变量组成
-例如气候、自然灾害、教育资源、医疗资源等
-同时如果不同地区具有相似的文化特征，这种文化相似性有助于减少劳动力迁移中的适应成本，从而使得劳动力的迁移决策变得更加容易；同时，这种相似性往往呈现出地域上的相近，这种文化的相似性可以用参数捕捉
-刘毓芸2015提出劳动力倾向于在方言区内进行流动 这种观点实则属于文化特征的一部分
-是否能融入是劳动力是否回流问题中非常重要的因素 这与文化特征相关（reference some 回流文章 其中特别喜欢讲劳动力能否融入）
-
-
-家乡溢价$\alpha_h \cdot I(j_t = h)$
-个体可能出于恋家、乡土文化等各种原因更偏好家乡，从而宁愿降低一些收入而选择家乡，这种溢价用参数$\alpha_h$捕捉
-包含家乡这一因素是极具理论进步性的一步 对于劳动力回流的研究可以从这个角度突破
-
-劳动力迁移成本
-\begin{equation}
-  \kappa_\tau(x, j) = [\gamma_{0 \tau}+\gamma_1 \cdot D(\ell^0,j)-\gamma_2 \cdot\chi(j\in A(\ell^0))-\gamma_3 \cdot\chi(j=\ell^1)+\gamma_4 \cdot\alpha-\gamma_5 \cdot n_j]\chi(j\neq \ell^0)
-\end{equation}
-$\gamma_{0 \tau}$为截距项，反映了迁移成本中未观测到的异质性；$\gamma_1 \cdot D(\ell^0,j)$为距离效应，其中 $D(\ell^0, j)$ 表示当前位置 $\ell^0$ 与目标位置 $j$ 之间的距离，说明迁移成本与距离呈仿射关系；$\gamma_2 \cdot \chi(j\in A(\ell^0))$为邻近效应，$\chi(j\in A(\ell^0))$ 为指示函数，当目标地点与当前地区相邻时取值为 1，反映出邻近迁移成本较低；$\gamma_3 \cdot \chi(j=\ell^1)$为回流效应，指示当目标位置为个体先前工作或生活过的地点时，其迁移成本可能较低；$\gamma_4 \cdot \alpha$为年龄效应，表明迁移成本与个体年龄 $a$ 相关；$\gamma_5 \cdot n_j$为规模效应，$n_j$ 为目标地区的人口规模，说明迁移到人口较多的地区可能成本更低。其中，乘以 $\chi(j\neq \ell^0)$ 保证仅在目标位置与当前不同的情况下计入迁移成本。
 
 
 \section{状态转移概率}
-先前我们使用了状态变量$x$囊括了M维最近地区向量$\ell$，M维地区工资与地区效用信息$\omega$和年龄$a$，此状态变量有改变的可能，The state $x'$ is the new state after a move.用以下式子来描述
-The transition probability is 
+
+状态变量$x$囊括了M维最近地区向量$\ell$，$m$维地区工资与地区效用信息$\omega$和年龄$a$。出于简便计算，规定其状态变量转移概率为：
 \begin{equation}
-  p(x'|x,j)=
-  \begin{cases}
-    1, \text{if }j=\ell^0,\tilde x'=\tilde x,a'=a+1
-    \\
-    1, \text{if }j=\ell^1,\tilde x =(\ell^0,\ell^1,x_\nu^0,x_\nu^1,x_\xi^0,x_\xi^1),a'=a+1
-    \\
-    \frac{1}{n^2}, \text{if }j \notin \{\ell^0,\ell^1\}\tilde x'=(j,\ell^1,s_\nu,x_\nu^0,s_\xi,x_\xi^0),1\leqslant s_\nu \leqslant n_\nu,1\leqslant s_\xi \leqslant n_\xi,a'=a+1
-    \\
-    0, \text{otherwise}
-  \end{cases}
+p(x_{t+1}|x_t, j_t) = 
+\begin{cases} 
+1, & \text{if } j_{t+1} = j_t, \tilde{x}' = \tilde{x}, a' = a + 1 \\
+1, & \text{if } j_{t+1} = j_{t-1}, \tilde{x}' = (l^1, l^0, x_0^1, x_0^0, x_\xi^1, x_\xi^0), a' = a + 1 \\
+\frac{1}{n^2}, & \text{if } j_{t+1} \notin \{j_t, j_{t-1}\}, \tilde{x}' = (j, l^1, s_0, x_0^0, s_\xi, x_\xi^0), \quad 1 \leq s_0 \leq n_0, \quad 1 \leq s_\xi \leq n_\xi, \quad a' = a + 1 \\
+0, & \text{otherwise}
+\end{cases}
 \end{equation}
 
-此概率描述的是在选择了特定位置 $j$ 的情况下，从一个状态 $x$ 移动到新状态 $x'$ 的可能性。这是一个条件概率，它关注状态如何根据位置决策而变化的机制。它既包括确定性变化（如年龄增长），也包括随机变化（如位置匹配效应的随机抽取）。
+此概率描述的是在选择了特定位置$j_{t+1}$的情况下，从一个状态 $x_t$ 移动到新状态 $x_{t+1}$的可能性。这是一个条件概率，它关注状态如何根据位置决策而变化的机制。它既包括确定性变化（如年龄增长），也包括随机变化（如位置匹配效应的随机抽取）。
+
+
+状态向量定义：
+\[ x = (\tilde{x}, a) \quad \text{其中} \quad \tilde{x} = (l^0, l^1, x_0^0, x_0^1, x_\xi^0, x_\xi^1) \]
+- 变量解析：
+  1. $j_t$：当前所在地点。
+  2. $j_{t-1}$：前一个地点（迁移前的历史地点）。
+  3. $x_0^0$：当前地点 $l^0$ 的工资匹配项（$v_{il^0}$）的索引（即其具体实现值的标识符）。
+  4. $x_0^1$：前一个地点 $l^1$ 的工资匹配项的索引。
+  5. $x_\xi^0$：当前地点 $l^0$ 的效用匹配项（$\xi_{l^0}$）的索引。
+  6. $x_\xi^1$：前一个地点 $l^1$ 的效用匹配项的索引。
+  7. $a$：个体年龄。
+
+
+分情况解析：
+情况1：不迁移（$j = l^0$）
+- 转移规则：
+  - 新状态 $\tilde{x}'$ 与原状态 $\tilde{x}$ 完全相同。
+  - 年龄 $a' = a + 1$。
+- 作用：
+  - 个体留在当前地点，所有匹配项（工资 $v_{il^0}$ 和效用 $\xi_{l^0}$）保持不变。
+  - 年龄增长反映时间推移，但状态向量其他部分无变化。
+
+情况2：迁移到前一个地点（$j = l^1$）
+- 转移规则：
+  - 新地点 $l'^0 = l^1$，原当前地点变为前一个地点 $l'^1 = l^0$。
+  - 工资和效用匹配项的索引交换：  
+    $x_0'^0 = x_0^1$（原前一个地点的工资匹配项变为当前地点的匹配项），  
+    $x_0'^1 = x_0^0$（原当前地点的工资匹配项变为前一个地点的匹配项），  
+    同理，效用匹配项索引 $x_\xi'^0 = x_\xi^1$，$x_\xi'^1 = x_\xi^0$。
+  - 年龄 $a' = a + 1$。
+- 作用：
+  - 个体返回历史地点时，状态变量中的“当前”与“历史”位置互换。
+  - 保留原匹配项的索引，避免重复抽取，体现路径依赖。
+
+情况3：迁移到新地点（$j \notin \{l^0, l^1\}$）
+- 转移规则：
+  - 新地点 $l'^0 = j$，原当前地点变为前一个地点 $l'^1 = l^0$。
+  - 工资匹配项索引 $x_0'^0 = s_0$（从 $1$ 到 $n_0$ 随机抽取），原前一个地点的工资匹配项索引保留 $x_0'^1 = x_0^0$。
+  - 效用匹配项索引 $x_\xi'^0 = s_\xi$（从 $1$ 到 $n_\xi$ 随机抽取），原前一个地点的效用匹配项索引保留 $x_\xi'^1 = x_\xi^0$。
+  - 年龄 $a' = a + 1$。
+  - 发生概率为 $\frac{1}{n^2}$，假设 $n_0 = n_\xi = n$。
+- 作用：
+  - 迁移至全新地点时，需重新抽取该地点的工资和效用匹配项（体现不完全信息）。
+  - 保留原当前地点的匹配项作为历史记录（如 $x_0'^1 = x_0^0$），确保未来可返回时复用。
+
+情况4：其他情况（概率为0）
+- 若迁移目标不符合上述条件（如无效地点），状态转移概率为0。
+
+
+关键机制总结：
+1. 年龄的确定性增长：无论迁移与否，年龄 $a$ 每期增加1，体现时间动态性。
+2. 匹配项的保留与抽取：
+   - 留在原地或返回历史地点时，匹配项索引保留，避免重复学习。
+   - 迁移至新地点时，需随机抽取匹配项（$s_0, s_\xi$），体现探索新地点的不确定性。
+3. 路径依赖：
+   - 历史地点 $l^1$ 的匹配项被保留，允许个体未来返回时复用已知信息。
+   - 迁移到前一个地点的成本可能更低（见迁移成本设定中的 $\gamma_3$ 折扣）。
+
+
+参数与符号说明：
+- $n_0$ 和 $n_\xi$：工资匹配项 $v$ 和效用匹配项 $\xi$ 的可能实现值数量（假设为离散分布）。
+- $s_0$ 和 $s_\xi$：从离散分布中随机抽取的索引值，分别对应新地点的工资和效用匹配项。
+- $\frac{1}{n^2}$：迁移到新地点的概率，假设所有新地点的匹配项独立且均匀分布。
+
+
+信息更新：个体仅在实际迁移到某地点后，才能获知其匹配项的真实值（通过索引 $s_0, s_\xi$ 的抽取）。
+状态压缩：通过索引（而非具体值）记录匹配项，简化状态空间，便于数值求解。
+动态决策：迁移决策基于当前和历史信息，但未来新地点的匹配项需通过随机探索学习。
+
+
+常见疑问解答：
+- 为何迁移到新地点的概率是 $\frac{1}{n^2}$？  
+  假设工资和效用匹配项各有 $n$ 种可能值，且独立抽取，则联合概率为 $\frac{1}{n} \times \frac{1}{n} = \frac{1}{n^2}$。  
+  若 $n_0 \neq n_\xi$，则概率应为 $\frac{1}{n_0 n_\xi}$，但模型中简化为 $n_0 = n_\xi = n$。
+
+- 为何保留原匹配项索引（如 $x_0'^1 = x_0^0$）？  
+  确保个体未来返回原地点时，仍能使用已知的匹配项值，避免重复抽取（体现信息积累）。
+
+- 如何体现不完全信息？  
+  个体在迁移到新地点前，无法预知 $s_0$ 和 $s_\xi$ 的具体值，需通过实际迁移后“学习”这些信息。
+
+
+
+
+
+
+
+
+
+
+
+
 
 \section{劳动力迁移决策}
-移动的motivation：
-基于对于工资的假设
-不同地区之间$j$和$k$之间只有平均工资$\mu$、地区匹配效应$\eta$和地区固定效应$\rho$是随着地区之间变化的
-不同地区的选择就会对收入产生影响
-劳动力会因为更好的劳动力市场、更好的地区匹配、更好的政策福利而选择迁移
+不同地区之间$j$和$k$之间只有平均工资$\mu$、地区匹配效应$\eta$和地区固定效应$\rho$是随着地区之间变化的，
+不同地区的选择就会对收入产生影响，
+劳动力会因为更好的劳动力市场、更好的地区匹配效应（包括工资与偏好）以及随机效用冲击而选择迁移。
 
+至此，模型刻画出了在有限生命周期内，每期个体可以在不同城市$\mathcal{C}$中自由选择最优住址$j_t$，这些不同时期的选择构建出了居住地选择序列$\mathcal{J}$，这意味着迁移可以是多次的，可撤回的。图片\ref{fig:migration_flow_resized2}展示。
 
-处于状态 $x$ 的个体选择位置 $j$ 的概率可以写成
-\begin{equation}
-  \rho(x,j)=\exp[v(x,j)-\bar v(x)]
-\end{equation}
-
-方程 $v(x, j) = u(x, j) + \beta \sum\limits_{x'} p(x' | x, j) \bar{v}(x')$ 可以解释为我们通过值函数迭代计算 $v$，假设有限时间 $T$。我们将年龄作为状态变量，在年龄 $T+1$ 时 $v=0$，这样连续迭代就会产生一个越来越年轻的人的价值函数。
-
-
-至此，模型刻画出了在finite horizon内，个体可以在不同城市$j\in J$中自由选择最优住址，这意味着迁移可以是多次的，可撤回的
-该模型存在一定缺陷
-例如在模型中的第1期往往受到未被数据记录从而未被模型捕捉到的第0期及更久之前的影响
-从而导致有sample selection的嫌疑
-这点对于年岁较大的人更甚
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=0.9\textwidth]{images/dynamicsequence2.drawio.pdf}
+\caption{动态离散选择模型下的劳动力迁移决策流程图2}
+\label{fig:migration_flow_resized2}
+\end{figure}
 
 % ---------------------------------------- 实证部分 ----------------------------------------
 \chapter{实证检验}
 
-\section{实证模型} % (fold)
-\label{sub:实证模型}
-\subsubsection{年龄效应}
-出于简化
-参照以往的计量经济学经验
-将年龄效应设置为年龄的有待估参数的一次项和二次项的和
-
-\subsubsection{location match effect}
-由于该模型存在大量的（）
-所以出于计算上的简便
-我们使用离散估计替代一些变量
-
-通过离散估计法估计地区匹配效应的分布
-
-选择一些支持点（support points），将原本连续的分布F用离散分布$\hat F$代替。
-支持点被选为分布的某些分位点（比如中位数或四分位点），并将每个分位点分配一个权重（概率）。
-对于每个$q_r$（分位点位置），计算对应的效用值，用这些有限的效用值来代替连续效用的积分。
-
-假设迁移到某地会带来不同的匹配效应（比如迁移到某城市带来的工资或福利变化），这些匹配效应具有随机性且可以用分布来表示。但在现实中，不可能完整地计算整个分布下的期望值，因此用离散点近似表示。本质上是一种简化模型，减少计算成本，同时保留分布的主要信息。
-
-\subsubsection{固定效应}
+\section{对模型的实证处理} 
 
 
-$\eta$ 表示每个个体工资的固定成分（例如长期能力或个体特质）。
-假设其分布是一个对称的离散分布，具有7个支持点。每个支持点有相等的权重。
-因为是离散分布，只需要估计 3个参数：分布的中间点（中心趋势）和离散范围。
-
-固定效应代表长期的工资差异来源，例如教育水平、经验等。
-选择离散分布是为了简化复杂的连续分布，同时通过支持点捕捉关键的分布特性（如中心趋势和差异性）。
-
-$\eta$的离散分布提供了一种对长期工资特质的简化建模方式，减少计算复杂度，同时保留重要信息。
-
-\subsubsection{短期波动}
-
-数学上
-$\varepsilon$表示工资的短期波动成分，比如由于经济周期、随机冲击等导致的变化
-假设$\varepsilon_{it}$（某人在某个时间的短期波动）来源于一个均值为零的正态分布，其方差$\sigma_{\epsilon}$随人而异
-对于每个人，$\sigma_\varepsilon(i)$来自一个离散分布（4 个支持点，均匀分布），因此需要估计 4 个参数
-$\varepsilon$反映工资中不可预测的临时变化，例如经济不确定性或工作绩效波动
-允许$\sigma_\varepsilon(i)$因人而异捕捉到工资短期波动的个体差异性（例如高风险行业可能有更大波动）
-
-
-在建模中，$\varepsilon$允许方差随个体变化，体现了个体的异质性，这进一步增加模型的灵活性，使其能够更好地拟合数据。
-
-\subsubsection{工资的影响}
-
-由于个体效应固定、暂态效应无影响
-影响工资差距的就是
-地点平均工资mu、地点匹配工资效应nu、地方福利rho
-
-\subsubsection{似然函数}
-
-\textbf{未观测变量}
+\subsection{未观测到的变量}
 
 在每个地点中个体都有从地区匹配效应的分布中抽取一个值，假设这个分布是一个有限集合上的均匀分布，$Y=\{\nu(1),\nu(2)...\nu(n_{\nu})\}$
 其结果是$\omega^{i}_{\nu}$，$\omega^{i}_{\nu}(j)$代表在地点j的匹配效应，$1\leqslant j\leqslant N_i$，$N_i$是$i$到达过的地方的数量
@@ -1105,7 +1193,57 @@ $\varepsilon$反映工资中不可预测的临时变化，例如经济不确定�
 
 参数向量的可能实现组成一个集合，用$\Omega(N_{i})$表示
 
-\textbf{似然贡献}
+
+
+\subsection{年龄效应}
+出于简化
+参照以往的计量经济学经验
+将年龄效应设置为年龄的有待估参数的一次项和二次项的和
+
+\subsection{location match effect}
+由于该模型存在大量的（）
+所以出于计算上的简便
+我们使用离散估计替代一些变量
+
+通过离散估计法估计地区匹配效应的分布
+
+选择一些支持点（support points），将原本连续的分布F用离散分布$\hat F$代替。
+支持点被选为分布的某些分位点（比如中位数或四分位点），并将每个分位点分配一个权重（概率）。
+对于每个$q_r$（分位点位置），计算对应的效用值，用这些有限的效用值来代替连续效用的积分。
+
+假设迁移到某地会带来不同的匹配效应（比如迁移到某城市带来的工资或福利变化），这些匹配效应具有随机性且可以用分布来表示。但在现实中，不可能完整地计算整个分布下的期望值，因此用离散点近似表示。本质上是一种简化模型，减少计算成本，同时保留分布的主要信息。
+
+\subsection{固定效应}
+
+
+$\eta$ 表示每个个体工资的固定成分（例如长期能力或个体特质）。
+假设其分布是一个对称的离散分布，具有7个支持点。每个支持点有相等的权重。
+因为是离散分布，只需要估计 3个参数：分布的中间点（中心趋势）和离散范围。
+
+固定效应代表长期的工资差异来源，例如教育水平、经验等。
+选择离散分布是为了简化复杂的连续分布，同时通过支持点捕捉关键的分布特性（如中心趋势和差异性）。
+
+$\eta$的离散分布提供了一种对长期工资特质的简化建模方式，减少计算复杂度，同时保留重要信息。
+
+\subsection{短期波动}
+
+数学上
+$\varepsilon$表示工资的短期波动成分，比如由于经济周期、随机冲击等导致的变化
+假设$\varepsilon_{it}$（某人在某个时间的短期波动）来源于一个均值为零的正态分布，其方差$\sigma_{\epsilon}$随人而异
+对于每个人，$\sigma_\varepsilon(i)$来自一个离散分布（4 个支持点，均匀分布），因此需要估计 4 个参数
+$\varepsilon$反映工资中不可预测的临时变化，例如经济不确定性或工作绩效波动
+允许$\sigma_\varepsilon(i)$因人而异捕捉到工资短期波动的个体差异性（例如高风险行业可能有更大波动）
+
+
+在建模中，$\varepsilon$允许方差随个体变化，体现了个体的异质性，这进一步增加模型的灵活性，使其能够更好地拟合数据。
+
+\subsection{工资的影响}
+
+由于个体效应固定、暂态效应无影响
+影响工资差距的就是
+地点平均工资mu、地点匹配工资效应nu、地方福利rho
+
+\section{似然函数}
 
 $\mathcal{K}_{it}=(\mathcal{K}_{it}^{0},\mathcal{K}_{it}^{1})$表示当前位置和上一个位置
 
@@ -1179,7 +1317,7 @@ $L_i(\theta_{\tau})$捕捉了该个体数据与类型$\tau$相关的匹配度。
 
 
 蒋琪2018劳动经济研究：
-\textit{本研究使用CFPS2010年和2014 年两期数据构成面板进行影响评估。CFPS采用的是内隐分层、多阶段、多层次、与人口规模成比例的概率抽样方式，样本覆盖除中国港澳台、新疆、西藏、青海、内蒙古、宁夏和海南之外的其他省/市/自治区。这些地区的人口占全国的95\%左右，因此，CFPS的数据是一个具有全国代表性的高质量数据库 (Xie \＆ Lu，2015)}
+\textit{本研究使用CFPS2010年和2014年两期数据构成面板进行影响评估。CFPS采用的是内隐分层、多阶段、多层次、与人口规模成比例的概率抽样方式，样本覆盖除中国港澳台、新疆、西藏、青海、内蒙古、宁夏和海南之外的其他省/市/自治区。这些地区的人口占全国的95\%左右，因此，CFPS的数据是一个具有全国代表性的高质量数据库 (Xie \＆ Lu，2015)}
 
 \textit{关键结果变量为个人的年总收入 (PIncome)。本研究选取的关于个人总收入的变量为“qk601”(2010年) 和“p\_income”(2014 年) 。在面板数据中，两个变量统一命名为“PIncome”。该变量来自 CFPS 问卷的 “K 部分: 个人收入”，具体题目为“您 ( 去年)个人的年总收入是元?”。
 CFPS在公布历期数据之前，对收入部分结果进行了修正，以满足各年之间的可比性。控制变量。参考以往研究 (卜茂亮等，2011; 黄国英、谢宇，2017; 谭燕芝等， 2017; 周广肃、孙浦阳，2017) 并结合CFPS数据的可获得性和完整性，本文选取的控制变量包括地域 (所在省份)、常住地 (城镇或农村)、性别、民族、年龄、受教育年限、婚姻状态、自评健康状况、认知能力、非认知能力、对自己未来的自信心和职业等。其中CFPS的非认知能力来自访员在理解能力、配合程度、接人待物水平、回答的可信程度和语言表达能力5个方面对受访者的评价平均得分; 认知能力包括语文和数学方面的测试得分 (黄国英、谢宇，2017)}
