@@ -1,7 +1,7 @@
 import pandas as pd
 import method_entropy, method_pca, houseprice, os
 
-def main_read(directory_path):
+def main_read(directory_path: str) -> pd.DataFrame:
     """
     Reads and processes geographical and socio-economic data from Excel files.
     This function performs the following steps:

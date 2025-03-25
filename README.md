@@ -11,8 +11,9 @@ This project implements an economic model simulation using Python. The model is 
 │  main.py # 主运行文件
 │  README.md # 说明文件
 │  requirements.txt # 需求
-├─file # latex编译pdf
+├─build # latex编译pdf
 ├─file # 数据文件
+├─outputs_logs # 输出和日志文件
 ├─config
     │  
 ├─data
