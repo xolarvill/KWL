@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 
-def data_read(data_folder):
+def data_read(data_folder: str) -> pd.DataFrame:
     # 读取dta格式数据文件
     data_files = [os.path.join(data_folder, file) for file in os.listdir(data_folder) if file.endswith('.dta') and file != 'cfps10_22mc.dta']
 
@@ -11,7 +11,7 @@ def data_read(data_folder):
     
     return df
 
-def data_fix(df):
+def data_fix(df: pd.DataFrame) -> pd.DataFrame:
     # 删除变量
     df.drop(columns=[
         

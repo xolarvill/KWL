@@ -1,8 +1,4 @@
-from config import *
-from data import *
-from model import *
-from optimization import *
-from utils import *
+import config, data, model, optimization, utils
 import numpy as np
 import sympy as sp
 import pandas as pd
