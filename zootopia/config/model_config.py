@@ -7,6 +7,7 @@ class ModelConfig:
     1: 如果不想要从头重新处理数据，使用#号注释掉等号后面的路径，并且添加None作为空路径。为了方便调试，建议使用None。
     2: 人群分割条件可以根据实际需求进行调整。其中1为年龄小于30岁，2为年龄大于等于30岁，3为年龄大于等于65岁。
     3: 涉及参数、函数等模型修改时，需要同时修改其他py文件中的对应部分。
+    4: 人群种类tau影响的变量有gamma0_tau1、gamma0_tau2、gamma0_tau3，config对其赋值的为gamma0_tau1_ini、gamma0_tau2_ini、gamma0_tau3_ini。对应的概率为pi_tau1、pi_tau2、pi_tau3。
     '''
     def __init__(self):
         # 数据路径参数
@@ -25,24 +26,50 @@ class ModelConfig:
         # 外生参数
         self.discount_factor: float = 0.95  # 贴现因子，迁移一般是考虑久远的影响，所以此处取0.95
         self.n_regions: int = 31  # 地区数量
+        self.age_min: int = 18  # 最小年龄
+        self.age_max: int = 65  # 最大年龄
         
         # 未知变量相关参数
-        self.n_eta_support_points: int = 3  # 个体固定效应支撑点数量
+        ## 给定支撑点数量
+        self.n_nu_support_points: int = 5  # 个体-地区匹配效应支撑点数量
+        self.n_xi_support_points: int = 5  # 地区偏好效应支撑点数量
+        self.n_eta_support_points: int = 7  # 个体固定效应支撑点数量
         self.n_sigmavarepsilon_support_points: int = 3  # 暂态效应方差支撑点数量
-        self.eta_support_1_ini: float = -1.0  # 个体固定效应支撑点1
-        self.eta_support_2_ini: float = 0.0  # 个体固定效应支撑点2
-        self.eta_support_3_ini: float = 1.0  # 个体固定效应支撑点3
-        self.nu_support_1_ini: float = -0.5  # 个体-地区匹配效应支撑点1
-        self.nu_support_2_ini: float = 0.0  # 个体-地区匹配效应支撑点2
-        self.nu_support_3_ini: float = 0.5  # 个体-地区匹配效应支撑点3
-        self.xi_support_1_ini: float = -0.5  # 地区偏好效应支撑点1
-        self.xi_support_2_ini: float = 0.0  # 地区偏好效应支撑点2
-        self.xi_support_3_ini: float = 0.5  # 地区偏好效应支撑点3
-        self.sigmavarepsilon_support_1_ini: float = -0.5  # 暂态效应方差支撑点1
-        self.sigmavarepsilon_support_2_ini: float = 0.0  # 暂态效应方差支撑点2
-        self.sigmavarepsilon_support_3_ini: float = 0.5  # 暂态效应方差支撑点3
         
-        # torch.nn.Parameter初始待估参数
+        ## 由均匀分布假设对应的各自取值概率
+        self.prob_nu_support_points: List[float] = [1/self.n_nu_support_points] * self.n_nu_support_points  # 个体-地区匹配效应支撑点概率
+        self.prob_xi_support_points: List[float] = [1/self.n_xi_support_points] * self.n_xi_support_points  # 地区偏好效应支撑点概率
+        self.prob_eta_support_points: List[float] = [1/self.n_eta_support_points] * self.n_eta_support_points  # 个体固定效应支撑点概率
+        self.prob_sigmavarepsilon_support_points: List[float] = [1/self.n_sigmavarepsilon_support_points] * self.n_sigmavarepsilon_support_points  # 暂态效应方差支撑点概率
+        
+        ## 代估支撑点值
+        self.nu_support_1_ini: float = 0.3  # 个体-地区匹配效应支撑点1
+        self.nu_support_2_ini: float = 0.6  # 个体-地区匹配效应支撑点2
+        
+        self.xi_support_1_ini: float = 0.4  # 地区偏好效应支撑点1
+        self.xi_support_2_ini: float = 0.7  # 地区偏好效应支撑点2
+        
+        self.eta_support_1_ini: float = 1.0  # 个体固定效应支撑点1
+        self.eta_support_2_ini: float = 2.0  # 个体固定效应支撑点2
+        self.eta_support_3_ini: float = 3.0  # 个体固定效应支撑点3
+
+        self.sigmavarepsilon_support_1_ini: float = 0.2  # 暂态效应方差支撑点1
+        self.sigmavarepsilon_support_2_ini: float = 0.4  # 暂态效应方差支撑点2
+        self.sigmavarepsilon_support_3_ini: float = 0.6  # 暂态效应方差支撑点3
+        self.sigmavarepsilon_support_4_ini: float = 0.8  # 暂态效应方差支撑点4
+        
+        # 异质性群体
+        '''
+        Note:
+        按照定义\sum_{tau} \pi_{tau} = 1，所以pi_1_ini + pi_2_ini + pi_3_ini = 1，只需设置其中两个即可。
+        '''
+        ## 给定种类数量
+        self.n_tau_types: int = 3  # 迁移类型数量
+        ## 代估种类概率值
+        self.pi_1_ini: float = 0.3
+        self.pi_2_ini: float = 0.4
+        
+        # 效用函数待估参数
         ## u
         self.alpha0_ini: float = 0.8 # wage income parameter 
         self.alpha1_ini: float = 0.8 # houseprice
@@ -59,32 +86,18 @@ class ModelConfig:
         self.rt_ini: float = 0.8 # 时间参数
         
         ## 迁移成本参数（gamma系列）
-        self.gammaF_ini: float = 0.8 # mirgration friction parameter
-        self.gamma0_ini: float = 0.5 # heterogenous friction parameter 
+        self.gamma0_tau1_ini: float = 0.3 # 第一类群体的迁移成本截距
+        self.gamma0_tau2_ini: float = 0.4 # 第二类群体的迁移成本截距
+        self.gamma0_tau3_ini: float = 0.3 # 第三类群体的迁移成本截距
         self.gamma1_ini: float = -0.1 # 距离衰减系数
-        self.gamma2_ini: float = 0.5 # 邻近省份折扣
-        self.gamma3_ini: float = 0.8 # 先前省份折扣
-        self.gamma4_ini: float = 0.05 # 年龄对迁移成本的影响
-        self.gamma5_ini: float = 0.8 # 更大的城市更便宜
-        
-        ## 异质性群体概率
-        self.pi1_ini: float = 0.8
-        self.pi2_ini: float = 0.8
-        self.pi3_ini: float = 0.8
+        self.gamma2_ini: float = -0.2 # 邻近省份折扣
+        self.gamma3_ini: float = -0.4 # 先前省份折扣
+        self.gamma4_ini: float = 0.5 # 年龄对迁移成本的影响
+        self.gamma5_ini: float = -0.8 # 更大的城市更便宜
         
         # 优化参数
-        self.learning_rate: float = 0.1
-        self.max_iter: int = 100
+        self.max_iter: int = 1000
         self.tolerance: int = 1e-6
-        
-        # 计算资源参数
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.n_jobs = -1  # 使用所有可用CPU核心
-        
-        # 值迭代参数
-        self.max_iter = 1000
-        self.tolerance = 1e-6
-        self.terminal_period: int = 65  # 退休年龄
         
         # 输出参数
         self.output_language: str = 'LaTeX'

@@ -35,39 +35,49 @@ class MigrationParameters:
         self.gamma5 = torch.nn.Parameter(torch.tensor(self.config.gamma5_ini)) # 更大的城市更便宜
         
         # 支撑点离散化用tensor向量表示
+        
         ## 个体固定效应支撑点
         self.eta_support = torch.tensor([
+            - self.config.eta_support_3_ini,
+            - self.config.eta_support_2_ini,
+            - self.config.eta_support_1_ini,
+            0,
             self.config.eta_support_1_ini,
             self.config.eta_support_2_ini,
             self.config.eta_support_3_ini
         ])
         
-        ## 个体-地区匹配效应支撑点
+        ## 个体-地区匹配的效应支撑点
         self.nu_support = torch.tensor([
+            - self.config.nu_support_2_ini,
+            - self.config.nu_support_1_ini,
+            0,
             self.config.nu_support_1_ini,
             self.config.nu_support_2_ini,
-            self.config.nu_support_3_ini
         ])
         
-        ## 地区偏好效应支撑点
+        ## 地区偏好效应的支撑点
         self.xi_support = torch.tensor([
+            - self.config.xi_support_2_ini,
+            - self.config.xi_support_1_ini,
+            0,
             self.config.xi_support_1_ini,
-            self.config.xi_support_2_ini,
-            self.config.xi_support_3_ini
+            self.config.xi_support_2_ini
         ])
         
-        ## 暂态效应的方差支撑点
+        ## 暂态效应方差的支撑点
         self.sigmavarepsilon_support = torch.tensor([
             self.config.sigmavarepsilon_support_1_ini,
             self.config.sigmavarepsilon_support_2_ini,
-            self.config.sigmavarepsilon_support_3_ini
+            self.config.sigmavarepsilon_support_3_ini,
+            self.config.sigmavarepsilon_support_4_ini
         ])
         
-        ## 异质性群体类型概率
+        # 异质性群体类型概率
         self.pi_tau = torch.tensor([
             self.config.pi_tau_1_ini,
             self.config.pi_tau_2_ini,
-            self.config.pi_tau_3_ini
+            1 - self.config.pi_tau_1_ini - self.config.pi_tau_2_ini
         ])
         
     def to_dict(self) -> Dict[str, Tensor]:
