@@ -1,40 +1,18 @@
-# utility_functions.py
-import torch
+from config import ModelConfig
+from migration_parameters import MigrationParameters
 
 class UtilityFunctions:
-    def __init__(self, config):
+    def __init__(self, config: ModelConfig, params: MigrationParameters):
         self.config = config
-        # 初始化参数为torch.nn.Parameter
-        self.initialize_parameters()
-        
-    def initialize_parameters(self):
-        """初始化模型参数"""
-        # 使用torch.nn.Parameter存储可训练参数
-        
-    def economic_utility(self, individual, region, time, params=None):
-        """计算经济效用"""
-        # 计算包含地区平均收入、个体固定效应、匹配效应的经济效用
-        
-    def non_economic_utility(self, individual, region, time, params=None):
-        """计算非经济效用"""
-        # 计算非经济效用部分
-        
-    def region_preference(self, individual, region, time, params=None):
-        """计算地区偏好"""
-        # 计算个体对特定地区的偏好
-        
-    def hukou_barrier(self, individual, region, time, params=None):
-        """计算户籍制度障碍"""
-        # 计算户籍制度造成的效用减损
-        
-    def home_premium(self, individual, region, time, params=None):
-        """计算恋家溢价"""
-        # 计算个体对原籍地区的额外偏好
-        
-    def migration_cost(self, individual, from_region, to_region, time, params=None):
-        """计算迁移成本"""
-        # 计算从一个地区到另一个地区的迁移成本
-        
-    def total_utility(self, individual, choice, state, params=None):
-        """计算总效用"""
-        # 整合各部分效用计算总效用
+        self.params = params # param.gamma1读取后直接为torch.tensor类型
+        self.beta = self.config.discount_factor
+    
+    def utility_function(self, state, tau_type):
+        """计算效用函数"""
+        # 计算给定状态和tau类型的效用函数
+        # 这里需要根据具体的模型和数据结构进行实现
+        # 示例：
+        # return self.params.alpha0 * state['income'] + self.params.alpha1 * state['houseprice'] + ...
+        self.params.gamma1 * state['income']
+        cost = self.params.gamma1 * state['income'] + self.params.gamma2 * state['houseprice'] + self.params.gamma3 * state['rent'] + self.params.gamma4 * state['mortgage'] + self.params.gamma5 * state['utility']
+        return -cost

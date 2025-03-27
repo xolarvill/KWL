@@ -5,10 +5,15 @@ from functools import partial
 import joblib
 
 class ModelEstimator:
-    def __init__(self, model, data, config):
-        self.model = model
-        self.data = data
+    def __init__(self, 
+                 config: ModelConfig,
+                 model: LikelihoodAggregator, 
+                 individual_data: pd.DataFrame, 
+                 regional_data: pd.DataFrame):
         self.config = config
+        self.model = model
+        self.individual_data = individual_data
+        self.regional_data = regional_data
         
         # 设置优化器，使用L-BFGS
         self.optimizer = optim.LBFGS(

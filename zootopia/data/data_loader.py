@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import data_person, data_region, distance, adjacent, subsample
 from config import ModelConfig
 
@@ -21,7 +22,7 @@ class DataLoader:
         path = self.config.individual_data_path
         subsample_group = self.config.subsample_group
         
-        # 处理路径
+        # 优化数据处理，直接读取
         if path is None:
             # 使用默认路径
             path = 'file/cfps10_22mc.dta'
@@ -39,12 +40,13 @@ class DataLoader:
             except Exception as e:
                 raise RuntimeError(f"读取或处理数据时出错: {str(e)}")
             
-        # 子样本处理
-        if subsample_group is not None:
-            try:
-                df_individual = subsample.main_subsample(df_individual, subsample_group)
-            except Exception as e:
-                raise RuntimeError(f"子样本处理时出错: {str(e)}")
+        # 人群子样本处理
+        if subsample_group == 1:
+            df_individual = df_individual[df_individual['age'] < 18]
+        elif subsample_group == 2:
+            df_individual = df_individual[df_individual['age'] < 50]
+        elif subsample_group == 3:
+            df_individual = df_individual[df_individual['age'] < 80]
                 
         return df_individual
         
@@ -53,9 +55,9 @@ class DataLoader:
         # 读取config中指定的路径
         path = self.config.region_data_path
         if not isinstance(path, str):
-            raise ValueError("argument must be a string")
+            raise ValueError("路径参数必须是字符串类型")
         
-        # 优化读取
+        # 优化数据处理，直接读取
         if path is None:
             df_region = pd.read_excel('file/geo.xlsx')
         else:
@@ -69,7 +71,7 @@ class DataLoader:
         # 加载并处理临近矩阵
         path = self.config.adjacency_matrix_path
         if not isinstance(path, str):
-            raise ValueError("argument must be a string")
+            raise ValueError("路径参数必须是字符串类型")
         
         adjacent = adjacent.adjmatrix(path)
         # 返回处理后的矩阵

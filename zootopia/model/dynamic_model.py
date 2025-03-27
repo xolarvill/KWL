@@ -23,10 +23,6 @@ class DynamicChoiceModel(nn.Module):
         """计算值函数"""
         # 使用值迭代方法计算给定状态和tau类型的值函数
         
-    def policy_function(self, state, tau_type):
-        """计算最优政策"""
-        # 计算给定状态和tau类型的最优决策
-        
     def choice_probability(self, individual, choice, state, time, tau_type):
         """计算选择概率"""
         # 计算个体在给定状态下选择特定选项的概率
