@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import data_person, data_region, distance, adjacent, subsample
+import data_person, data_region, adjacent, subsample
 from config import ModelConfig
 
 class DataLoader:

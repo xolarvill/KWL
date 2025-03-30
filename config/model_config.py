@@ -103,4 +103,7 @@ class ModelConfig:
         self.output_language: str = 'LaTeX'
         self.output_file: str = 'tex'
         self.output_style: str = 'Booktab'
-        self.output_dir: str = 'outputs_logs/outputs'
+        self.base_dir: str = 'logs_outputs'
+        self.logs_dir: str = 'logs_outputs/logs'
+        self.outputs_dir = 'logs_outputs/outputs'
+        
