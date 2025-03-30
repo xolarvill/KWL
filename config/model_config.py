@@ -68,6 +68,7 @@ class ModelConfig:
         '''
         ## 给定种类数量
         self.n_tau_types: int = 3  # 迁移类型数量
+        self.tau: List[int] = [1, 2, 3]
         ## 代估种类概率值
         self.pi_1_ini: float = 0.3
         self.pi_2_ini: float = 0.4

@@ -125,9 +125,9 @@ class DynamicProgramming:
             return torch.tensor(0.0)
         
         # 根据tau类型选择不同的gamma0值
-        if tau == 0:
+        if tau == 1:
             gamma0 = self.params.gamma0_tau1
-        elif tau == 1:
+        elif tau == 2:
             gamma0 = self.params.gamma0_tau2
         else:
             gamma0 = self.params.gamma0_tau3
