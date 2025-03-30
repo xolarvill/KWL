@@ -230,13 +230,8 @@ class IndividualLikelihood:
             raise ValueError(f"个体 {pid} 没有数据记录")
         
         # 获取个体的位置历史
-        try:
-            from utils.visited import visited_sequence
-            self.location_history = visited_sequence(self.data, pid)
-        except ImportError:
-            # 如果没有visited_sequence函数，创建一个简单的位置历史
-            self.location_history = self.data['provcd'].tolist()
-        
+        self.location_history = visited_sequence(data = self.data, pid = pid)
+
         # 支撑点索引范围
         self.n_eta = len(self.params.eta_support)
         self.n_nu = len(self.params.nu_support)
