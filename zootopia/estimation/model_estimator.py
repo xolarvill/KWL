@@ -21,11 +21,6 @@ class ModelEstimator:
                  output_dir: str = None):
         self.model = model
         self.config = config
-        self.output_dir = output_dir or getattr(config, 'output_dir', 'outputs')
-        
-        # 确保输出目录存在
-        if self.output_dir and not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
         
         # 设置优化器，使用L-BFGS
         self.optimizer = optim.LBFGS(
@@ -67,13 +62,13 @@ class ModelEstimator:
         
         return loss
     
-    def estimate(self, max_iterations: int = None):
+    def estimate(self):
         """执行参数估计"""
         print("开始参数估计...")
         self.start_time = time.time()
         
         # 设置最大迭代次数
-        max_iter = max_iterations or self.config.max_iter
+        max_iter = self.config.max_iter
         
         # 定义闭包函数用于优化
         def closure():
