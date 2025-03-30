@@ -3,10 +3,10 @@ import numpy as np
 import pandas as pd
 from torch import Tensor
 from typing import Dict, List, Tuple
-from model_config import ModelConfig
+from config import ModelConfig
 from migration_parameters import MigrationParameters
 from utils.indicator import isnot, inverse_isnot, isin, inverse_isin
-from util.visited import calK_all_time
+from utils.visited import visited_sequence
 
 class DynamicProgramming:
     """动态规划求解"""
@@ -14,12 +14,12 @@ class DynamicProgramming:
                  config: ModelConfig,
                  params: MigrationParameters,
                  geo_data: pd.DataFrame,
-                 dismatrx: np.ndarray,
+                 distance_matrix: np.ndarray,
                  adjmatrix: np.ndarray):
         self.config = config
         self.params = params
         self.geo_data = geo_data
-        self.dismatrix = dismatrx
+        self.dismatrix = distance_matrix
         self.adjmatrix = adjmatrix
         self.max_age = self.config.max_age
         self.discount_factor = self.config.discount_factor
@@ -231,10 +231,10 @@ class IndividualLikelihood:
         
         # 获取个体的位置历史
         try:
-            from utils.visited import calK_all_time
-            self.location_history = calK_all_time(self.data, pid)
+            from utils.visited import visited_sequence
+            self.location_history = visited_sequence(self.data, pid)
         except ImportError:
-            # 如果没有calK_all_time函数，创建一个简单的位置历史
+            # 如果没有visited_sequence函数，创建一个简单的位置历史
             self.location_history = self.data['provcd'].tolist()
         
         # 支撑点索引范围
