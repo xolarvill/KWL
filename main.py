@@ -1,72 +1,68 @@
-import config, data, model, optimization, utils
+import torch
 import numpy as np
-import sympy as sp
 import pandas as pd
-from time import time
+import os
+import time
+
+from config.model_config import ModelConfig
+from data.data_loader import DataLoader
+from model.dynamic_model import DynamicModel
+from estimation.model_estimator import ModelEstimator
 
 def main():
-    '''
-    基于动态最优居住地选择模型对影响10-22年中国劳动力流动的决定因素进行分析
-    数据选自CFPS、国家统计局等部门
-    '''
-    # 原始数据读取、清洗、添加新变量
-    ## 基础读取和清洗
-    # Cfpsdata = data_person.main_read('D:\\STUDY\\CFPS\\merged')
-    # Geodata = data_geo.main_read('D:\\STUDY\\CFPS\\geo')
+    print("启动劳动力迁移动态离散选择模型估计...")
+    start_time = time.time()
+    
+    # 1. 加载配置
+    config = ModelConfig()
+    print(f"配置加载完成，使用子样本组: {config.subsample_group}")
+    
+    # 2. 加载数据
+    print("开始加载数据...")
+    data_loader = DataLoader(config)
+    
+    # 3. 创建动态模型（统一接口）
+    print("初始化动态模型...")
+    dynamic_model = DynamicModel.from_data_loader(config, data_loader)
+    
+    # 4. 创建模型估计器
+    print("初始化模型估计器...")
+    estimator = ModelEstimator(
+        model=dynamic_model,
+        config=config,
+        output_dir="outputs"
+    )
+    
+    # 5. 执行参数估计
+    print("开始执行参数估计...")
+    estimation_results = estimator.estimate()
+    
+    # 6. 计算标准误差和p值
+    print("计算标准误差和p值...")
+    std_errors = estimator.compute_standard_errors()
+    p_values = estimator.compute_p_values(std_errors)
+    
+    # 7. 保存结果
+    estimator.save_results()
+    
+    # 8. 生成报告
+    report = estimator.generate_report(output_format=config.output_language)
+    
+    # 保存报告到文件
+    report_dir = os.path.join("outputs", "reports")
+    os.makedirs(report_dir, exist_ok=True)
+    
+    report_file = os.path.join(report_dir, f"estimation_report_{time.strftime('%Y%m%d_%H%M%S')}.txt")
+    with open(report_file, 'w', encoding='utf-8') as f:
+        f.write(report)
+    
+    print(f"报告已保存至: {report_file}")
+    
+    # 计算总耗时
+    total_time = time.time() - start_time
+    print(f"参数估计完成，总耗时: {total_time:.2f}秒")
+    
+    return estimation_results
 
-    # 直接使用已清洗的数据节省时间
-    Cfpsdata = pd.read_stata('D:\\STUDY\\CFPS\\merged\\KWL\\data\\cfps10_22mc.dta')
-    Geodata = pd.read_excel('D:\\STUDY\\CFPS\\merged\\KWL\\data\\geo\\geo.xls')
-
-    # 给出样本的描述性统计，并写入txt文件中
-    description = descriptive.des(dataframe = Cfpsdata, Geodata = Geodata)
-    with open('description.txt', 'w') as f:
-            f.write(f"{description}")
-    
-    # 是否要使用子样本进行分类回归
-    cut_par = 1
-    if cut_par == 1:
-        Cfpsdata = subsample.cutout1(Cfpsdata)
-    elif cut_par == 2:
-        Cfpsdata = subsample.cutout2(Cfpsdata)
-    
-    # 获取基础参数
-    year_list = Cfpsdata['year'].unique() # 年份列表
-    pid_list = Cfpsdata['pid'].unique() # 个体ID列表
-    provcd_list = Cfpsdata['provcd'].unique() # 省份代码列表
-    T = len(year_list) # 总期数
-    J = len(provcd_list) #地点数
-    I = len(pid_list) # 样本数
-    adjacent_matrix = adjacent.adjmatrix(
-        adj_path='D:\\STUDY\\CFPS\\merged\\KWL\\data\\geo\\adjacent.xlsx'
-        ) # 邻近矩阵
-    distance_matrix = distance.dismatrix(
-        Geodata=Geodata
-        ) # 物理距离矩阵
-    linguistic_matrix = linguistic.linmatrix(
-        excel_path='',
-        json_path='D:\\STUDY\\CFPS\\merged\\KWL\\data\\linguistic.json'
-        ) # 文化距离矩阵
-
-    # 从个人轨迹的似然贡献得到个人所有年份的似然函数（包括工资似然和迁移似然），从而估计参数
-    # 执行参数估计
-    print("Starting parameter estimation...")
-    results = optimal.estimate_parameters(Cfpsdata, Geodata, adjacent_matrix, distance_matrix)
-    
-    # 输出结果
-    print("\nParameter Estimates with Standard Errors:")
-    print(results.to_dataframe())
-    results.save_to_file('parameter_results.tex', format='latex')
-    print("\nResults saved to parameter_results.tex")
-    
-    # 返回程序运行结果        
-    print('\nThe algorithm is done')
-    print('\nRead readme.md for more information')
-    
-
-if __name__ == '__main__':
-    start_time = time()
+if __name__ == "__main__":
     main()
-    end_time = time()
-    execution_time = end_time - start_time
-    print(f"Execution time: {execution_time} seconds")

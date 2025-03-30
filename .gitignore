@@ -15,3 +15,4 @@ function/__pycache__/
 claude_ver/
 data/geo/backup/
 data/geo/adjacent/
+.vscode/
