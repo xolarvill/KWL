@@ -1,5 +1,6 @@
 # 管理和存储模型的各种配置参数
-import torch
+
+from typing import List
 
 class ModelConfig:
     '''
@@ -15,12 +16,14 @@ class ModelConfig:
         self.regional_data_path: str = None #'path/to/default/regional_data.xlsx'
         self.adjacency_matrix_path: str = 'file/adjacent.xlsx'
         self.linguistic_data_path: str = 'file/linguistic.json'
-        self.provcd_rank: str = 'file/provcd_rank.json'
+        self.distance_matrix_path: str = 'file/distance_matrix.csv'
+        self.prov_code_ranked_path: str = 'file/prov_code_ranked.json'
+        self.prov_name_ranked_path: str = 'file/prov_name_ranked.json'
         
         # 动态生成不同人群的切割条件
         # 限制subsample_group只能为1,2,3
         self.subsample_group: int = 1
-        if not isinstance(subsample_group, int) or subsample_group not in [1, 2, 3]:
+        if not isinstance(self.subsample_group, int) or self.subsample_group not in [1, 2, 3]:
             raise ValueError('subsample_group必须为1、2或3')
         
         # 外生参数
@@ -105,5 +108,5 @@ class ModelConfig:
         self.output_style: str = 'Booktab'
         self.base_dir: str = 'logs_outputs'
         self.logs_dir: str = 'logs_outputs/logs'
-        self.outputs_dir = 'logs_outputs/outputs'
+        self.outputs_dir: str = 'logs_outputs/outputs'
         

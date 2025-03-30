@@ -1,7 +1,13 @@
 import pandas as pd
 import numpy as np
-import data_person, data_region, adjacent, subsample
+import data_person
+import data_region
+import adjacent
+import subsample
+import distance
+import json  
 from config import ModelConfig
+from typing import List
 
 class DataLoader:
     '''
@@ -42,11 +48,11 @@ class DataLoader:
             
         # 人群子样本处理
         if subsample_group == 1:
-            df_individual = df_individual[df_individual['age'] < 18]
+            df_individual = subsample.subsample(df_individual, demand = '1')
         elif subsample_group == 2:
-            df_individual = df_individual[df_individual['age'] < 50]
+            df_individual = subsample.subsample(df_individual, demand = '2')
         elif subsample_group == 3:
-            df_individual = df_individual[df_individual['age'] < 80]
+            df_individual = subsample.subsample(df_individual, demand = '3')
                 
         return df_individual
         
@@ -76,4 +82,35 @@ class DataLoader:
         adjacent = adjacent.adjmatrix(path)
         # 返回处理后的矩阵
         return adjacent
+    
+    def load_prov_code_ranked(self) -> List :
+        """加载地区排名"""
+        path = self.config.prov_code_ranked_path
+        if not isinstance(path, str):
+            raise ValueError("路径参数必须是字符串类型")
+
+        # 打开json文件并读取为List
+        with open(path, 'r') as f:
+            provcd_rank = json.load(f)
+         
+        return provcd_rank
+
+    def load_distance_matrix(self) -> np.ndarray:
+        """加载地区距离矩阵"""
+        # to save time, use the result of distance.py that stored in file instead of calculating again
+        path = self.config.distance_matrix_path # 读取config中指定的路径
+        path2 = self.config.prov_name_ranked_path
         
+        # 如果路径非空，说明已经计算过距离矩阵，直接读取
+        if path is not None:
+            if not isinstance(path, str):
+                raise ValueError("路径参数必须是字符串类型")
+            
+            distance_matrix = pd.read_csv(path)
+            
+            return distance_matrix
+        
+        # 如果路径为空，说明还没有计算过距离矩阵，需要计算
+        else:
+            distance_matrix = distance.distance_matrix(path2)
+            return distance_matrix
