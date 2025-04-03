@@ -93,7 +93,7 @@ def dialect_distance(l1, l2, jsondata):
     print(f"亲疏距离: {distance}")  # 输出示例：亲疏距离: 3
 
 
-def linmatrix(excel_path, json_path,):
+def linguistic_matrix(excel_path, json_path,):
     '''
     读取省份的语言人口分布数据，计算各自的语言远近距离，输出矩阵
     '''

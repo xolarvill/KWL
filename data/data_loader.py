@@ -6,6 +6,7 @@ import adjacent
 import subsample
 import distance
 import json  
+import linguistic
 from config import ModelConfig
 from typing import List
 
@@ -76,12 +77,13 @@ class DataLoader:
         """加载地区临近矩阵"""
         # 加载并处理临近矩阵
         path = self.config.adjacency_matrix_path
-        if not isinstance(path, str):
-            raise ValueError("路径参数必须是字符串类型")
         
-        adjacent = adjacent.adjmatrix(path)
-        # 返回处理后的矩阵
-        return adjacent
+        if not isinstance(path, str):
+                raise ValueError("路径参数必须是字符串类型")
+
+        adjacency_matrix = pd.read_excel(path)
+
+        return adjacency_matrix
     
     def load_prov_code_ranked(self) -> List :
         """加载地区排名"""
@@ -114,3 +116,22 @@ class DataLoader:
         else:
             distance_matrix = distance.distance_matrix(path2)
             return distance_matrix
+        
+    def load_linguistic_matrix(self) -> np.ndarray:
+        """加载语言亲疏矩阵，用于计算舒适度计算中的一环，k行j列的数字代表k省与j省的语言亲疏度"""
+        path = self.config.linguisitc_matrix_path
+        path2 = self.config.language
+
+        # 如果路径非空，说明已经计算过距离矩阵，直接读取
+        if path is not None:
+            if not isinstance(path, str):
+                raise ValueError("路径参数必须是字符串类型")
+            
+            linguistic_matrix = pd.read_csv(path)
+            
+            return linguistic_matrix
+        
+        # 如果路径为空，说明还没有计算过语言矩阵，需要计算
+        else:
+            linguistic_matrix = linguistic.linguistic_matrix(path2)
+            return linguistic_matrix

@@ -19,6 +19,7 @@ class ModelConfig:
         self.distance_matrix_path: str = 'file/distance_matrix.csv'
         self.prov_code_ranked_path: str = 'file/prov_code_ranked.json'
         self.prov_name_ranked_path: str = 'file/prov_name_ranked.json'
+        self.linguistic_matrix_path: str = 'file/linguistic_matrix.csv'
         
         # 动态生成不同人群的切割条件
         # 限制subsample_group只能为1,2,3
@@ -81,6 +82,7 @@ class ModelConfig:
         self.alpha3_ini: float = 0.8 # education 
         self.alpha4_ini: float = 0.8 # health
         self.alpha5_ini: float = 0.8 # traffic = public transportation + road service
+        self.apha6_ini: float = 0.3 # cultural: linguistic
         self.alphaH_ini: float = 0.1 # home premium parameter
         self.alphaP_ini: float = 0.1 # hukou penalty parameter
 

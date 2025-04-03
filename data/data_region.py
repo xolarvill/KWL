@@ -1,5 +1,7 @@
 import pandas as pd
-import method_entropy, method_pca, houseprice, os
+from utils import method_entropy, method_pca
+import os
+import houseprice
 
 def main_read(directory_path: str) -> pd.DataFrame:
     """
