@@ -12,8 +12,8 @@ class ModelConfig:
     '''
     def __init__(self):
         # 数据路径参数
-        self.individual_data_path: str = None #'path/to/default/individual_data.dta'
-        self.regional_data_path: str = None #'path/to/default/regional_data.xlsx'
+        self.individual_data_path: str | None = None #'path/to/default/individual_data.dta'
+        self.regional_data_path: str | None = None #'path/to/default/regional_data.xlsx'
         self.adjacency_matrix_path: str = 'file/adjacent.xlsx'
         self.linguistic_data_path: str = 'file/linguistic.json'
         self.distance_matrix_path: str = 'file/distance_matrix.csv'
@@ -62,10 +62,10 @@ class ModelConfig:
         self.sigmavarepsilon_support_4_ini: float = 0.8  # 暂态效应方差支撑点4
         
         # 异质性群体
-        '''
+        """
         Note:
-        按照定义\sum_{tau} \pi_{tau} = 1，所以pi_1_ini + pi_2_ini + pi_3_ini = 1，只需设置其中两个即可。
-        '''
+        按照定义sum_{tau} pi_{tau} = 1，所以pi_1_ini + pi_2_ini + pi_3_ini = 1，只需设置其中两个即可。
+        """
         ## 给定种类数量
         self.n_tau_types: int = 3  # 迁移类型数量
         self.tau: List[int] = [1, 2, 3]
@@ -101,7 +101,7 @@ class ModelConfig:
         
         # 优化参数
         self.max_iter: int = 1000
-        self.tolerance: int = 1e-6
+        self.tolerance: float = 1e-6
         
         # 输出参数
         self.output_language: str = 'LaTeX'
