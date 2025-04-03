@@ -21,6 +21,7 @@ class DynamicProgramming:
         self.geo_data = geo_data
         self.dismatrix = distance_matrix
         self.adjmatrix = adjmatrix
+        self.linguistic_matrix = linguistic_matrix
         self.max_age = self.config.max_age
         self.discount_factor = self.config.discount_factor
         self.EV = {}  # 期望价值函数，格式：{(age, current_location, tau, eta_idx, nu_idx, xi_idx): Tensor}
@@ -184,6 +185,9 @@ class DynamicProgramming:
         
         # 交通效用（包括公共交通和道路服务）
         traffic_utility = self.params.alpha5 * self.geo_data.loc[j, 'traffic']
+
+        # 文化
+        
         
         # 总宜居度效用
         amenity_utility = house_price_utility + weather_utility + education_utility + health_utility + traffic_utility

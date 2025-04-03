@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from torch import Tensor
 from typing import Dict, List
-from model_config import ModelConfig
+from config import ModelConfig
 
 class MigrationParameters:
     def __init__(self, config: ModelConfig):
@@ -15,6 +15,7 @@ class MigrationParameters:
         self.alpha3 = torch.nn.Parameter(torch.tensor(self.config.alpha3_ini)) # education 
         self.alpha4 = torch.nn.Parameter(torch.tensor(self.config.alpha4_ini)) # health
         self.alpha5 = torch.nn.Parameter(torch.tensor(self.config.alpha5_ini)) # traffic = public transportation + road service
+        self.alpha6 = torch.nn.Parameter(torch.tensor(self.config.alpha6_ini)) # cultural
         self.alphaH = torch.nn.Parameter(torch.tensor(self.config.alphaH_ini)) # home premium parameter
         self.aplhaP = torch.nn.Parameter(torch.tensor(self.config.aplhaP_ini)) # hukou penalty parameter
         self.xi = torch.nn.Parameter(torch.tensor(self.config.xi_ini)) # random permanent component

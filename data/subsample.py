@@ -1,5 +1,5 @@
 import pandas as pd
-def subsample(dataframe: pd.DataFrame, demand: str):
+def subsample(dataframe, demand: str) -> pd.DataFrame:
     if not isinstance(demand, str):
         raise ValueError('要求必须为字符串')
     elif demand == '1':

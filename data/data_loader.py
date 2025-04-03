@@ -54,13 +54,16 @@ class DataLoader:
             df_individual = subsample.subsample(df_individual, demand = '2')
         elif subsample_group == 3:
             df_individual = subsample.subsample(df_individual, demand = '3')
-                
-        return df_individual
+        
+        if isinstance(df_individual, pd.DataFrame):
+            return df_individual
+        else:
+            return pd.DataFrame(df_individual)
         
     def load_regional_data(self) -> pd.DataFrame:
         """加载地区特征数据"""
         # 读取config中指定的路径
-        path = self.config.region_data_path
+        path = self.config.regional_data_path
         if not isinstance(path, str):
             raise ValueError("路径参数必须是字符串类型")
         
@@ -73,7 +76,7 @@ class DataLoader:
         # 返回处理后的数据框
         return df_region
         
-    def load_adjacency_matrix(self) -> np.array:
+    def load_adjacency_matrix(self) -> np.ndarray:
         """加载地区临近矩阵"""
         # 加载并处理临近矩阵
         path = self.config.adjacency_matrix_path
@@ -83,7 +86,8 @@ class DataLoader:
 
         adjacency_matrix = pd.read_excel(path)
 
-        return adjacency_matrix
+        # 将DataFrame转换为numpy数组并返回
+        return np.array(adjacency_matrix)
     
     def load_prov_code_ranked(self) -> List :
         """加载地区排名"""
@@ -110,7 +114,7 @@ class DataLoader:
             
             distance_matrix = pd.read_csv(path)
             
-            return distance_matrix
+            return np.array(distance_matrix)
         
         # 如果路径为空，说明还没有计算过距离矩阵，需要计算
         else:
@@ -119,19 +123,18 @@ class DataLoader:
         
     def load_linguistic_matrix(self) -> np.ndarray:
         """加载语言亲疏矩阵，用于计算舒适度计算中的一环，k行j列的数字代表k省与j省的语言亲疏度"""
-        path = self.config.linguisitc_matrix_path
-        path2 = self.config.language
-
-        # 如果路径非空，说明已经计算过距离矩阵，直接读取
-        if path is not None:
-            if not isinstance(path, str):
-                raise ValueError("路径参数必须是字符串类型")
-            
-            linguistic_matrix = pd.read_csv(path)
-            
-            return linguistic_matrix
+        linguistic_matrix_path = self.config.linguistic_matrix_path
         
-        # 如果路径为空，说明还没有计算过语言矩阵，需要计算
-        else:
-            linguistic_matrix = linguistic.linguistic_matrix(path2)
+        linguistic_data_path = self.config.linguistic_data_path
+        prov_language_data_path = self.config.prov_language_data_path
+        
+        if linguistic_matrix_path is None:
+            linguistic_matrix = linguistic.linguistic_matrix(json_path = linguistic_data_path, excel_path = prov_language_data_path)
             return linguistic_matrix
+        else:
+            if not isinstance(linguistic_matrix_path, str):
+                raise ValueError("路径参数必须是字符串类型")
+
+            linguistic_matrix = pd.read_csv(linguistic_matrix_path)
+
+            return np.array(linguistic_matrix)

@@ -1,5 +1,7 @@
 import json
 import pandas as pd
+import numpy as np
+
 
 class TreeNode:
     def __init__(self, name):
@@ -58,22 +60,19 @@ def calculate_distance(node1, node2):
 
 def dialect_distance(l1, l2, jsondata):
     """
-    Calculate the distance between two dialects based on a linguistic tree.
-    Args:
-        l1 (str): The name of the first dialect.
-        l2 (str): The name of the second dialect.
-    Returns:
-        None: This function prints the distance between the two dialects.
-    The function performs the following steps:
-    1. Loads JSON data from a specified file path.
-    2. Builds a linguistic tree from the JSON data.
-    3. Creates a mapping from dialect names to their corresponding nodes in the tree.
-    4. Calculates the distance between the two specified dialects.
-    5. Prints the calculated distance.
-    Note:
-        The JSON file should be encoded in UTF-8 and should contain the necessary data to build the linguistic tree.
-    """
+    计算基于语言树的两种方言之间的距离。
     
+    Args:
+        l1 (str): 第一种方言的名称。
+        l2 (str): 第二种方言的名称。
+        jsondata (Dict): 包含语言树结构的JSON数据。
+        
+    Returns:
+        int: 两种方言之间的距离。
+        
+    Raises:
+        KeyError: 如果指定的方言名称在语言树中不存在。
+    """ 
     # 加载JSON数据
     data = jsondata
     root = build_tree(data)
@@ -86,28 +85,40 @@ def dialect_distance(l1, l2, jsondata):
             map_nodes(child)
     map_nodes(root)
     
+    # 检查方言是否存在
+    if l1 not in nodes_dict:
+        raise KeyError(f"方言 '{l1}' 在语言树中不存在")
+    if l2 not in nodes_dict:
+        raise KeyError(f"方言 '{l2}' 在语言树中不存在")
+    
     # 计算两个方言的距离
     dialect_a = nodes_dict[l1]
     dialect_b = nodes_dict[l2]
     distance = calculate_distance(dialect_a, dialect_b)
-    print(f"亲疏距离: {distance}")  # 输出示例：亲疏距离: 3
+    return distance
 
-
-def linguistic_matrix(excel_path, json_path,):
+def linguistic_matrix(excel_path, json_path) -> np.ndarray:
     '''
-    读取省份的语言人口分布数据，计算各自的语言远近距离，输出矩阵
+    读取省份的代表性语言，计算各自的语言远近距离，输出矩阵
     '''
-    #  ========================= 读取数据 ========================= 
-    data = pd.read_excel(excel_path) # excel数据分布
+    data = pd.read_csv(excel_path) # excel数据分布
     with open(json_path, encoding='utf-8') as f:
         linguistic_tree = json.load(f) # 语言谱系树
-    # ========================= 计算数据 ========================= 
-    
-    matrix = []
-    # ========================= 输出矩阵 ========================= 
 
+    matrix = np.zeros((len(data), len(data)))
+    for i in range(len(data)):
+        for j in range(len(data)):
+            if i != j:
+                matrix[i, j] = dialect_distance(data.iloc[i, 0], data.iloc[j, 0], linguistic_tree)
+            else:
+                matrix[i, j] = 0
+    
+    # 输出矩阵
     return matrix
 
+def save_to_csv(matrix, path):
+    df = pd.DataFrame(matrix)
+    df.to_csv(path, index=False)
 
 
 if __name__ == '__main__':

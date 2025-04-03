@@ -14,12 +14,20 @@ class ModelConfig:
         # 数据路径参数
         self.individual_data_path: str | None = None #'path/to/default/individual_data.dta'
         self.regional_data_path: str | None = None #'path/to/default/regional_data.xlsx'
-        self.adjacency_matrix_path: str = 'file/adjacent.xlsx'
-        self.linguistic_data_path: str = 'file/linguistic.json'
-        self.distance_matrix_path: str = 'file/distance_matrix.csv'
+        
         self.prov_code_ranked_path: str = 'file/prov_code_ranked.json'
         self.prov_name_ranked_path: str = 'file/prov_name_ranked.json'
+        
+        self.adjacency_matrix_path: str = 'file/adjacent.xlsx'
+        
+        self.prov_language_data_path: str = 'file/prov_language_data.csv'
+        self.linguistic_data_path: str = 'file/linguistic.json'
         self.linguistic_matrix_path: str = 'file/linguistic_matrix.csv'
+        
+        self.distance_matrix_path: str = 'file/distance_matrix.csv'
+        
+        
+        
         
         # 动态生成不同人群的切割条件
         # 限制subsample_group只能为1,2,3
