@@ -131,6 +131,7 @@ class DataLoader:
         if linguistic_matrix_path is None:
             linguistic_matrix = linguistic.linguistic_matrix(json_path = linguistic_data_path, excel_path = prov_language_data_path)
             return linguistic_matrix
+        
         else:
             if not isinstance(linguistic_matrix_path, str):
                 raise ValueError("路径参数必须是字符串类型")

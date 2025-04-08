@@ -18,15 +18,13 @@ class ModelConfig:
         self.prov_code_ranked_path: str = 'file/prov_code_ranked.json'
         self.prov_name_ranked_path: str = 'file/prov_name_ranked.json'
         
-        self.adjacency_matrix_path: str = 'file/adjacent.xlsx'
+        self.adjacency_matrix_path: str = 'file/adjacent.xlsx' # 邻接矩阵
         
-        self.prov_language_data_path: str = 'file/prov_language_data.csv'
-        self.linguistic_data_path: str = 'file/linguistic.json'
-        self.linguistic_matrix_path: str = 'file/linguistic_matrix.csv'
+        self.prov_language_data_path: str = 'file/prov_language_data.csv' # 省份代表性语言
+        self.linguistic_data_path: str = 'file/linguistic.json' # 语言谱系树
+        self.linguistic_matrix_path: str = 'file/linguistic_matrix.csv' # 语言亲疏度矩阵，越大越疏远
         
-        self.distance_matrix_path: str = 'file/distance_matrix.csv'
-        
-        
+        self.distance_matrix_path: str = 'file/distance_matrix.csv' # 物理距离矩阵
         
         
         # 动态生成不同人群的切割条件
@@ -38,6 +36,7 @@ class ModelConfig:
         # 外生参数
         self.discount_factor: float = 0.95  # 贴现因子，迁移一般是考虑久远的影响，所以此处取0.95
         self.n_regions: int = 31  # 地区数量
+        self.n_period: int = 7 # 时期数量
         self.age_min: int = 18  # 最小年龄
         self.age_max: int = 65  # 最大年龄
         
@@ -90,7 +89,7 @@ class ModelConfig:
         self.alpha3_ini: float = 0.8 # education 
         self.alpha4_ini: float = 0.8 # health
         self.alpha5_ini: float = 0.8 # traffic = public transportation + road service
-        self.apha6_ini: float = 0.3 # cultural: linguistic
+        self.alpha6_ini: float = 0.3 # cultural: linguistic
         self.alphaH_ini: float = 0.1 # home premium parameter
         self.alphaP_ini: float = 0.1 # hukou penalty parameter
 
@@ -108,6 +107,7 @@ class ModelConfig:
         self.gamma3_ini: float = -0.4 # 先前省份折扣
         self.gamma4_ini: float = 0.5 # 年龄对迁移成本的影响
         self.gamma5_ini: float = -0.8 # 更大的城市更便宜
+        
         
         # 优化参数
         self.max_iter: int = 1000

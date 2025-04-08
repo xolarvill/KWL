@@ -17,3 +17,5 @@ data/geo/backup/
 data/geo/adjacent/
 .vscode/
 *.cursorrules
+!README.md
+*.md
