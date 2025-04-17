@@ -219,7 +219,6 @@ class DynamicProgramming:
         
         return probs[j]
 
-
 class IndividualLikelihood:
     """计算单个个体的似然函数，考虑所有随机效应组合"""
     def __init__(self, 
@@ -339,5 +338,4 @@ class IndividualLikelihood:
             total_lik += self.params.pi_tau[tau] * tau_lik
         
         return total_lik
-
 
