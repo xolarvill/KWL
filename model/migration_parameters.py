@@ -16,9 +16,9 @@ class MigrationParameters:
         self.alpha4 = torch.nn.Parameter(torch.tensor(self.config.alpha4_ini)) # health
         self.alpha5 = torch.nn.Parameter(torch.tensor(self.config.alpha5_ini)) # business
         self.alpha6 = torch.nn.Parameter(torch.tensor(self.config.alpha6_ini)) # language
-        self.aplha7 = torch.nn.Parameter(torch.tensor(self.config.aplha7_ini)) # public goods
+        self.alpha7 = torch.nn.Parameter(torch.tensor(self.config.alpha7_ini)) # public goods
         self.alphaH = torch.nn.Parameter(torch.tensor(self.config.alphaH_ini)) # home premium parameter
-        self.aplhaP = torch.nn.Parameter(torch.tensor(self.config.aplhaP_ini)) # hukou penalty parameter
+        self.alphaP = torch.nn.Parameter(torch.tensor(self.config.alphaP_ini)) # hukou penalty parameter
         self.xi = torch.nn.Parameter(torch.tensor(self.config.xi_ini)) # random permanent component
         self.zeta = torch.nn.Parameter(torch.tensor(self.config.zeta_ini)) # exogenous shock
         

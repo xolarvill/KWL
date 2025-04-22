@@ -122,13 +122,16 @@ class DynamicModel(nn.Module):
             return self.individual_likelihoods_cache[pid]
         
         try:
+            # 获取该个体的数据（已经按pid分割好的个体数据）
+            individual_data = self.individual_data[self.individual_data['pid'] == pid]
+            
             # 计算个体在所有类型下的似然总和
             total_lik = torch.tensor(0.0, requires_grad=True)
             
             # 遍历所有可能的类型tau
             for tau in range(self.config.n_tau_types):
                 # 计算类型为tau的个体似然
-                tau_lik = self._compute_tau_likelihood(pid, tau)
+                tau_lik = self._compute_tau_likelihood(pid, tau, individual_data)
                 
                 # 加权求和（使用类型概率）
                 total_lik += self.params.pi_tau[tau] * tau_lik
@@ -141,12 +144,13 @@ class DynamicModel(nn.Module):
             print(f"计算个体 {pid} 的似然函数时出错: {str(e)}")
             return torch.tensor(1e-10, requires_grad=True)  # 返回一个很小的值，避免log(0)
     
-    def _compute_tau_likelihood(self, pid: int, tau: int) -> torch.Tensor:
+    def _compute_tau_likelihood(self, pid: int, tau: int, individual_data: pd.DataFrame) -> torch.Tensor:
         """计算特定类型tau下的个体似然
         
         参数:
             pid (int): 个体ID
             tau (int): 类型索引
+            individual_data (pd.DataFrame): 已按pid分割好的个体数据
             
         返回:
             torch.Tensor: 类型为tau的个体似然
@@ -161,7 +165,7 @@ class DynamicModel(nn.Module):
                         # 创建个体似然计算器
                         individual_likelihood = IndividualLikelihood(
                             pid=pid,
-                            data=self.individual_data,
+                            data=individual_data,  # 传入已分割好的个体数据
                             dp=self.dp,
                             params=self.params,
                             config=self.config

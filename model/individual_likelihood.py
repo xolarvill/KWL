@@ -95,26 +95,30 @@ class DynamicProgramming:
 
     def _calculate_amenity_utility(self, year: int, j: int) -> Tensor:
         """计算非经济效益（宜居度）"""
+        # 获取特定年份的地区数据
+        year_data = self.geo_data[self.geo_data['year'] == year]
+        location_data = year_data[year_data['provcd'] == j]
+        
         # 房价效用
-        house_price_utility = self.params.alpha1 * self.geo_data.loc[j, 'house_price'].values[0]
+        house_price_utility = self.params.alpha1 * location_data['house_price'].values[0]
         
         # 天气效用（包括自然灾害、温度、空气质量、水资源）
-        environment_utility = self.params.alpha2 * self.geo_data.loc[j, 'weather']
+        environment_utility = self.params.alpha2 * location_data['weather'].values[0]
         
         # 教育
-        education_utility = self.params.alpha3 * self.geo_data.loc[j, 'education']
+        education_utility = self.params.alpha3 * location_data['education'].values[0]
         
         # 医疗
-        health_utility = self.params.alpha4 * self.geo_data.loc[j, 'health']
+        health_utility = self.params.alpha4 * location_data['health'].values[0]
         
         # 商业
-        business_utility = self.params.alpha7 * self.geo_data[j, 'business']
+        business_utility = self.params.alpha5 * location_data['business'].values[0]
         
         # 方言
         cultural_utility = self.params.alpha6 * self.linguistic_matrix[j,0]
         
         # 公共设施
-        public_utility = self.params.alpha5 * self.geo_data.loc[j, 'public']
+        public_utility = self.params.alpha7 * location_data['public'].values[0]
         
         # 计算线形总宜居度效用
         amenity_utility = house_price_utility + environment_utility + education_utility + health_utility + business_utility + cultural_utility + public_utility
@@ -223,34 +227,74 @@ class DynamicProgramming:
         return probs[j]
 
 class IndividualLikelihood:
-    """计算单个个体的似然函数，考虑所有随机效应组合"""
+    """个体似然函数计算"""
     def __init__(self, 
-                 pid: int, 
-                 data: pd.DataFrame, 
+                 individual_data: pd.DataFrame,  # 已经按pid分割好的个体数据
                  dp: DynamicProgramming, 
                  params: MigrationParameters,
                  config: ModelConfig):
-        self.pid = pid
-        self.data = data[data['pid'] == pid].sort_values('year')
+        """
+        初始化个体似然函数计算器
+        
+        参数:
+            individual_data (pd.DataFrame): 单个个体的历史轨迹数据
+            dp (DynamicProgramming): 动态规划求解器
+            params (MigrationParameters): 模型参数
+            config (ModelConfig): 模型配置
+        """
+        self.data = individual_data
         self.dp = dp
         self.params = params
         self.config = config
-        self.n_periods = len(self.data)
         
-        # 检查数据是否为空
-        if self.n_periods == 0:
-            raise ValueError(f"个体 {pid} 没有数据记录")
+        # 获取个体的hukou信息
+        self.hukou = individual_data['hukou'].iloc[0]  # 假设同一个体的hukou不变
         
-        # 获取个体的位置历史
-        self.location_history = visited_sequence(data = self.data, pid = pid)
+        # 获取个体的pid
+        self.pid = individual_data['pid'].iloc[0]
+        
+        # 获取个体的观测序列
+        self.observed_sequence = visited_sequence(individual_data)
+        
+        # 获取个体的财富序列
+        self.wealth_sequence = individual_data['wealth'].values
+        
+        # 获取个体的年龄序列
+        self.age_sequence = individual_data['age'].values
+        
+        # 获取个体的年份序列
+        self.year_sequence = individual_data['year'].values
+        
+        # 获取个体的地点序列
+        self.location_sequence = individual_data['location'].values
 
-        # 支撑点索引范围
-        self.n_eta = len(self.params.eta_support)
-        self.n_nu = len(self.params.nu_support)
-        self.n_xi = len(self.params.xi_support)
-        self.n_sigma = len(self.params.sigmavarepsilon_support)
+    def _calculate_utility(self, 
+                           age: int, 
+                           current_location: int, 
+                           j: int,
+                           year: int,
+                           tau: int,
+                           eta: Tensor,
+                           nu: Tensor,
+                           xi: Tensor) -> Tensor:
+        """计算效用函数"""
+        # 计算迁移成本
+        migration_cost = self.dp._calculate_migration_cost(age, current_location, j, tau)
+        
+        # 计算经济效益
+        economic_utility = self.dp._calculate_economic_utility(age, j, year, eta, nu)
+        
+        # 计算非经济效益
+        amenity_utility = self.dp._calculate_amenity_utility(year, j)
+        
+        # 计算恋家溢价（如果当前地点不是户籍所在地）
+        # home_premium = self.params.alphaH * isnot(j, self.hukou)  # 注释掉恋家溢价计算
+        
+        # 总效用
+        total_utility = economic_utility + amenity_utility - migration_cost  # 移除 home_premium
+        
+        return total_utility
 
-    
     def _calculate_wealth_probability(self, row: pd.Series, eta: Tensor, nu: Tensor, sigma_eps: Tensor) -> Tensor:
         """计算工资观测概率（正态分布）"""
         j = row['provcd']  # 当前位置
@@ -289,7 +333,7 @@ class IndividualLikelihood:
         sigma_eps = self.params.sigmavarepsilon_support[sigma_idx]
         
         # 遍历个体的所有观测期
-        for t in range(1, self.n_periods):  # 从第二期开始，因为需要前一期的位置
+        for t in range(1, len(self.data)):  # 从第二期开始，因为需要前一期的位置
             current_row = self.data.iloc[t]
             previous_row = self.data.iloc[t-1]
             
@@ -319,10 +363,10 @@ class IndividualLikelihood:
             tau_lik = torch.tensor(0.0, requires_grad=True)
             
             # 遍历所有可能的支撑点组合
-            for eta_idx in range(self.n_eta):
-                for nu_idx in range(self.n_nu):
-                    for xi_idx in range(self.n_xi):
-                        for sigma_idx in range(self.n_sigma):
+            for eta_idx in range(len(self.params.eta_support)):
+                for nu_idx in range(len(self.params.nu_support)):
+                    for xi_idx in range(len(self.params.xi_support)):
+                        for sigma_idx in range(len(self.params.sigmavarepsilon_support)):
                             # 计算该组合下的似然贡献
                             omega_lik = self._calculate_omega_likelihood(tau, eta_idx, nu_idx, xi_idx, sigma_idx)
                             
