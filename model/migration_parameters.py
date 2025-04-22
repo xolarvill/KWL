@@ -11,11 +11,12 @@ class MigrationParameters:
         ## u(x,j)
         self.alpha0 = torch.nn.Parameter(torch.tensor(self.config.alpha0_ini)) # wage income parameter 
         self.alpha1 = torch.nn.Parameter(torch.tensor(self.config.alpha1_ini)) # houseprice
-        self.alpha2 = torch.nn.Parameter(torch.tensor(self.config.alpha2_ini)) # weather = hazard + temperature + air quality + water supply
+        self.alpha2 = torch.nn.Parameter(torch.tensor(self.config.alpha2_ini)) # environment = hazard + temperature + air quality + water supply
         self.alpha3 = torch.nn.Parameter(torch.tensor(self.config.alpha3_ini)) # education 
         self.alpha4 = torch.nn.Parameter(torch.tensor(self.config.alpha4_ini)) # health
-        self.alpha5 = torch.nn.Parameter(torch.tensor(self.config.alpha5_ini)) # traffic = public transportation + road service
-        self.alpha6 = torch.nn.Parameter(torch.tensor(self.config.alpha6_ini)) # cultural
+        self.alpha5 = torch.nn.Parameter(torch.tensor(self.config.alpha5_ini)) # business
+        self.alpha6 = torch.nn.Parameter(torch.tensor(self.config.alpha6_ini)) # language
+        self.aplha7 = torch.nn.Parameter(torch.tensor(self.config.aplha7_ini)) # public goods
         self.alphaH = torch.nn.Parameter(torch.tensor(self.config.alphaH_ini)) # home premium parameter
         self.aplhaP = torch.nn.Parameter(torch.tensor(self.config.aplhaP_ini)) # hukou penalty parameter
         self.xi = torch.nn.Parameter(torch.tensor(self.config.xi_ini)) # random permanent component

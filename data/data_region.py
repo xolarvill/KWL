@@ -2,6 +2,8 @@ import pandas as pd
 from utils import method_entropy, method_pca
 import os
 import houseprice
+from utils import pca, entropy, topsis, ahp
+
 
 def main_read(directory_path: str) -> pd.DataFrame:
     """

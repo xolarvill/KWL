@@ -1,0 +1,266 @@
+{
+    "name": "汉语",
+    "children": [
+      {
+        "name": "官话群",
+        "children": [
+          {
+            "name": "北方官话",
+            "children": [
+              {
+                "name": "中原官话",
+                "children": []
+              },
+              {
+                "name": "冀鲁官话",
+                "children": []
+              },
+              {
+                "name": "胶辽官话",
+                "children": []
+              },
+              {
+                "name": "北京官话",
+                "children": []
+              },
+              {
+                "name": "东北官话",
+                "children": []
+              }
+            ]
+          },
+          {
+            "name": "南方官话",
+            "children": [
+              {
+                "name": "兰银官话",
+                "children": []
+              },
+              {
+                "name": "西南官话",
+                "children": []
+              },
+              {
+                "name": "江淮官话",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "晋语群",
+        "children": [
+          {
+            "name": "并州片",
+            "children": []
+          },
+          {
+            "name": "吕梁片",
+            "children": []
+          },
+          {
+            "name": "上党片",
+            "children": []
+          },
+          {
+            "name": "五台片",
+            "children": []
+          },
+          {
+            "name": "大包片",
+            "children": []
+          },
+          {
+            "name": "张呼片",
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "江东方言群",
+        "children": [
+          {
+            "name": "古吴语",
+            "children": [
+              {
+                "name": "现代吴语",
+                "children": [
+                  {
+                    "name": "太湖片",
+                    "children": []
+                  },
+                  {
+                    "name": "台州片",
+                    "children": []
+                  },
+                  {
+                    "name": "婺州片",
+                    "children": []
+                  },
+                  {
+                    "name": "处衢片",
+                    "children": []
+                  },
+                  {
+                    "name": "瓯江片",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "闽南语群",
+            "children": [
+              {
+                "name": "泉漳片",
+                "children": []
+              },
+              {
+                "name": "潮汕片",
+                "children": []
+              },
+              {
+                "name": "雷琼片",
+                "children": []
+              }
+            ]
+          },
+          {
+            "name": "闽东语群",
+            "children": [
+              {
+                "name": "福州片",
+                "children": []
+              },
+              {
+                "name": "福宁片",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "赣客方言群",
+        "children": [
+          {
+            "name": "古赣语",
+            "children": [
+              {
+                "name": "现代赣语",
+                "children": [
+                  {
+                    "name": "昌都片",
+                    "children": []
+                  },
+                  {
+                    "name": "宜浏片",
+                    "children": []
+                  },
+                  {
+                    "name": "吉茶片",
+                    "children": []
+                  },
+                  {
+                    "name": "抚广片",
+                    "children": []
+                  },
+                  {
+                    "name": "鹰弋片",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "客家语群",
+            "children": [
+              {
+                "name": "粤台片",
+                "children": []
+              },
+              {
+                "name": "粤中片",
+                "children": []
+              },
+              {
+                "name": "汀州片",
+                "children": []
+              },
+              {
+                "name": "宁龙片",
+                "children": []
+              },
+              {
+                "name": "于桂片",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "岭南方言群",
+        "children": [
+          {
+            "name": "古粤语",
+            "children": [
+              {
+                "name": "现代粤语",
+                "children": [
+                  {
+                    "name": "广府片",
+                    "children": []
+                  },
+                  {
+                    "name": "四邑片",
+                    "children": []
+                  },
+                  {
+                    "name": "高阳片",
+                    "children": []
+                  },
+                  {
+                    "name": "吴化片",
+                    "children": []
+                  },
+                  {
+                    "name": "钦廉片",
+                    "children": []
+                  },
+                  {
+                    "name": "儋州片",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "平话",
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "湘语群",
+        "children": [
+          {
+            "name": "长益片",
+            "children": []
+          },
+          {
+            "name": "娄邵片",
+            "children": []
+          },
+          {
+            "name": "辰溆片",
+            "children": []
+          }
+        ]
+      }
+    ]
+  }

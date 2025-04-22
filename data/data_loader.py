@@ -54,6 +54,8 @@ class DataLoader:
             df_individual = subsample.subsample(df_individual, demand = '2')
         elif subsample_group == 3:
             df_individual = subsample.subsample(df_individual, demand = '3')
+        elif subsample_group == 0:
+            pass
         
         if isinstance(df_individual, pd.DataFrame):
             return df_individual
@@ -69,7 +71,7 @@ class DataLoader:
         
         # 优化数据处理，直接读取
         if path is None:
-            df_region = pd.read_excel('file/geo.xlsx')
+            df_region = pd.read_excel('file/geo.xlsx',sheet_name = 'sheet1')
         else:
             df_region = data_region.main_read(path)
             
@@ -81,11 +83,13 @@ class DataLoader:
         # 加载并处理临近矩阵
         path = self.config.adjacency_matrix_path
         
-        if not isinstance(path, str):
-                raise ValueError("路径参数必须是字符串类型")
-
-        adjacency_matrix = pd.read_excel(path)
-
+        # 如果非空
+        if path is not None:
+            adjacency_matrix = pd.read_excel(path)
+        # 如果空
+        else:
+            adjacency_matrix = adjacent.adjmatrix()
+        
         # 将DataFrame转换为numpy数组并返回
         return np.array(adjacency_matrix)
     

@@ -1,0 +1,237 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.1.1 Chrome/132.0.6834.210 Electron/34.3.3 Safari/537.36" version="26.1.1">
+  <diagram name="第 1 页" id="BcWJq15JfgoPuyb1Nqxe">
+    <mxGraphModel dx="2870" dy="2060" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="piRMvoRa87WktYSq3vpv-1" value="上古汉语" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="866" y="20" width="124" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-2" value="河洛雅音" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="455" y="124" width="124" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-3" value="中古汉语话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1633" y="124" width="140" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-4" value="官话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="471" y="228" width="92" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-5" value="南方官话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="91" y="332" width="124" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-6" value="北方官话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="803" y="332" width="124" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-7" value="西南官话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="20" y="436" width="124" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-8" value="江淮官话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="194" y="436" width="124" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-9" value="胶料官话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="368" y="436" width="124" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-10" value="中原官话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="542" y="436" width="124" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-11" value="北京官话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="716" y="436" width="124" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-12" value="东北官话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="890" y="436" width="124" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-13" value="冀鲁官话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1064" y="436" width="124" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-14" value="兰银官话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1238" y="436" width="124" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-15" value="赣客语" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1175" y="228" width="108" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-16" value="古代江东方言" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1451" y="228" width="156" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-17" value="湘语" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1657" y="228" width="92" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-18" value="晋语" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1799" y="228" width="92" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-19" value="粤语" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1941" y="228" width="92" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-20" value="赣语" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1112" y="332" width="92" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-21" value="客家话" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1254" y="332" width="108" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-22" value="吴语" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1412" y="332" width="92" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-23" value="闽语" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1554" y="332" width="92" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-24" value="徽语" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1412" y="436" width="92" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-25" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.65;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-1" target="piRMvoRa87WktYSq3vpv-2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="517" y="99" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-26" value="" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.58;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-1" target="piRMvoRa87WktYSq3vpv-3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1703" y="99" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-27" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-2" target="piRMvoRa87WktYSq3vpv-4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-28" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.62;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-4" target="piRMvoRa87WktYSq3vpv-5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="153" y="307" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-29" value="" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.63;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-4" target="piRMvoRa87WktYSq3vpv-6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="865" y="307" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-30" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.2;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-5" target="piRMvoRa87WktYSq3vpv-7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="82" y="411" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-31" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.93;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-5" target="piRMvoRa87WktYSq3vpv-8">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="256" y="411" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-32" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.64;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-6" target="piRMvoRa87WktYSq3vpv-9">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="430" y="411" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-33" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.73;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-6" target="piRMvoRa87WktYSq3vpv-10">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="604" y="411" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-34" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.14;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-6" target="piRMvoRa87WktYSq3vpv-11">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="778" y="411" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-35" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.86;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-6" target="piRMvoRa87WktYSq3vpv-12">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="952" y="411" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-36" value="" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.73;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-6" target="piRMvoRa87WktYSq3vpv-13">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1126" y="411" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-37" value="" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.64;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-6" target="piRMvoRa87WktYSq3vpv-14">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1300" y="411" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-38" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.64;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-3" target="piRMvoRa87WktYSq3vpv-15">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1229" y="203" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-39" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.89;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-3" target="piRMvoRa87WktYSq3vpv-16">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1529" y="203" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-40" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-3" target="piRMvoRa87WktYSq3vpv-17">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-41" value="" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.97;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-3" target="piRMvoRa87WktYSq3vpv-18">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1845" y="203" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-42" value="" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.74;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-3" target="piRMvoRa87WktYSq3vpv-19">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1987" y="203" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-43" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.16;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-15" target="piRMvoRa87WktYSq3vpv-20">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1158" y="307" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-44" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.88;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-15" target="piRMvoRa87WktYSq3vpv-21">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1308" y="307" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-45" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.26;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-16" target="piRMvoRa87WktYSq3vpv-22">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1458" y="307" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-46" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.74;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-16" target="piRMvoRa87WktYSq3vpv-23">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1600" y="307" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="piRMvoRa87WktYSq3vpv-47" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="piRMvoRa87WktYSq3vpv-22" target="piRMvoRa87WktYSq3vpv-24">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -29,9 +29,9 @@ class ModelConfig:
         
         # 动态生成不同人群的切割条件
         # 限制subsample_group只能为1,2,3
-        self.subsample_group: int = 1
-        if not isinstance(self.subsample_group, int) or self.subsample_group not in [1, 2, 3]:
-            raise ValueError('subsample_group必须为1、2或3')
+        self.subsample_group: int = 0
+        if not isinstance(self.subsample_group, int) or self.subsample_group not in [0, 1, 2, 3]:
+            raise ValueError('subsample_group必须为0、1、2或3，0为不需要进行分割')
         
         # 外生参数
         self.discount_factor: float = 0.95  # 贴现因子，迁移一般是考虑久远的影响，所以此处取0.95
@@ -85,11 +85,12 @@ class ModelConfig:
         ## u
         self.alpha0_ini: float = 0.8 # wage income parameter 
         self.alpha1_ini: float = 0.8 # houseprice
-        self.alpha2_ini: float = 0.8 # weather = hazard + temperature + air quality + water supply
+        self.alpha2_ini: float = 0.8 # environment = hazard + temperature + air quality + water supply
         self.alpha3_ini: float = 0.8 # education 
         self.alpha4_ini: float = 0.8 # health
-        self.alpha5_ini: float = 0.8 # traffic = public transportation + road service
+        self.alpha5_ini: float = 0.8 # business
         self.alpha6_ini: float = 0.3 # cultural: linguistic
+        self.alpha7_ini: float = 0.5 # public goods
         self.alphaH_ini: float = 0.1 # home premium parameter
         self.alphaP_ini: float = 0.1 # hukou penalty parameter
 
@@ -107,6 +108,7 @@ class ModelConfig:
         self.gamma3_ini: float = -0.4 # 先前省份折扣
         self.gamma4_ini: float = 0.5 # 年龄对迁移成本的影响
         self.gamma5_ini: float = -0.8 # 更大的城市更便宜
+        
         
         
         # 优化参数

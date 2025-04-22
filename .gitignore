@@ -16,6 +16,6 @@ claude_ver/
 data/geo/backup/
 data/geo/adjacent/
 .vscode/
-*.cursorrules
+.cursorrules
 !README.md
 *.md

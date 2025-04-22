@@ -93,28 +93,31 @@ class DynamicProgramming:
         
         return economic_utility
 
-    def _calculate_amenity_utility(self, j: int) -> Tensor:
+    def _calculate_amenity_utility(self, year: int, j: int) -> Tensor:
         """计算非经济效益（宜居度）"""
         # 房价效用
-        house_price_utility = self.params.alpha1 * self.geo_data.loc[j, 'house_price']
+        house_price_utility = self.params.alpha1 * self.geo_data.loc[j, 'house_price'].values[0]
         
         # 天气效用（包括自然灾害、温度、空气质量、水资源）
-        weather_utility = self.params.alpha2 * self.geo_data.loc[j, 'weather']
+        environment_utility = self.params.alpha2 * self.geo_data.loc[j, 'weather']
         
-        # 教育效用
+        # 教育
         education_utility = self.params.alpha3 * self.geo_data.loc[j, 'education']
         
-        # 健康效用
+        # 医疗
         health_utility = self.params.alpha4 * self.geo_data.loc[j, 'health']
         
-        # 交通效用（包括公共交通和道路服务）
-        traffic_utility = self.params.alpha5 * self.geo_data.loc[j, 'traffic']
-
-        # 文化
+        # 商业
+        business_utility = self.params.alpha7 * self.geo_data[j, 'business']
+        
+        # 方言
         cultural_utility = self.params.alpha6 * self.linguistic_matrix[j,0]
         
-        # 总宜居度效用
-        amenity_utility = house_price_utility + weather_utility + education_utility + health_utility + traffic_utility + cultural_utility
+        # 公共设施
+        public_utility = self.params.alpha5 * self.geo_data.loc[j, 'public']
+        
+        # 计算线形总宜居度效用
+        amenity_utility = house_price_utility + environment_utility + education_utility + health_utility + business_utility + cultural_utility + public_utility
         
         return amenity_utility
     
@@ -338,4 +341,4 @@ class IndividualLikelihood:
             total_lik += self.params.pi_tau[tau] * tau_lik
         
         return total_lik
-
+ 
