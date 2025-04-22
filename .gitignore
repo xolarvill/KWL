@@ -11,7 +11,7 @@
 *.xdv
 *.toc
 ztest.py
-function/__pycache__/
+**/__pycache__/
 claude_ver/
 data/geo/backup/
 data/geo/adjacent/

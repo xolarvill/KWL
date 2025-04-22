@@ -39,7 +39,7 @@ class MigrationParameters:
         # 支撑点离散化用tensor向量表示
         
         ## 个体固定效应支撑点
-        self.eta_support = torch.tensor([
+        self.eta_support = torch.nn.Parameter(torch.tensor([
             - self.config.eta_support_3_ini,
             - self.config.eta_support_2_ini,
             - self.config.eta_support_1_ini,
@@ -47,40 +47,40 @@ class MigrationParameters:
             self.config.eta_support_1_ini,
             self.config.eta_support_2_ini,
             self.config.eta_support_3_ini
-        ])
+        ]))
         
         ## 个体-地区匹配的效应支撑点
-        self.nu_support = torch.tensor([
+        self.nu_support = torch.nn.Parameter(torch.tensor([
             - self.config.nu_support_2_ini,
             - self.config.nu_support_1_ini,
             0,
             self.config.nu_support_1_ini,
             self.config.nu_support_2_ini,
-        ])
+        ]))
         
         ## 地区偏好效应的支撑点
-        self.xi_support = torch.tensor([
+        self.xi_support = torch.nn.Parameter(torch.tensor([
             - self.config.xi_support_2_ini,
             - self.config.xi_support_1_ini,
             0,
             self.config.xi_support_1_ini,
             self.config.xi_support_2_ini
-        ])
+        ]))
         
         ## 暂态效应方差的支撑点
-        self.sigmavarepsilon_support = torch.tensor([
+        self.sigmavarepsilon_support = torch.nn.Parameter(torch.tensor([
             self.config.sigmavarepsilon_support_1_ini,
             self.config.sigmavarepsilon_support_2_ini,
             self.config.sigmavarepsilon_support_3_ini,
             self.config.sigmavarepsilon_support_4_ini
-        ])
+        ]))
         
-        # 异质性群体类型概率
-        self.pi_tau = torch.tensor([
+        # 异质性群体类型概率 - 使用未归一化的参数，在使用时进行softmax归一化
+        self.pi_tau_raw = torch.nn.Parameter(torch.tensor([
             self.config.pi_tau_1_ini,
             self.config.pi_tau_2_ini,
             1 - self.config.pi_tau_1_ini - self.config.pi_tau_2_ini
-        ])
+        ]))
         
     def to_dict(self) -> Dict[str, Tensor]:
         # 转换为参数字典，用于数值计算
@@ -93,3 +93,13 @@ class MigrationParameters:
     def parameters(self):
         # 获取所有可训练参数值
         return self._parameters.values()
+
+    @property
+    def pi_tau(self):
+        """
+        返回归一化后的类型概率
+        使用数值稳定性处理的softmax归一化，确保在优化过程中概率值始终为正且和为1
+        """
+        # 减去最大值以增强数值稳定性，避免指数运算时的溢出问题
+        shifted_raw = self.pi_tau_raw - torch.max(self.pi_tau_raw)
+        return torch.nn.functional.softmax(shifted_raw, dim=0)
