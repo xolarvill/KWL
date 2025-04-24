@@ -1,6 +1,9 @@
 % 封面
 % 无特殊要求，不需要修改
 % XelaTeX编译
+
+
+
 \newcommand\dunderline[3][-1pt]{{%
   \setbox0=\hbox{#3}
   \ooalign{\copy0\cr\rule[\dimexpr#1-#2\relax]{\wd0}{#2}}}}
@@ -17,12 +20,12 @@
   }
   \centering
 
-  \includegraphics[width=3cm]{logo/schoolLogo.png}\\
-  \includegraphics[width=5cm, height=1cm]{logo/schoolName.png}
+  \includegraphics[width=3cm]{images/logo/schoolLogo.png}\\
+  \includegraphics[width=5cm, height=1cm]{images/logo/schoolName.png}
 
   \vspace*{10mm}
 \begin{center}
-  \zihao{1}\textbf{\ziju{0.12}\songti{本\hspace{5mm}科\hspace{5mm}生\hspace{5mm}毕\hspace{5mm}业\hspace{5mm}论\hspace{5mm}文（设计）}}
+  \zihao{1}\textbf{\ziju{0.12}\songti{硕\hspace{5mm}士\hspace{5mm}研\hspace{5mm}究\hspace{5mm}生\hspace{5mm}毕\hspace{5mm}业\hspace{5mm}论\hspace{5mm}文}}
 
   \vspace{20mm}
 
@@ -53,7 +56,7 @@
 
       \hspace{27mm}\songti\zihao{3}\selectfont{专业名称：\dunderline[-10pt]{1pt}{\makebox[78mm][c]{\majorName}}}
       
-      \hspace{27mm}\songti\zihao{3}\selectfont{班\hspace{11mm}级：\dunderline[-10pt]{1pt}{\makebox[78mm][c]{\className}}}
+      %\hspace{27mm}\songti\zihao{3}\selectfont{班\hspace{11mm}级：\dunderline[-10pt]{1pt}{\makebox[78mm][c]{\className}}}
     \end{spacing}
   }{
     % 生成校外毕设封面字段

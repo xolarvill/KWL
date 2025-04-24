@@ -20,3 +20,7 @@ data/geo/adjacent/
 .cursorrules
 !README.md
 *.md
+*.bcf
+*.run.xml
+*.ttf
+!楷体_GB2312.ttf
