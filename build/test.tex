@@ -21,10 +21,7 @@
 \usepackage{setspace} % 占位
 
 % citation
-
 \usepackage{hyperref} % 引用链接
-%\usepackage[authoryear]{natbib} % 为了gbt7714加载natlib
-%\usepackage[etalmode=truncate,etaltext=it,maxnames=1]{gbt7714} % 避免出现所有作者名字
 \usepackage[
   backend=biber,
   style=gb7714-2005,
@@ -46,7 +43,6 @@
 \usepackage{fontspec, xeCJK} % 控制字体
 \usepackage{anyfontsize} % 控制字体大小和行距
 
-
 % ---------------------- 设置页面边距 ---------------------- 
 \geometry{
   a4paper,
@@ -60,6 +56,8 @@
   }
 \setlength{\oddsidemargin}{0pt} % 奇数页左边距偏移
 \setlength{\evensidemargin}{0pt} % 偶数页左边距偏移
+% \geometry{top=1.5cm, bottom=1.5cm, left=5cm, right=1cm} % 开题报告版本
+
 
 % ----------------------  标题与段落 ---------------------- 
 % 设置中文模板的日期格式和摘要名称
@@ -104,7 +102,6 @@
 {1ex}  % 段前空1行
 {1ex}  % 段后空1行
 
-
 % ----------------------  页眉、页码、脚注、锁进、行距 ---------------------- 
 % 脚注通篇连续编号
 \counterwithout{footnote}{chapter} 
@@ -130,7 +127,6 @@
 \fancyhead[C]{\zihao{5} 浙江财经大学硕士毕业论文} % 设置字号与居中
 \fancyfoot[C]{\thepage} % 居中显示页码
 
-
 % ----------------------  设置字体 ---------------------- 
 % 从本地创建字体命令
 %\newfontfamily\mysongti[Path=./]{stsong.ttf}
@@ -144,8 +140,7 @@
 %\newfontfamily\kaiti{Kai}
 \newfontfamily\kaitigb[Path=./]{楷体_GB2312.ttf}
 
-
-% ------------------------ caption标注样式 ------------------------------
+% ------------------------ caption样式 ------------------------------
 % 设置 caption 与 figure 之间的距离
 \setlength{\abovecaptionskip}{11pt}
 \setlength{\belowcaptionskip}{9pt}
@@ -169,11 +164,27 @@
   pdfauthor = {Suicidal Bumblebee} % 作者
 }%
 
-% 调整表格行间距
+% array调整表格行间距
 \renewcommand{\arraystretch}{1.5}
 
+% citation
+\ExecuteBibliographyOptions{sortlocale=zh__pinyin} % 设置排序语言环境为中文拼音
+\addbibresource{Papers.bib} % 添加文献bib文件
+\DeclareSourcemap{
+  \maps[datatype=bibtex]{
+    \map{
+      \step[fieldset=url, null] % 删除 url 字段
+    }
+    \map{
+      \step[fieldset=librarycatalog, null] % 删除 librarycatalog 字段
+    }
+  }
+}
+
 % ---------------------- 基本信息 ----------------------
-\title{基于个人动态最优居住地选择视角的劳动力回流行为考察1}
+
+% maketitle information
+\title{基于个人动态最优居住地选择视角的劳动力回流行为考察}
 \author{Suicidal Bumblebee}
 \date{Jan 2025}
 
@@ -183,7 +194,7 @@
 \newcommand{\thesisTitleEN}{A Study of Return Migration Behavior Based on Dynamic Optimal
 Residential Location Decisions}
 
-% 在这里填写你的相关信息
+% cover information
 \newcommand{\deptName}{经济学院}
 \newcommand{\majorName}{西方经济学}
 \newcommand{\yourName}{李晨逸}
@@ -191,13 +202,10 @@ Residential Location Decisions}
 \newcommand{\mentorName}{吴意云}
 \newcommand{\Today}{2025年4月}
 
+% underline
 \newcommand\dunderline[3][-1pt]{{%
   \setbox0=\hbox{#3}
   \ooalign{\copy0\cr\rule[\dimexpr#1-#2\relax]{\wd0}{#2}}}}
-
-
-% citation
-\addbibresource{Papers.bib}
 
 % -------------------- ToC setting --------------------
 
@@ -354,7 +362,7 @@ Residential Location Decisions}
 纵观古今内外，“人往高处走，水往低处流”的规律总是屡试皆准。早在上世纪末，以\textcite{krugmanIncreasingReturnsEconomic1991}和\textcite{fujitaSpatialEconomyCities1999}为代表的新经济地理学就指出经济活动的集中会产生规模经济和网络效应，促成产业集聚。经济的聚集会导致区域不平衡发展，人们倾向于从“边缘”地区流向产业集聚、薪资较高和就业机会多的“中心”地区，形成“吸引效应”，这使得劳动力迁移有了移动的规律。欧美国家作为世界上人均GDP最高的区域，吸引大量来自其他相对落后国家的居民。根据世界银行（World Bank Group）和美国移民委员会（American Immigration Councile）公布的数据，
 2023年美国的人均GDP为82769美元，外来人口达到了4780万，移民占美国人口的 14.3\%，比 1970 年的 4.7\% 增长了约三倍。相似地，在我国内部不同省份之间也发生着同样的人口迁移现象。改革开放以来，随着交通工具的进步和政策的放宽，劳动力自由流动在我国成为可能。解放的经济活力逐渐形成了“东富西穷、南富北穷”的局面。经济发展的不平衡不仅表现在地区收入差距上，也体现在人口分布的变化中。富裕地区吸引了大量来自相对贫困地区的劳动力。国家统计局2020年发布的《第七次人口普查》显示，流动人口达到3.76亿，占全国总人口比重分别为34.90\%和26.62\%，较2010年分别上涨88.52\%和69.72\%。
 广东跨省流入高达2962.21万人，浙江也达到1618.65万人，上海跨省流入人口为1047.97万人。这三地的跨省流入人口数量位居前三。此外，北京流入841.8万人，位居第五。
-同时，我国也存在多个人口输出大省\footnote{数据来源于2010年的《第六次人口普查》}，例如
+同时，我国也存在多个人口输出大省\footnote{该数据来源于2010年的《第六次人口普查》。}，例如
 安徽省净向外输出约911万人，占本省户籍人口的13.29\%；
 四川省净向外输出约956 万人，占本省户籍人口的10.63\%；
 河南省净向外输出约约565万人，约占本省户籍人口的7\%。
@@ -1408,10 +1416,10 @@ $L_i(\theta_{\tau})$捕捉了该个体数据与类型$\tau$相关的匹配度。
 由于气候和空气质量在短期内发生变化的可能性较小，气候的对比不是局部发生变化的，以及气候数据在劳动力迁移决策中是用于进行横向对比而非纵向对比的，所以本文选用常量对每个省份的空气质量、日照时间、平均气温进行跨时间同一数值赋值。
 
 气象：
-\textit{PM2.5 浓度数据来源于 Van Donkelaar et al. ( 2016) 计算的全球年度 PM2. 5 卫星栅格数据。我们 首先利用地理信息系统将每个栅格定位到其空间位置所在的城市上,然后将落在每个城市内的所有 栅格数据进行平均,即可得到各个城市在不同年份的 PM2. 5 浓度水平。与地表监测的点源数据相比, 卫星观测数据在时间和空间上的覆盖范围更广,能够与我们的流动人口数据更好的匹配; 同时,卫星 监测数据相对更加客观和准确,能够避免很多人为因素导致的测量偏误( Ghanem \& Zhang,2014) 。}
+
+本文的气象数据来自visualcrossing，通过获取每个城市每日的天气数据，将其从原先的日级别（day level）和城市级别（city level）的数据汇总成年级别（year level）与省级别（province level）的格式。具体操作请见于本文github代码库的代码。
 
 最高温度平均数 最低温度平均数 紫外线强度 体感舒适天数  空气质量优良率
-
 
 
 宜居度包括：
@@ -1420,7 +1428,7 @@ $L_i(\theta_{\tau})$捕捉了该个体数据与类型$\tau$相关的匹配度。
 
 
 房价收入比：
-本文选取房价收入比作为房价的宜居度表现形式。
+本文参考\textcite{LiHuiFangJieFangJieShouRuBiYuLiuDongRenKouChangQiJuLiuYiYuanLaiZiLiuDongRenKouDeWeiGuanZhengJu2019}，选取房价收入比作为房价的宜居度表现形式。
 房价数据来自于xxx。com网站
 
 商业资源：
