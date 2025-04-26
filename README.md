@@ -2,7 +2,7 @@
 
 ## Graduation Thesis Code Snippets
 
-This project implements an economic model simulation using Python. The model is designed to analyze and simulate economic behaviors based on various parameters and data inputs.
+This project implements an economic model simulation using Python. The model is designed to analyze and simulate economic behaviors based on various parameters and data inputs. The weather data collection is performed by using my other repository: [Hisotry Weather Data Collection](github.com/xolarvill/history_weather_data_collection).
 
 ## Project Structure
 
