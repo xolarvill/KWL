@@ -1,145 +1,104 @@
 import pandas as pd
 import numpy as np
-import data_person
-import data_region
-import adjacent
-import subsample
-import distance
-import json  
-import linguistic
-from config import ModelConfig
+import os
+import json
 from typing import List
+
+# 假设这些模块在当前路径或Python路径中
+from . import data_person, data_region, adjacent, subsample, distance, linguistic
+from config import ModelConfig
 
 class DataLoader:
     '''
     数据加载器，用于加载个体面板数据、地区特征数据和地区临近矩阵。
-    ---
-    ModelConfig: 模型配置参数，DataLoader读取，之后的函数都需要使用
-    ---
-    load_individual_data() -> pd.DataFrame: 加载个体面板数据
-    load_regional_data(): 加载地区特征数据
-    load_adjacency_matrix(): 加载地区临近矩阵
     '''
     def __init__(self, config: ModelConfig):
         self.config = config
-        
+
+    def _validate_path(self, path: str, file_description: str) -> None:
+        """辅助函数，用于验证文件路径是否存在。"""
+        if not path or not isinstance(path, str):
+            raise ValueError(f"{file_description} 的路径配置不正确，必须是一个非空的字符串。")
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"{file_description} 未在指定路径找到: {path}")
+
     def load_individual_data(self) -> pd.DataFrame:
-        """加载个体面板数据(CFPS)"""
-        # 读取config中指定的路径
+        """加载并预处理个体面板数据(CFPS)。"""
         path = self.config.individual_data_path
-        subsample_group = self.config.subsample_group
+        self._validate_path(path, "个体数据(dta)")
         
-        # 优化数据处理，直接读取
-        if path is None:
-            # 使用默认路径
-            path = 'file/cfps10_22mc.dta'
-            df_individual = pd.read_stata(path)
-        else:
-            # 确保路径是字符串类型
-            if not isinstance(path, str):
-                raise ValueError("路径参数必须是字符串类型")
-                
-            # 使用pandas读取dta文件
-            try:
-                df_individual = data_person.data_read(path)
-                # 处理数据
-                df_individual = data_person.data_fix(df_individual)  
-            except Exception as e:
-                raise RuntimeError(f"读取或处理数据时出错: {str(e)}")
+        try:
+            df_individual = data_person.data_read(path)
+            df_individual = data_person.data_fix(df_individual)
+        except Exception as e:
+            raise RuntimeError(f"读取或处理个体数据时出错 (路径: {path}): {str(e)}")
             
-        # 人群子样本处理
-        if subsample_group == 1:
-            df_individual = subsample.subsample(df_individual, demand = '1')
-        elif subsample_group == 2:
-            df_individual = subsample.subsample(df_individual, demand = '2')
-        elif subsample_group == 3:
-            df_individual = subsample.subsample(df_individual, demand = '3')
-        elif subsample_group == 0:
-            pass
-        
-        if isinstance(df_individual, pd.DataFrame):
-            return df_individual
-        else:
-            return pd.DataFrame(df_individual)
+        # 根据配置应用子样本筛选
+        subsample_group = self.config.subsample_group
+        if subsample_group in [1, 2, 3]:
+            df_individual = subsample.subsample(df_individual, demand=str(subsample_group))
+        elif subsample_group != 0:
+            print(f"警告: 未知的子样本组 '{subsample_group}'，将使用全样本。")
+            
+        return df_individual
         
     def load_regional_data(self) -> pd.DataFrame:
-        """加载地区特征数据"""
-        # 读取config中指定的路径
+        """加载并预处理地区特征数据。"""
         path = self.config.regional_data_path
-        if not isinstance(path, str):
-            raise ValueError("路径参数必须是字符串类型")
+        self._validate_path(path, "地区特征数据(xlsx)")
         
-        # 优化数据处理，直接读取
-        if path is None:
-            df_region = pd.read_excel('file/geo.xlsx',sheet_name = 'sheet1')
-        else:
+        try:
             df_region = data_region.main_read(path)
+        except Exception as e:
+            raise RuntimeError(f"读取或处理地区数据时出错 (路径: {path}): {str(e)}")
             
-        # 返回处理后的数据框
         return df_region
         
     def load_adjacency_matrix(self) -> np.ndarray:
-        """加载地区临近矩阵"""
-        # 加载并处理临近矩阵
+        """加载地区邻接矩阵。"""
         path = self.config.adjacency_matrix_path
+        self._validate_path(path, "地区邻接矩阵(xlsx)")
         
-        # 如果非空
-        if path is not None:
+        try:
             adjacency_matrix = pd.read_excel(path)
-        # 如果空
-        else:
-            adjacency_matrix = adjacent.adjmatrix()
+        except Exception as e:
+            raise RuntimeError(f"读取邻接矩阵时出错 (路径: {path}): {str(e)}")
         
-        # 将DataFrame转换为numpy数组并返回
-        return np.array(adjacency_matrix)
+        return adjacency_matrix.to_numpy()
     
-    def load_prov_code_ranked(self) -> List :
-        """加载地区排名"""
+    def load_prov_code_ranked(self) -> List[str]:
+        """从JSON文件加载有序的省份代码列表。"""
         path = self.config.prov_code_ranked_path
-        if not isinstance(path, str):
-            raise ValueError("路径参数必须是字符串类型")
+        self._validate_path(path, "省份排名JSON")
 
-        # 打开json文件并读取为List
-        with open(path, 'r') as f:
-            provcd_rank = json.load(f)
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                provcd_rank = json.load(f)
+        except (json.JSONDecodeError, Exception) as e:
+            raise RuntimeError(f"读取或解析省份排名JSON时出错 (路径: {path}): {str(e)}")
          
         return provcd_rank
 
     def load_distance_matrix(self) -> np.ndarray:
-        """加载地区距离矩阵"""
-        # to save time, use the result of distance.py that stored in file instead of calculating again
-        path = self.config.distance_matrix_path # 读取config中指定的路径
-        path2 = self.config.prov_name_ranked_path
+        """加载地区距离矩阵。"""
+        path = self.config.distance_matrix_path
+        self._validate_path(path, "地区距离矩阵(csv)")
         
-        # 如果路径非空，说明已经计算过距离矩阵，直接读取
-        if path is not None:
-            if not isinstance(path, str):
-                raise ValueError("路径参数必须是字符串类型")
-            
+        try:
             distance_matrix = pd.read_csv(path)
+        except Exception as e:
+            raise RuntimeError(f"读取距离矩阵时出错 (路径: {path}): {str(e)}")
             
-            return np.array(distance_matrix)
-        
-        # 如果路径为空，说明还没有计算过距离矩阵，需要计算
-        else:
-            distance_matrix = distance.distance_matrix(path2)
-            return distance_matrix
+        return distance_matrix.to_numpy()
         
     def load_linguistic_matrix(self) -> np.ndarray:
-        """加载语言亲疏矩阵，用于计算舒适度计算中的一环，k行j列的数字代表k省与j省的语言亲疏度"""
-        linguistic_matrix_path = self.config.linguistic_matrix_path
+        """加载语言亲近度矩阵。"""
+        path = self.config.linguistic_matrix_path
+        self._validate_path(path, "语言亲近度矩阵(csv)")
         
-        linguistic_data_path = self.config.linguistic_data_path
-        prov_language_data_path = self.config.prov_language_data_path
-        
-        if linguistic_matrix_path is None:
-            linguistic_matrix = linguistic.linguistic_matrix(json_path = linguistic_data_path, excel_path = prov_language_data_path)
-            return linguistic_matrix
-        
-        else:
-            if not isinstance(linguistic_matrix_path, str):
-                raise ValueError("路径参数必须是字符串类型")
+        try:
+            linguistic_matrix = pd.read_csv(path)
+        except Exception as e:
+            raise RuntimeError(f"读取语言亲近度矩阵时出错 (路径: {path}): {str(e)}")
 
-            linguistic_matrix = pd.read_csv(linguistic_matrix_path)
-
-            return np.array(linguistic_matrix)
+        return linguistic_matrix.to_numpy()
