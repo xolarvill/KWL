@@ -84,25 +84,43 @@ class DynamicModel(nn.Module):
         
         return log_lik
     
+    def _process_chunk(self, pids_chunk: List[int]) -> List[torch.Tensor]:
+        """处理一个PID块，计算其中每个个体的似然"""
+        return [self._compute_single_likelihood(pid) for pid in pids_chunk]
+
     def _compute_individual_likelihoods(self, n_jobs: int = -1) -> List[torch.Tensor]:
-        """并行计算所有个体的似然函数
+        """
+        并行计算所有个体的似然函数，使用分块策略以优化性能。
         
         参数:
-            n_jobs (int): 并行作业数，-1表示使用所有可用核心
+            n_jobs (int): 并行作业数，-1表示使用所有可用核心。
             
         返回:
-            List[torch.Tensor]: 所有个体的似然列表
+            List[torch.Tensor]: 所有个体的似然列表。
         """
-        # 使用joblib并行计算
-        if n_jobs != 1:
-            likelihoods = Parallel(n_jobs=n_jobs)(
-                delayed(self._compute_single_likelihood)(pid) 
-                for pid in self.all_pids
-            )
-        else:
+        if n_jobs == 1:
             # 串行计算（用于调试）
-            likelihoods = [self._compute_single_likelihood(pid) for pid in self.all_pids]
-            
+            return [self._compute_single_likelihood(pid) for pid in self.all_pids]
+
+        # 确定每个并行任务处理的块大小
+        n_pids = len(self.all_pids)
+        if n_jobs == -1:
+            n_jobs = joblib.cpu_count()
+        
+        # 块大小可以根据经验调整，一个常见的做法是让每个核心处理多个块
+        chunk_size = max(1, n_pids // (n_jobs * 4))
+        
+        # 将PID列表分割成块
+        pid_chunks = [self.all_pids[i:i + chunk_size] for i in range(0, n_pids, chunk_size)]
+        
+        # 使用joblib并行处理这些块
+        results_in_chunks = Parallel(n_jobs=n_jobs)(
+            delayed(self._process_chunk)(chunk) for chunk in pid_chunks
+        )
+        
+        # 将分块的结果合并成一个列表
+        likelihoods = [item for sublist in results_in_chunks for item in sublist]
+        
         return likelihoods
     
     def _compute_single_likelihood(self, pid: int) -> torch.Tensor:
