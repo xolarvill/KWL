@@ -323,8 +323,8 @@ class IndividualLikelihood:
         return wage_prob
     
     def _calculate_omega_likelihood(self, tau: int, eta_idx: int, nu_idx: int, xi_idx: int, sigma_idx: int) -> Tensor:
-        """计算特定类型tau和支撑点组合下的似然"""
-        log_lik = torch.tensor(0.0, requires_grad=True)  # 启用梯度计算
+        """计算在特定个体类型(tau)和不可观测异质性组合(omega)下的似然函数值"""
+        log_lik = torch.tensor(0.0, requires_grad=True)      
         
         # 获取该组合的支撑点值
         eta = self.params.eta_support[eta_idx]

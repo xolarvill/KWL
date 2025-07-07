@@ -24,3 +24,4 @@ data/geo/adjacent/
 *.run.xml
 *.ttf
 !楷体_GB2312.ttf
+test/
