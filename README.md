@@ -149,8 +149,6 @@ This project is licensed under the MIT License. See the LICENSE file for details
 
 本 README 提供了对项目结构、核心经济模型以及如何运行估计过程的指南。
 
----
-
 ## 核心经济模型与关键假设
 
 模型通过比较个体在当前省份停留或迁移到新省份的预期终身效用，来分析其迁移决策。
@@ -165,8 +163,6 @@ This project is licensed under the MIT License. See the LICENSE file for details
 - **户籍 (Hukou) 惩罚**：这是模型的关键部分。我们假设，如果个体居住在其没有户籍的省份，则会面临效用惩罚。这一惩罚由参数 `alphaP` 表示。若 `alphaP` 为负且统计显著，则表明户籍制度对劳动力流动具有限制作用。
 
 模型通过**反向归纳法**（Backward Induction）结合动态规划求解，以找到个体生命周期内的最优迁移策略。
-
----
 
 ## 项目结构
 
@@ -192,8 +188,6 @@ This project is licensed under the MIT License. See the LICENSE file for details
 ├── outputs_logs/         # 输出文件与日志目录
 └── utils/                # 工具函数（如指标计算、数据处理辅助）
 ```
-
----
 
 ## 数据构成与形式
 
@@ -232,7 +226,6 @@ This project is licensed under the MIT License. See the LICENSE file for details
 
 此外，`file` 目录还包括一些矩阵文件，例如 `file/adjacent.xlsx` 为邻接矩阵；还有一些 JSON 文件，如 `file/linguistic.json` 为语言谱系树文件。
 
----
 
 ## 实现方法
 
@@ -257,8 +250,6 @@ This project is licensed under the MIT License. See the LICENSE file for details
 **预测准确率与模拟校准**：
 - `ModelEstimator.prediction_accuracy()` 和 `ModelEstimator.simulated_calibration()` 支持一定程度的自定义化功能，目前仍在完善中。
 
----
-
 ## 特定代码实现逻辑
 
 - `config/model_config.py` 中的 `ModelConfig` 负责管理所有参数。
@@ -271,8 +262,6 @@ This project is licensed under the MIT License. See the LICENSE file for details
 **整个代码流程链如下**：
 
 > DataLoader -> DynamicModel 接收数据并返回样本似然函数（通过 IndividualLikelihood 返回个体似然函数实现，其中包含 DynamicProgramming）-> ModelEstimator 接收样本似然函数，进行参数估计、标准误计算、p 值计算、拟合优度计算、预测准确率、模拟校准 -> 返回最终结果
-
----
 
 ## 代码执行流程
 
@@ -296,8 +285,6 @@ This project is licensed under the MIT License. See the LICENSE file for details
   - 优化完成后，计算标准误（通过 Hessian 矩阵）、p 值及其他拟合统计量（AIC、BIC）。
 - `main.py`：调用估计器保存最终结果并生成 LaTeX 报告。
 
----
-
 ## 如何运行
 
 1. **安装依赖**：本项目使用 `uv` 进行环境管理。
@@ -314,8 +301,6 @@ This project is licensed under the MIT License. See the LICENSE file for details
    ```
    脚本将在控制台打印进度，并将详细日志和输出表格保存至 `outputs_logs/` 目录。
 
----
-
-## 许可证
+## License
 
 该项目采用 MIT License，请参阅 [LICENSE](LICENSE) 文件了解详细信息。
