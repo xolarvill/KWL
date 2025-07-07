@@ -222,7 +222,7 @@ class ModelEstimator:
             for name, param in self.model.named_parameters():
                 if name in std_errors and std_errors[name].numel() == param.numel():
                     # z-statistic
-                    z_stat = torch.abs(param.data / (std_errors[name] + 1e-8)) # 避��除以零
+                    z_stat = torch.abs(param.data / (std_errors[name] + 1e-8)) # 避免除以零
                     # p-value from standard normal distribution (2-tailed)
                     p_values[name] = 2 * (1 - torch.distributions.Normal(0, 1).cdf(z_stat))
                 else:
