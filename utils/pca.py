@@ -53,7 +53,7 @@ def pca_to_excel(read_path, columns, new_var_name, save_path):
     df.to_excel(save_path)
     
 if __name__ == "__main__":
-    pca_to_excel("file/geo.xlsx", ['普高师生比','初中师生比','小学师生比'], "基础教育师生比", "file/pca.xlsx")
+    pca_to_excel("data/geo.xlsx", ['普高师生比','初中师生比','小学师生比'], "基础教育师生比", "data/pca.xlsx")
     
     
     

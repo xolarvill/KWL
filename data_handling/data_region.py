@@ -12,16 +12,16 @@ def main_read(directory_path: str) -> pd.DataFrame:
     # ========================= 添加底层数据 ========================= 
     # 添加房价
     houseprice(
-        raw_excel_loc = 'file/2000-2022年296个地级以上城市房价数据.xlsx', 
-        geodata_loc = 'file/geo.xlsx')
+        raw_excel_loc = 'data/2000-2022年296个地级以上城市房价数据.xlsx', 
+        geodata_loc = 'data/geo.xlsx')
     
     # ========================= 添加指标数据  ========================= 
     # 使用PCA或者熵值法添加教育、医疗、公共交通等指数
     # NOTE: Hardcoded absolute paths below were replaced with relative paths 
     # to ensure the project is portable and runs on different machines.
     method_pca.pca_to_excel(
-        input_path="file/geo.xlsx",
-        output_path="file/geod.xlsx",
+        input_path="data/geo.xlsx",
+        output_path="data/geod.xlsx",
         variables=['医疗卫生机构数','每万人医疗卫生机构床位数','每万人卫生技术人员','医院平均住院日','地方财政医疗支出 亿元'],
         new_var_name="医疗综合指标",
         sheet_name=0,
@@ -30,8 +30,8 @@ def main_read(directory_path: str) -> pd.DataFrame:
         overwrite=True
     )
     method_pca.pca_to_excel(
-        input_path="file/geo.xlsx",
-        output_path="file/geod.xlsx",
+        input_path="data/geo.xlsx",
+        output_path="data/geod.xlsx",
         variables=['医疗卫生机构数','每万人医疗卫生机构床位数','每万人卫生技术人员','医院平均住院日','地方财政医疗支出 亿元'],  # 需替换为实际变量
         new_var_name="教育综合指标",
         sheet_name=0,
@@ -39,8 +39,8 @@ def main_read(directory_path: str) -> pd.DataFrame:
         missing_strategy='mean'
     )
     method_pca.pca_to_excel(
-        input_path="file/geo.xlsx",
-        output_path="file/geod.xlsx",
+        input_path="data/geo.xlsx",
+        output_path="data/geod.xlsx",
         variables=['医疗卫生机构数','每万人医疗卫生机构床位数','每万人卫生技术人员','医院平均住院日','地方财政医疗支出 亿元'],  # 需替换为实际变量
         new_var_name="交通综合指标",
         sheet_name=0,
@@ -49,8 +49,8 @@ def main_read(directory_path: str) -> pd.DataFrame:
         overwrite=True
     )
     method_pca.pca_to_excel(
-        input_path="file/geo.xlsx",
-        output_path="file/geod.xlsx",
+        input_path="data/geo.xlsx",
+        output_path="data/geod.xlsx",
         variables=['医疗卫生机构数','每万人医疗卫生机构床位数','每万人卫生技术人员','医院平均住院日','地方财政医疗支出 亿元'],  # 需替换为实际变量
         new_var_name="天气综合指标",
         sheet_name=0,

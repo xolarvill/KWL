@@ -15,16 +15,16 @@ class ModelConfig:
         self.individual_data_path: str | None = None #'path/to/default/individual_data.dta'
         self.regional_data_path: str | None = None #'path/to/default/regional_data.xlsx'
         
-        self.prov_code_ranked_path: str = 'file/prov_code_ranked.json'
-        self.prov_name_ranked_path: str = 'file/prov_name_ranked.json'
+        self.prov_code_ranked_path: str = 'data/prov_code_ranked.json'
+        self.prov_name_ranked_path: str = 'data/prov_name_ranked.json'
         
-        self.adjacency_matrix_path: str = 'file/adjacent.xlsx' # 邻接矩阵
+        self.adjacency_matrix_path: str = 'data/adjacent.xlsx' # 邻接矩阵
         
-        self.prov_language_data_path: str = 'file/prov_language_data.csv' # 省份代表性语言
-        self.linguistic_data_path: str = 'file/linguistic.json' # 语言谱系树
-        self.linguistic_matrix_path: str = 'file/linguistic_matrix.csv' # 语言亲疏度矩阵，越大越疏远
+        self.prov_language_data_path: str = 'data/prov_language_data.csv' # 省份代表性语言
+        self.linguistic_data_path: str = 'data/linguistic.json' # 语言谱系树
+        self.linguistic_matrix_path: str = 'data/linguistic_matrix.csv' # 语言亲疏度矩阵，越大越疏远
         
-        self.distance_matrix_path: str = 'file/distance_matrix.csv' # 物理距离矩阵
+        self.distance_matrix_path: str = 'data/distance_matrix.csv' # 物理距离矩阵
         
         
         # 动态生成不同人群的切割条件

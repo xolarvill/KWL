@@ -122,7 +122,7 @@ def save_to_csv(matrix, path):
 
 
 if __name__ == '__main__':
-    with open("file/linguistic.json", encoding='utf-8') as f:
+    with open("data/linguistic.json", encoding='utf-8') as f:
         linguistic_tree = json.load(f)
     print(dialect_distance('吴语','湘语',linguistic_tree))
     

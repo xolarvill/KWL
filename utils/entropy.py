@@ -47,4 +47,4 @@ def entropy_to_excel(read_path, columns, new_var_name, save_path):
     df.to_excel(save_path)  
     
 if __name__ == '__main__':
-    entropy_to_excel('file/geo.xlsx', ['城市用水普及率','城市燃气普及率','每万人拥有公共交通车数量','每万人拥有公共厕所数量','人均公园绿地面积'], "公共设施", 'file/entropy.xlsx')
+    entropy_to_excel('data/geo.xlsx', ['城市用水普及率','城市燃气普及率','每万人拥有公共交通车数量','每万人拥有公共厕所数量','人均公园绿地面积'], "公共设施", 'data/entropy.xlsx')

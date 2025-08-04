@@ -47,7 +47,7 @@ def distance_matrix(f: str) -> np.ndarray:
 # 存储为csv文件
 def save_distance_matrix_to_csv(matrix: np.ndarray):
     df = pd.DataFrame(matrix)
-    df.to_csv('file/distance_matrix.csv', index=False, header=False)
+    df.to_csv('data/distance_matrix.csv', index=False, header=False)
 
 
 
@@ -80,7 +80,7 @@ if __name__ == '__main__':
         
         return matrix
 
-    matrix = distance_matrix_with_progress('file/prov_name_ranked.json')
+    matrix = distance_matrix_with_progress('data/prov_name_ranked.json')
     print(matrix)
-    save_distance_matrix_to_csv(distance_matrix('file/prov_name_ranked.json'))
+    save_distance_matrix_to_csv(distance_matrix('data/prov_name_ranked.json'))
     
