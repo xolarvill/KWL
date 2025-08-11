@@ -28,13 +28,13 @@ The project is organized into several key directories:
 ├── README.md             # This file
 ├── config/               # Configuration files
 │   └── model_config.py   # Manages all model parameters and initial values
-├── data/                 # Scripts for data loading and preprocessing
+├── data/                 # Raw data files (e.g., .dta, .xlsx, .json)
+├── data_handling/        # Scripts for data loading and preprocessing
 │   ├── data_loader.py    # Main data loader class
 │   ├── data_person.py    # Cleans and prepares individual panel data (CFPS)
 │   └── data_region.py    # Cleans and prepares regional characteristics data
 ├── estimation/           # Parameter estimation and statistical inference
 │   └── model_estimator.py# The core estimator class using PyTorch and L-BFGS
-├── file/                 # Raw data files (e.g., .dta, .xlsx, .json)
 ├── model/                # Core model implementation
 │   ├── dynamic_model.py  # Defines the overall dynamic model structure
 │   ├── individual_likelihood.py # Calculates the likelihood for a single individual
