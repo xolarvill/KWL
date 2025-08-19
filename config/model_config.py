@@ -1,6 +1,21 @@
 # 管理和存储模型的各种配置参数
-
+from enum import StrEnum
 from typing import List
+
+class OutputLanguage(StrEnum):
+    LATEX = 'LaTeX'
+    MARKDOWN = 'Markdown'
+    HTML = 'HTML'
+    
+class OutputFileFormat(StrEnum):
+    LATEX = '.tex'
+    MARKDOWN = '.md'
+    PLAINTEXT = '.txt'
+    
+class OutputStyle(StrEnum):
+    BOOKTAB = "Booktab"
+    PLAIN = "Plain"
+    GRID = "Grid"
 
 class ModelConfig:
     '''
@@ -116,9 +131,9 @@ class ModelConfig:
         self.tolerance: float = 1e-6
         
         # 输出参数
-        self.output_language: str = 'LaTeX'
-        self.output_file: str = 'tex'
-        self.output_style: str = 'Booktab'
+        self.output_language: OutputLanguage.LATEX
+        self.output_file: OutputFileFormat = OutputFileFormat.LATEX
+        self.output_style: OutputStyle = OutputStyle.BOOKTAB
         self.base_dir: str = 'logs_outputs'
         self.logs_dir: str = 'logs_outputs/logs'
         self.outputs_dir: str = 'logs_outputs/outputs'
