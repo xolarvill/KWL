@@ -138,3 +138,6 @@ class ModelConfig:
         self.logs_dir: str = 'logs_outputs/logs'
         self.outputs_dir: str = 'logs_outputs/outputs'
         
+        
+if __name__ == '__name__':
+    config = ModelConfig()
