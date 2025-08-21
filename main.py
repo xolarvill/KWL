@@ -5,7 +5,7 @@ import os
 import time
 
 from config.model_config import ModelConfig
-from data_handling.data_loader import DataLoader
+from data_handler.data_loader import DataLoader
 from model.dynamic_model import DynamicModel
 from estimation.model_estimator import ModelEstimator
 
