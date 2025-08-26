@@ -404,7 +404,6 @@ def main():
     try:
         # 加载配置
         config = ModelConfig()
-        print(f"配置加载完成，使用子样本组: {config.subsample_group}")
         
         # 创建训练器
         trainer = MLPluginTrainer(config)

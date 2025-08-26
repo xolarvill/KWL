@@ -3,8 +3,6 @@ import numpy as np
 import os
 import json
 from typing import List
-
-# 假设这些模块在当前路径或Python路径中
 from src.data_handler import data_person, data_region, adjacent, distance, linguistic
 from src.config import ModelConfig
 
@@ -22,14 +20,25 @@ class DataLoader:
         if not os.path.exists(path):
             raise FileNotFoundError(f"{file_description} 未在指定路径找到: {path}")
 
+    def _valide_all_files(self):
+        """
+        检查所有文件
+        """
+        self._validate_path(self.config.individual_data_path, "个体数据(dta)")
+        self._validate_path(self.config.regional_data_path, "地区特征数据(xlsx)")
+        self._validate_path(self.config.adjacency_matrix_path, "地区邻接矩阵(xlsx)")
+        self._validate_path(self.config.prov_code_ranked_path, "省份排名JSON")
+        self._validate_path(self.config.distance_matrix_path, "地区距离矩阵(csv)")
+        self._validate_path(self.config.linguistic_data_path, "语言特征数据(xlsx)")
+        
+
     def load_individual_data(self) -> pd.DataFrame:
         """加载并预处理个体面板数据(CFPS)。"""
         path = self.config.individual_data_path
-        self._validate_path(path, "个体数据(dta)")
+        #self._validate_path(path, "个体数据(dta)")
         
         try:
-            df_individual = data_person.data_read(path)
-            df_individual = data_person.data_fix(df_individual)
+            df_individual = pd.read_stata(path)
         except Exception as e:
             raise RuntimeError(f"读取或处理个体数据时出错 (路径: {path}): {str(e)}")
             
@@ -101,4 +110,4 @@ if __name__ == '__main__':
     from src.config import ModelConfig
     config = ModelConfig
     data = DataLoader(config)
-    print(data.load_distance_matrix())
+    print(data.load_individual_data())

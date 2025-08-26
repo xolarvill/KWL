@@ -30,8 +30,8 @@ class ModelConfig:
     '''
 
     # 数据路径参数
-    individual_data_path: Optional[str] = None  # 'path/to/default/individual_data.dta'
-    regional_data_path: Optional[str] = None  # 'path/to/default/regional_data.xlsx'
+    individual_data_path: str = 'data/processed/cfps10_22mc.dta'
+    regional_data_path: str = 'data/processed/geo.xlsx'
 
     prov_code_ranked_path: str = 'data/processed/prov_code_ranked.json'
     prov_name_ranked_path: str = 'data/processed/prov_name_ranked.json'
@@ -61,16 +61,14 @@ class ModelConfig:
     prob_sigmavarepsilon_support_points: List[float] = field(init=False)
 
     def __post_init__(self):
-        # 验证 subsample_group 合法性
-        if self.subsample_group not in [0, 1, 2, 3]:
-            raise ValueError('subsample_group必须为0、1、2或3，0为不需要进行分割')
-
-        # 初始化概率列表（自动根据支撑点数量计算）
-        self.prob_nu_support_points = [1 / self.n_nu_support_points] * self.n_nu_support_points
-        self.prob_xi_support_points = [1 / self.n_xi_support_points] * self.n_xi_support_points
-        self.prob_eta_support_points = [1 / self.n_eta_support_points] * self.n_eta_support_points
-        self.prob_sigmavarepsilon_support_points = [1 / self.n_sigmavarepsilon_support_points] * self.n_sigmavarepsilon_support_points
-
+        """初始化那些标记为field(init=False)的字段"""
+        # 假设支撑点概率为均匀分布
+        self.prob_nu_support_points = [1.0 / self.n_nu_support_points] * self.n_nu_support_points
+        self.prob_xi_support_points = [1.0 / self.n_xi_support_points] * self.n_xi_support_points
+        self.prob_eta_support_points = [1.0 / self.n_eta_support_points] * self.n_eta_support_points
+        self.prob_sigmavarepsilon_support_points = [1.0 / self.n_sigmavarepsilon_support_points] * self.n_sigmavarepsilon_support_points
+        
+        
     # 代估支撑点值（初始值）
     nu_support_1_ini: float = 0.3
     nu_support_2_ini: float = 0.6
