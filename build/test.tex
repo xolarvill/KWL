@@ -11,7 +11,7 @@
 % math
 \usepackage{amsmath, amsthm, amssymb} % Math
 \usepackage{wasysym} % Greek alphabets
-\usepackage{unicode-math} % Greek alphabets, 替换MnSymbol. NOTE: 但unicode-math只能在xelatex或者lualatex中使用
+\usepackage{unicode-math} % Greek alphabets, 替换原先的MnSymbol. NOTE: 但unicode-math只能在xelatex或者lualatex中使用
 \usepackage{mathrsfs, amsfonts} % Math fonts
 
 % document
@@ -1305,72 +1305,6 @@ $LCA(u,v)=\arg \max_{w\in V} depth(w)$，
 
 本文对于复合指标的获取如表格所示
 
-\section{方法上} % (fold)
-\label{sub:方法上}
-
-基于以上的推导，
-在代码中需要先求出个体的似然，
-而个体的总似然是迁移选择概率和工资观测概率的乘积，
-那么集体的似然函数同时对未观测的随机效应（固定效应、地区匹配效应等）进行积分（离散求和）：
-\begin{equation}
-  L_{i}=\sum\limits_{\text{所有随机效应组合}}[\prod_{t}\rho(x_{t},j_{t})\cdot P(w_{t}|\text{随机效应}) ]
-\end{equation}
-
-本文采用混合似然估计法（Mixed Likelihood Estimation）进行动态离散选择模型的参数求取。由于模型涉及高维状态空间与跨期动态关联性，计算过程具有三重复杂性：其一，个体选择行为需通过贝尔曼方程递归求解；其二，状态转移矩阵需处理多重内生性关联；其三，价值函数收敛需满足跨期一致性条件。
-
-传统计量工具（如Stata）受限于矩阵运算效率与迭代算法架构，在应对此类包含200+状态变量、需进行10\^6量级矩阵运算的复杂场景时，存在计算耗时指数级增长与内存溢出的双重瓶颈。
-为此，本文构建基于Python的数值计算框架，与传统的Stata相比，Python在实现复杂的动态离散选择模型方面具有显著优势：
-首先，Python的开源生态系统提供了丰富的科学计算库，如\lstinline{NumPy}、\lstinline{Pandas}和\lstinline{PyTorch}，这些库为处理大规模面板数据和实现复杂的优化算法提供了强大支持。特别是\lstinline{PyTorch}的自动微分功能，使得计算复杂模型的梯度变得简单高效，这在传统Stata环境中难以实现。
-其次，Python的面向对象编程范式使得模型的各个组件可以被清晰地封装，提高了代码的可读性和可维护性。在本项目中，我们将模型的不同部分（如个体似然函数\lstinline{IndividualLikelihood}、参数估计器\lstinline{ModelEstimator}等）封装为独立的类，使得整体架构更加清晰。
-此外，\lstinline{joblib}库提供的并行计算能力显著提高了计算效率，特别是在处理大量个体似然函数计算时；
-本文设计逆向归纳算法（Backward Induction），通过倒序年龄迭代（从T期至$t_0$期）动态求解各状态节点的期望价值函数（EV矩阵），确保跨期决策路径的全局最优；
-并运用SciPy优化器进行参数空间搜索，通过蒙特卡洛模拟生成选择概率曲面，最终实现模型参数在95\%置信区间内的有效估计。
-
-
-对于求取参数的方法，传统上使用Newton线搜索方法上求解似然函数最大值，虽然收敛速度快，但计算海塞矩阵需要消耗大量资源。
-虽然可以通过对似然函数进行LU分解，在计算海塞矩阵的逆时提供可靠帮助，降低数值不稳定性，
-但计算海森矩阵的代价仍然较高，尤其是在参数较多时。
-本文做出改进，
-采取以自动微分（\lstinline{PyTorch}）为核心，使用现代优化算法Quasi-Newton方法中的L-BFGS方法避免收敛困难和数值不稳定，并利用离散化与并行处理提升效率。
-BFGS是一种拟牛顿法，通过迭代逼近目标函数的海塞矩阵的逆矩阵，从而避免直接计算二阶导数。它只需要利用梯度信息来更新海森矩阵的近似，使得每次迭代都能更准确地找到下降方向。在高维参数空间中，避免了直接计算海森矩阵的高计算成本。
-在具体的梯度计算中，自动微分通过计算图追踪运算过程，利用链式法则自动计算导数，避免数值微分的截断误差。当模型复杂、参数众多，且需要频繁计算梯度时（如神经网络训练），自动微分显著优于手动编码梯度。对于需要高阶导数或大规模并行计算的情况尤为适合。
-具体而言，
-本文使用类方法分装待估参数
-类继承
-\lstinline{torch.nn.Module}，所有参数为\lstinline{torch.nn.Parameter}，支持自动梯度计算。
-
-本文对于固定效应和地区匹配效应upsilon等支撑点离散化方法的处理与原作者的做法保持一致，
-通过网格遍历求和。
-对于已经用支撑点离散近似后的参数，在进行网格搜索时，
-\lstinline{joblib.Parallel}支持将数据存储在磁盘上的内存映射文件中，这样多个进程可以共享同一份数据，
-而无需每个进程都复制一份，从而显著降低内存消耗并提升 I/O 效率。
-
-本文的优化方法基于深度学习，
-模型估计结果对初始值存在一定敏感性，
-初始值的选择可能会影响收敛速度和结果。例如，如果真实值接近-0.1，好的初始值能加快收敛。
-虽然L-BFGS优化器在一定程度上缓解了这一问题，但仍需根据经济学理论进行初始值赋予能促进优化方法的应用，例如距离增加可能降低迁移概率，因此\lstinline{gamma_distance}的预期应该为负，将其初始值设为负符合理论预期，有助于引导优化方向。hhhhh
-
-
-本文中一些变量如表格\ref{tab:_实证与程序中的变量定义}所示。
-
-\begin{table}
-\centering
-\caption{实证与程序中的变量定义}
-\begin{tabularx}{\textwidth}{@{}ccXX@{}}
-\toprule
-变量符号 & 代码符号 & 含义 & 数据来源\\
-\midrule
-$\alpha_0$ & alpha0 & 经济性收入截距 &\\
-$\alpha_1$ & alpha1 & 对于房价收入比作为宜居度的边际效用&\\
-$\alpha_H$ & alphaH & 恋家溢价&\\
-$\alpha_P$ & alphaP & 户籍制度惩罚&\\
-$r_1$ & r1 & 年龄效应一次性系数& \\
-$r_2$ & r2 & 年龄效应二次性系数& \\
- & houseprice & &\\
-\bottomrule
-\end{tabularx}
-\label{tab:_实证与程序中的变量定义}
-\end{table}
 
 % ---------------------------------------- 估计结果 ----------------------------------------
 \chapter{估计结果}
@@ -1387,7 +1321,7 @@ $r_2$ & r2 & 年龄效应二次性系数& \\
 \midrule
 \bottomrule
 \end{tabularx}
-\label{tab:结构参数结果}
+\label{tab:结构参数的估计结果}
 \end{table}
 
 
