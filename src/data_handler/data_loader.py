@@ -5,8 +5,8 @@ import json
 from typing import List
 
 # 假设这些模块在当前路径或Python路径中
-from . import data_person, data_region, adjacent, subsample, distance, linguistic
-from config import ModelConfig
+from src.data_handler import data_person, data_region, adjacent, distance, linguistic
+from src.config import ModelConfig
 
 class DataLoader:
     '''
@@ -32,13 +32,6 @@ class DataLoader:
             df_individual = data_person.data_fix(df_individual)
         except Exception as e:
             raise RuntimeError(f"读取或处理个体数据时出错 (路径: {path}): {str(e)}")
-            
-        # 根据配置应用子样本筛选
-        subsample_group = self.config.subsample_group
-        if subsample_group in [1, 2, 3]:
-            df_individual = subsample.subsample(df_individual, demand=str(subsample_group))
-        elif subsample_group != 0:
-            print(f"警告: 未知的子样本组 '{subsample_group}'，将使用全样本。")
             
         return df_individual
         
@@ -102,3 +95,10 @@ class DataLoader:
             raise RuntimeError(f"读取语言亲近度矩阵时出错 (路径: {path}): {str(e)}")
 
         return linguistic_matrix.to_numpy()
+
+
+if __name__ == '__main__':
+    from src.config import ModelConfig
+    config = ModelConfig
+    data = DataLoader(config)
+    print(data.load_distance_matrix())

@@ -33,16 +33,13 @@ class ModelConfig:
     individual_data_path: Optional[str] = None  # 'path/to/default/individual_data.dta'
     regional_data_path: Optional[str] = None  # 'path/to/default/regional_data.xlsx'
 
-    prov_code_ranked_path: str = 'data/prov_code_ranked.json'
-    prov_name_ranked_path: str = 'data/prov_name_ranked.json'
-    adjacency_matrix_path: str = 'data/adjacent.xlsx'  # 邻接矩阵
-    prov_language_data_path: str = 'data/prov_language_data.csv'  # 省份代表性语言
-    linguistic_data_path: str = 'data/linguistic.json'  # 语言谱系树
-    linguistic_matrix_path: str = 'data/linguistic_matrix.csv'  # 语言亲疏度矩阵，越大越疏远
-    distance_matrix_path: str = 'data/distance_matrix.csv'  # 物理距离矩阵
-
-    # 动态生成不同人群的切割条件
-    subsample_group: int = 0  # 限制为 0,1,2,3；0 表示不分割
+    prov_code_ranked_path: str = 'data/processed/prov_code_ranked.json'
+    prov_name_ranked_path: str = 'data/processed/prov_name_ranked.json'
+    adjacency_matrix_path: str = 'data/processed/adjacent.xlsx'  # 邻接矩阵
+    prov_language_data_path: str = 'data/processed/prov_language_data.csv'  # 省份代表性语言
+    linguistic_data_path: str = 'data/processed/linguistic.json'  # 语言谱系树
+    linguistic_matrix_path: str = 'data/processed/linguistic_matrix.csv'  # 语言亲疏度矩阵，越大越疏远
+    distance_matrix_path: str = 'data/processed/distance_matrix.csv'  # 物理距离矩阵
 
     # 外生参数
     discount_factor: float = 0.95  # 贴现因子
