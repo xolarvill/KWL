@@ -2,13 +2,149 @@
 
 本项目使用 Python 实现了一个非参数混合的动态离散选择模型，用于分析中国的劳动力迁移决策。该模型受到 Kennan 和 Walker（2011）框架的启发，在其模型基础上引入了对户籍制度效应，并且使推力和拉力都在模型中得到了充分体现。
 
+**请注意：项目中，build是使用LaTeX编译论文的单独项目，不与其他文件产生联动。**
+
 
 ## 项目结构
 
 
 ### 结构树
 
-暂定
+暂定如下
+
+```bash
+├── LICENSE
+├── README.md
+├── build
+├── data
+│   ├── geo
+│   │   ├── adjacent.xlsx
+│   │   ├── geo.xlsx
+│   │   └── house_prix.xlsx
+│   ├── interim
+│   │   └── cfps10_22mc.dta
+│   ├── processed
+│   │   ├── adjacent.xlsx
+│   │   ├── distance_matrix.csv
+│   │   ├── geo.xlsx
+│   │   ├── prov_code_ranked.json
+│   │   └── prov_name_ranked.json
+│   └── raw
+│       ├── geo_backup
+│       │   ├── adjacent
+│       │   │   └── ADJ.xlsx
+│       │   ├── 教育经费 万元.xls
+│       │   ├── 交通事故.xls
+│       │   ├── 初中师生比.xls
+│       │   ├── 小学师生比.xls
+│       │   ├── 普高师生比.xls
+│       │   ├── 年末常住人口.xls
+│       │   ├── 人均可支配收入.xls
+│       │   ├── 人均日生活用水.xls
+│       │   ├── 医疗卫生机构数.xls
+│       │   ├── 医院平均住院日.xls
+│       │   ├── 城市燃气普及率.xls
+│       │   ├── 城市用水普及率.xls
+│       │   ├── 地方财政医疗支出 亿元.xls
+│       │   ├── 地方财政教育支出 亿元.xls
+│       │   ├── 轨道交通运营里程 公里.xls
+│       │   ├── 人均公园绿地面积.xls
+│       │   ├── 连锁餐饮门店总数.xls
+│       │   ├── 每万人卫生技术人员.xls
+│       │   ├── 社会零售消费品总额.xls
+│       │   ├── 公共汽电车运营总长度 公里.xls
+│       │   ├── 每万人拥有公共厕所数量.xls
+│       │   ├── 自然灾害受灾万人次人口.xls
+│       │   ├── 每万人拥有公共交通车数量 标台.xls
+│       │   ├── 每万人医疗卫生机构床位数.xls
+│       │   ├── 每万人拥有公共交通车数量.xls
+│       │   └── 城镇基本医疗保险年末参保人数.xls
+│       ├── linguistic.json
+│       ├── linguistic2.json
+│       └── prov_language.csv
+├── main.py
+├── notes.md
+├── pyproject.toml
+├── results
+│   ├── estimation
+│   ├── figures
+│   ├── logs
+│   ├── policy
+│   ├── tables
+│   │   ├── move_add.tex
+│   │   ├── move_add_proportion.tex
+│   │   └── moved.tex
+│   └── validation
+├── scripts
+│   ├── 00_prepare_data.py
+│   ├── 01_train_ml_plugins.py
+│   ├── 02_run_estimation.py
+│   └── 03_run_abm_simulation.py
+├── src
+│   ├── abm
+│   │   ├── __init__.py
+│   │   ├── agents.py
+│   │   ├── calibration.py
+│   │   └── environment.py
+│   ├── config
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-311.pyc
+│   │   │   └── model_config.cpython-311.pyc
+│   │   └── model_config.py
+│   ├── data_handler
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-311.pyc
+│   │   │   └── data_loader.cpython-311.pyc
+│   │   ├── adjacent.py
+│   │   ├── data_loader.py
+│   │   ├── data_person.py
+│   │   ├── data_region.py
+│   │   ├── distance.py
+│   │   ├── houseprice.py
+│   │   ├── linguistic.py
+│   │   └── subsample.py
+│   ├── estimation
+│   │   ├── __init__.py
+│   │   ├── em_nfxp.py
+│   │   ├── heterogeneity.py
+│   │   └── inference.py
+│   ├── ml_plugins
+│   │   ├── __init__.py
+│   │   ├── kfold_cv.py
+│   │   └── wage_prediction.py
+│   ├── model
+│   │   ├── __init__.py
+│   │   ├── bellman.py # 贝尔曼方程求解
+│   │   ├── dynamic_model.py
+│   │   ├── likelihood.py # 似然函数计算
+│   │   ├── parameters.py # 参数管理
+│   │   └── utility.py # 效用函数组件
+│   ├── utils
+│   │   ├── __init__.py
+│   │   ├── computation.py
+│   │   ├── entropy.py
+│   │   ├── get_prov_code_rank.py
+│   │   ├── indicator.py
+│   │   ├── method_entropy.py
+│   │   ├── method_pca.py
+│   │   ├── outreg2.py
+│   │   ├── parellel.py
+│   │   ├── pca.py
+│   │   ├── topsis.py
+│   │   ├── validation.py
+│   │   └── visited.py
+│   └── visualization
+│       ├── __init__.py
+│       ├── policy_analysis.py
+│       └── results_plot.py
+├── test
+│   ├── t_lightgbm.py
+│   ├── t_mesa.py
+│   └── ztest.py
+└── uv.lock
+```
 
 ### 数据构成与形式
 
@@ -137,6 +273,65 @@
 
 
 
+### 项目实现方案
+
+本项目将按照以下阶段进行实施：
+
+1.  **数据准备 (`scripts/00_prepare_data.py`):**
+    *   **目标**: 加载原始数据，进行清洗、预处理，并构建模型所需的特征和矩阵。
+    *   **具体任务**:
+        *   从 `data/raw` 和 `data/interim` 加载个体 (`cfps10_22mc.dta`) 和地区 (`geo.xlsx`) 面板数据。
+        *   清洗数据，处理缺失值，统一数据格式。
+        *   根据 `data/geo/adjacent.xlsx` 构建地区邻接矩阵。
+        *   计算地区间的距离矩阵（可利用 `src/data_handler/distance.py`）。
+        *   从 `data/raw/linguistic.json` 处理语言谱系数据，生成语言距离或相似性特征。
+        *   根据模型需求，从原始地区数据 (`data/raw/geo_backup`) 提取并构建各项舒适度 (amenities) 指数、户籍惩罚相关指标（教育、医疗、住房等）。
+        *   将处理后的数据保存至 `data/processed` 目录，供后续模型使用。
+
+2.  **ML 插件训练 (`scripts/01_train_ml_plugins.py`):**
+    *   **目标**: 训练机器学习模型以非参数化地估计滋扰函数，如工资方程。
+    *   **具体任务**:
+        *   实现 `src/ml_plugins/wage_prediction.py`，使用 LightGBM 预测个体工资。
+        *   应用 `src/ml_plugins/kfold_cv.py` 实现 K 折交叉拟合策略，以防止过拟合和信息泄露。
+        *   训练其他可能需要的滋扰函数（例如，如果模型中包含内生状态转移，则需估计其转移概率）。
+        *   保存训练好的模型或其预测结果，供 DDCM 估计模块使用。
+
+3.  **DDCM 核心估计 (`scripts/02_run_estimation.py`):**
+    *   **目标**: 基于 EM-NFXP 框架估计动态离散选择模型的结构参数。
+    *   **具体任务**:
+        *   **配置管理 (`src/config/model_config.py`)**: 定义所有超参数，包括未观测异质性的支撑点数量、EM 迭代次数、NFXP 收敛标准、学习率等。
+        *   **参数定义 (`src/model/parameters.py`)**: 使用 `dataclasses` 和 `torch.nn.Module` 封装所有待估结构参数 (`alpha_w`, `lambda`, `alpha_s`, `alpha_home`, `theta_*`, `gamma_*`, `beta` 等)，并定义为 `torch.nn.Parameter`。
+        *   **效用函数 (`src/model/utility.py`)**: 实现 `notes.md` 中定义的总效用函数，包括收入效用（前景理论）、各项舒适度、家乡溢价、户籍惩罚和迁移成本。
+        *   **贝尔曼方程求解 (`src/model/bellman.py`)**: 实现反向归纳法 (Backward Induction) 算法，迭代求解贝尔曼方程，得到各状态下的期望价值函数。
+        *   **动态模型整合 (`src/model/dynamic_model.py`)**: 整合效用函数和贝尔曼方程，计算选择概率。
+        *   **似然函数 (`src/model/likelihood.py`)**: 实现 EM 算法所需的个体对数似然函数。
+        *   **EM-NFXP 算法 (`src/estimation/em_nfxp.py`)**: 
+            *   **E 步**: 计算每个个体属于不同未观测异质性类型/支撑点的后验概率。
+            *   **M 步**: 使用 `torch.optim.LBFGS` 优化器，在给定后验概率下最大化期望对数似然，更新结构参数。M 步中需嵌套 NFXP 求解贝尔曼方程。
+        *   **异质性处理 (`src/estimation/heterogeneity.py`)**: 管理有限混合模型和离散支撑点近似。
+        *   **推断 (`src/estimation/inference.py`)**: 计算 BHHH 估计量以获得参数标准误，并进行沃尔德检验。
+        *   **模型选择**: 运行不同支撑点数量的模型估计，并根据 BIC 准则选择最优模型。
+        *   将估计结果（参数估计值、标准误、显著性、BIC 值等）保存至 `results/estimation`。
+
+4.  **ABM 宏观模拟 (`scripts/03_run_abm_simulation.py`):**
+    *   **目标**: 利用估计出的微观参数进行宏观模拟，验证涌现模式，并进行反事实政策分析。
+    *   **具体任务**:
+        *   **智能体定义 (`src/abm/agents.py`)**: 根据 DDCM 估计结果，定义具有异质性的智能体，其决策行为遵循估计出的选择概率。
+        *   **环境定义 (`src/abm/environment.py`)**: 构建模拟环境，包括地区特征、人口分布、宏观状态变量及其动态演化规则。
+        *   **校准 (`src/abm/calibration.py`)**: 如果需要，校准 ABM 特有的宏观参数，使其模拟出的宏观矩与真实数据匹配 (SMM)。
+        *   **模拟逻辑**: 运行 ABM 模拟，追踪个体迁移决策和宏观变量的动态演化。
+        *   **政策分析 (`src/visualization/policy_analysis.py`)**: 设计并执行反事实政策实验，例如改变户籍政策、地区吸引力等。
+        *   **结果可视化 (`src/visualization/results_plot.py`)**: 
+            *   绘制宏观涌现模式图（如城市规模分布、人口空间分布）。
+            *   绘制政策实验结果的动态演化图（如主要城市人口路径、全国不平等指数、社会福利路径）。
+            *   进行稳健性与权衡分析（如 Pareto 前沿图、敏感性分析）。
+        *   将模拟输出、图表保存至 `results/policy` 和 `results/figures`。
+
+5.  **通用工具 (`src/utils/`):**
+    *   `computation.py`: 提供通用的数学计算和数值处理函数。
+    *   `parellel.py`: 封装 `joblib` 库，用于并行计算个体似然函数等计算密集型任务。
+    *   `outreg2.py`: 用于生成格式化的估计结果输出（例如 LaTeX 表格）。
+    *   其他现有工具（如 `pca.py`, `topsis.py`, `entropy.py`）可根据数据处理和指标构建需求进行整合和完善。
 
 
 ### 项目技术栈核心摘要
