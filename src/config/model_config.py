@@ -1,6 +1,8 @@
 # 管理和存储模型的各种配置参数
 from enum import StrEnum
-from typing import List
+from typing import List, Optional
+from dataclasses import dataclass, field
+import json
 
 class OutputLanguage(StrEnum):
     LATEX = 'LaTeX'
@@ -17,6 +19,7 @@ class OutputStyle(StrEnum):
     PLAIN = "Plain"
     GRID = "Grid"
 
+@dataclass
 class ModelConfig:
     '''
     Note: 
@@ -25,119 +28,119 @@ class ModelConfig:
     3: 涉及参数、函数等模型修改时，需要同时修改其他py文件中的对应部分。
     4: 人群种类tau影响的变量有gamma0_tau1、gamma0_tau2、gamma0_tau3，config对其赋值的为gamma0_tau1_ini、gamma0_tau2_ini、gamma0_tau3_ini。对应的概率为pi_tau1、pi_tau2、pi_tau3。
     '''
-    def __init__(self):
-        # 数据路径参数
-        self.individual_data_path: str | None = None #'path/to/default/individual_data.dta'
-        self.regional_data_path: str | None = None #'path/to/default/regional_data.xlsx'
-        
-        self.prov_code_ranked_path: str = 'data/prov_code_ranked.json'
-        self.prov_name_ranked_path: str = 'data/prov_name_ranked.json'
-        
-        self.adjacency_matrix_path: str = 'data/adjacent.xlsx' # 邻接矩阵
-        
-        self.prov_language_data_path: str = 'data/prov_language_data.csv' # 省份代表性语言
-        self.linguistic_data_path: str = 'data/linguistic.json' # 语言谱系树
-        self.linguistic_matrix_path: str = 'data/linguistic_matrix.csv' # 语言亲疏度矩阵，越大越疏远
-        
-        self.distance_matrix_path: str = 'data/distance_matrix.csv' # 物理距离矩阵
-        
-        
-        # 动态生成不同人群的切割条件
-        # 限制subsample_group只能为1,2,3
-        self.subsample_group: int = 0
-        if not isinstance(self.subsample_group, int) or self.subsample_group not in [0, 1, 2, 3]:
+
+    # 数据路径参数
+    individual_data_path: Optional[str] = None  # 'path/to/default/individual_data.dta'
+    regional_data_path: Optional[str] = None  # 'path/to/default/regional_data.xlsx'
+
+    prov_code_ranked_path: str = 'data/prov_code_ranked.json'
+    prov_name_ranked_path: str = 'data/prov_name_ranked.json'
+    adjacency_matrix_path: str = 'data/adjacent.xlsx'  # 邻接矩阵
+    prov_language_data_path: str = 'data/prov_language_data.csv'  # 省份代表性语言
+    linguistic_data_path: str = 'data/linguistic.json'  # 语言谱系树
+    linguistic_matrix_path: str = 'data/linguistic_matrix.csv'  # 语言亲疏度矩阵，越大越疏远
+    distance_matrix_path: str = 'data/distance_matrix.csv'  # 物理距离矩阵
+
+    # 动态生成不同人群的切割条件
+    subsample_group: int = 0  # 限制为 0,1,2,3；0 表示不分割
+
+    # 外生参数
+    discount_factor: float = 0.95  # 贴现因子
+    n_regions: int = 31  # 地区数量
+    n_period: int = 7  # 时期数量
+    age_min: int = 18  # 最小年龄
+    age_max: int = 65  # 最大年龄
+
+    # 未知变量相关参数 - 支撑点数量
+    n_nu_support_points: int = 5  # 个体-地区匹配效应
+    n_xi_support_points: int = 5  # 地区偏好效应
+    n_eta_support_points: int = 7  # 个体固定效应
+    n_sigmavarepsilon_support_points: int = 3  # 暂态效应方差
+
+    # 支撑点概率（由均匀分布假设）
+    prob_nu_support_points: List[float] = field(init=False)
+    prob_xi_support_points: List[float] = field(init=False)
+    prob_eta_support_points: List[float] = field(init=False)
+    prob_sigmavarepsilon_support_points: List[float] = field(init=False)
+
+    def __post_init__(self):
+        # 验证 subsample_group 合法性
+        if self.subsample_group not in [0, 1, 2, 3]:
             raise ValueError('subsample_group必须为0、1、2或3，0为不需要进行分割')
-        
-        # 外生参数
-        self.discount_factor: float = 0.95  # 贴现因子，迁移一般是考虑久远的影响，所以此处取0.95
-        self.n_regions: int = 31  # 地区数量
-        self.n_period: int = 7 # 时期数量
-        self.age_min: int = 18  # 最小年龄
-        self.age_max: int = 65  # 最大年龄
-        
-        # 未知变量相关参数
-        ## 给定支撑点数量
-        self.n_nu_support_points: int = 5  # 个体-地区匹配效应支撑点数量
-        self.n_xi_support_points: int = 5  # 地区偏好效应支撑点数量
-        self.n_eta_support_points: int = 7  # 个体固定效应支撑点数量
-        self.n_sigmavarepsilon_support_points: int = 3  # 暂态效应方差支撑点数量
-        
-        ## 由均匀分布假设对应的各自取值概率
-        self.prob_nu_support_points: List[float] = [1/self.n_nu_support_points] * self.n_nu_support_points  # 个体-地区匹配效应支撑点概率
-        self.prob_xi_support_points: List[float] = [1/self.n_xi_support_points] * self.n_xi_support_points  # 地区偏好效应支撑点概率
-        self.prob_eta_support_points: List[float] = [1/self.n_eta_support_points] * self.n_eta_support_points  # 个体固定效应支撑点概率
-        self.prob_sigmavarepsilon_support_points: List[float] = [1/self.n_sigmavarepsilon_support_points] * self.n_sigmavarepsilon_support_points  # 暂态效应方差支撑点概率
-        
-        ## 代估支撑点值
-        self.nu_support_1_ini: float = 0.3  # 个体-地区匹配效应支撑点1
-        self.nu_support_2_ini: float = 0.6  # 个体-地区匹配效应支撑点2
-        
-        self.xi_support_1_ini: float = 0.4  # 地区偏好效应支撑点1
-        self.xi_support_2_ini: float = 0.7  # 地区偏好效应支撑点2
-        
-        self.eta_support_1_ini: float = 1.0  # 个体固定效应支撑点1
-        self.eta_support_2_ini: float = 2.0  # 个体固定效应支撑点2
-        self.eta_support_3_ini: float = 3.0  # 个体固定效应支撑点3
 
-        self.sigmavarepsilon_support_1_ini: float = 0.2  # 暂态效应方差支撑点1
-        self.sigmavarepsilon_support_2_ini: float = 0.4  # 暂态效应方差支撑点2
-        self.sigmavarepsilon_support_3_ini: float = 0.6  # 暂态效应方差支撑点3
-        self.sigmavarepsilon_support_4_ini: float = 0.8  # 暂态效应方差支撑点4
-        
-        # 异质性群体
-        """
-        Note:
-        按照定义sum_{tau} pi_{tau} = 1，所以pi_1_ini + pi_2_ini + pi_3_ini = 1，只需设置其中两个即可。
-        """
-        ## 给定种类数量
-        self.n_tau_types: int = 3  # 迁移类型数量
-        self.tau: List[int] = [1, 2, 3]
-        ## 代估种类概率值
-        self.pi_1_ini: float = 0.3
-        self.pi_2_ini: float = 0.4
-        
-        # 效用函数待估参数
-        ## u
-        self.alpha0_ini: float = 0.8 # wage income parameter 
-        self.alpha1_ini: float = 0.8 # houseprice
-        self.alpha2_ini: float = 0.8 # environment = hazard + temperature + air quality + water supply
-        self.alpha3_ini: float = 0.8 # education 
-        self.alpha4_ini: float = 0.8 # health
-        self.alpha5_ini: float = 0.8 # business
-        self.alpha6_ini: float = 0.3 # cultural: linguistic
-        self.alpha7_ini: float = 0.5 # public goods
-        self.alphaH_ini: float = 0.1 # home premium parameter
-        self.alphaP_ini: float = 0.1 # hukou penalty parameter
+        # 初始化概率列表（自动根据支撑点数量计算）
+        self.prob_nu_support_points = [1 / self.n_nu_support_points] * self.n_nu_support_points
+        self.prob_xi_support_points = [1 / self.n_xi_support_points] * self.n_xi_support_points
+        self.prob_eta_support_points = [1 / self.n_eta_support_points] * self.n_eta_support_points
+        self.prob_sigmavarepsilon_support_points = [1 / self.n_sigmavarepsilon_support_points] * self.n_sigmavarepsilon_support_points
 
-        ## wage
-        self.r1_ini: float = 0.8 # 年龄一次项参数
-        self.r2_ini: float = 0.8 # 年龄二次项参数
-        self.rt_ini: float = 0.8 # 时间参数
-        
-        ## 迁移成本参数（gamma系列）
-        self.gamma0_tau1_ini: float = 0.3 # 第一类群体的迁移成本截距
-        self.gamma0_tau2_ini: float = 0.4 # 第二类群体的迁移成本截距
-        self.gamma0_tau3_ini: float = 0.3 # 第三类群体的迁移成本截距
-        self.gamma1_ini: float = -0.1 # 距离衰减系数
-        self.gamma2_ini: float = -0.2 # 邻近省份折扣
-        self.gamma3_ini: float = -0.4 # 先前省份折扣
-        self.gamma4_ini: float = 0.5 # 年龄对迁移成本的影响
-        self.gamma5_ini: float = -0.8 # 更大的城市更便宜
-        
-        
-        
-        # 优化参数
-        self.max_iter: int = 1000
-        self.tolerance: float = 1e-6
-        
-        # 输出参数
-        self.output_language: OutputLanguage.LATEX
-        self.output_file: OutputFileFormat = OutputFileFormat.LATEX
-        self.output_style: OutputStyle = OutputStyle.BOOKTAB
-        self.base_dir: str = 'logs_outputs'
-        self.logs_dir: str = 'logs_outputs/logs'
-        self.outputs_dir: str = 'logs_outputs/outputs'
-        
-        
-if __name__ == '__name__':
+    # 代估支撑点值（初始值）
+    nu_support_1_ini: float = 0.3
+    nu_support_2_ini: float = 0.6
+
+    xi_support_1_ini: float = 0.4
+    xi_support_2_ini: float = 0.7
+
+    eta_support_1_ini: float = 1.0
+    eta_support_2_ini: float = 2.0
+    eta_support_3_ini: float = 3.0
+
+    sigmavarepsilon_support_1_ini: float = 0.2
+    sigmavarepsilon_support_2_ini: float = 0.4
+    sigmavarepsilon_support_3_ini: float = 0.6
+    sigmavarepsilon_support_4_ini: float = 0.8
+
+    # 异质性群体
+    n_tau_types: int = 3  # 迁移类型数量
+    tau: List[int] = field(default_factory=lambda: [1, 2, 3])
+
+    pi_1_ini: float = 0.3
+    pi_2_ini: float = 0.4
+    # pi_3_ini = 1 - pi_1_ini - pi_2_ini （可由外部计算）
+
+    # 效用函数待估参数
+    alpha0_ini: float = 0.8  # wage income
+    alpha1_ini: float = 0.8  # houseprice
+    alpha2_ini: float = 0.8  # environment
+    alpha3_ini: float = 0.8  # education
+    alpha4_ini: float = 0.8  # health
+    alpha5_ini: float = 0.8  # business
+    alpha6_ini: float = 0.3  # cultural: linguistic
+    alpha7_ini: float = 0.5  # public goods
+    alphaH_ini: float = 0.1  # home premium
+    alphaP_ini: float = 0.1  # hukou penalty
+
+    # wage 参数
+    r1_ini: float = 0.8  # 年龄一次项
+    r2_ini: float = 0.8  # 年龄二次项
+    rt_ini: float = 0.8  # 时间项
+
+    # 迁移成本参数（gamma）
+    gamma0_tau1_ini: float = 0.3
+    gamma0_tau2_ini: float = 0.4
+    gamma0_tau3_ini: float = 0.3
+    gamma1_ini: float = -0.1  # 距离衰减
+    gamma2_ini: float = -0.2  # 邻近折扣
+    gamma3_ini: float = -0.4  # 先前省份折扣
+    gamma4_ini: float = 0.5   # 年龄影响
+    gamma5_ini: float = -0.8  # 城市规模影响
+
+    # 优化参数
+    max_iter: int = 1000
+    tolerance: float = 1e-6
+
+    # 输出参数
+    output_language: OutputLanguage = OutputLanguage.LATEX
+    output_file: OutputFileFormat = OutputFileFormat.LATEX
+    output_style: OutputStyle = OutputStyle.BOOKTAB
+    base_dir: str = 'logs_outputs'
+    logs_dir: str = 'logs_outputs/logs'
+    outputs_dir: str = 'logs_outputs/outputs'
+
+
+# -----------------------------
+# 主程序入口
+# -----------------------------
+if __name__ == '__main__':
     config = ModelConfig()
+    print(config)
