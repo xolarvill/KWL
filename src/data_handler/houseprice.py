@@ -1,30 +1,23 @@
 import pandas as pd
 
-def houseprice(raw_excel_loc, geodata_loc):
-    """
-    Processes house price data from a raw Excel file and updates a geodata Excel file with the average house prices.
-    Args:
-        raw_excel_loc (str): The file path to the raw Excel file containing house price data.
-        geodata_loc (str): The file path to the geodata Excel file to be updated with house prices.
-    The raw Excel file should contain house price data with columns for each year (e.g., '2010年', '2012年', etc.) and a column for provinces ('省份').
-    The geodata Excel file should contain columns 'provname' for province names and 'year' for the year.
-    The function calculates the average house price for each province and year, and updates the geodata file with these values in the 'houseprice' column.
-    """
-    raw_excel = pd.read_excel(raw_excel_loc)
-    
-    values = []
-    year = ['2010年','2012年','2014年','2016年','2018年','2020年','2022年']
-    for t in year:
-        province_group = raw_excel.groupby('省份')
-        avg_value = province_group[t].mean()
-        for province, value in avg_value.items():
-            values.append((province, t, value))
+# 1. 读取原始数据
+df = pd.read_excel('houseprices.xlsx')
 
-    geodata = pd.read_excel(geodata_loc)
-    for province, t, value in values:
-        year_num = int(t[:-1])  # Extract the year number from the string
-        geodata.loc[(geodata['provname'] == province) & (geodata['year'] == year_num), 'houseprice'] = value
+# 2. 检查列名，确保年份列是数值型（可选：重命名或转换）
+# 假设原始列名是 '省份', '城市', '2000', '2001', ... '2004'
+# 如果列名不是数字，可先转换
 
-    geodata.to_excel(geodata_loc, index=False)
+# 获取所有年份列（排除前两列：省份、城市）
+year_cols = df.columns[2:].tolist()
 
+# 3. 按省份分组，对每个年份列求平均值
+province_avg = df.groupby('省份')[year_cols].mean().reset_index()
 
+# 4. 重命名列（可选，使列名更清晰）
+# 例如：'2000' -> '2000_平均房价'，但保持简洁也可不改
+
+# 5. 保存为新的xlsx文件
+output_file = 'province_avg_house_prices.xlsx'
+province_avg.to_excel(output_file, index=False, sheet_name='各省年均房价')
+
+print(f"✅ 已成功计算并保存各省平均房价至 {output_file}")
