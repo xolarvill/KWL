@@ -1,17 +1,19 @@
 import json
+import os
 import pandas as pd
 import numpy as np
-
+from typing import Dict, Any, List
 
 class TreeNode:
-    def __init__(self, name):
-        self.name = name      # 节点名称（如方言或语系名）
-        self.parent = None    # 父节点
-        self.children = []    # 子节点列表
-        self.depth = 0        # 节点深度（根节点深度为0）
+    """树节点类，用于表示语言树中的一个节点。"""
+    def __init__(self, name: str):
+        self.name = name
+        self.parent = None
+        self.children = []
+        self.depth = 0
 
-# 递归构建树的代码
-def build_tree(data, parent=None):
+def build_tree(data: Dict[str, Any], parent: TreeNode = None) -> TreeNode:
+    """递归地从字典数据构建语言树。"""
     node = TreeNode(data["name"])
     node.parent = parent
     node.depth = parent.depth + 1 if parent else 0
@@ -21,108 +23,125 @@ def build_tree(data, parent=None):
             node.children.append(child_node)
     return node
 
-# 调整节点深度至同一层
-def _move_to_depth(node, target_depth):
+def _move_to_depth(node: TreeNode, target_depth: int) -> TreeNode:
+    """将节点移动到指定的深度。"""
     while node.depth > target_depth:
         node = node.parent
     return node
 
-# 查找最近公共祖先
-def find_lca(node1, node2):
-    # 调整到同一深度
+def find_lca(node1: TreeNode, node2: TreeNode) -> TreeNode:
+    """查找两个节点的最近公共祖先 (LCA)。"""
     if node1.depth > node2.depth:
         node1 = _move_to_depth(node1, node2.depth)
     else:
         node2 = _move_to_depth(node2, node1.depth)
     
-    # 同步上移直到找到共同祖先
     while node1 != node2:
         node1 = node1.parent
         node2 = node2.parent
     return node1
 
-# 亲疏关系计算
-def calculate_distance(node1, node2):
+def calculate_distance(node1: TreeNode, node2: TreeNode) -> int:
+    """计算两个节点之间的距离。"""
     lca = find_lca(node1, node2)
     distance = 0
-    # 计算 node1 到 LCA 的距离
     n = node1
     while n != lca:
         distance += 1
         n = n.parent
-    # 计算 node2 到 LCA 的距离
     n = node2
     while n != lca:
         distance += 1
         n = n.parent
     return distance
 
-
-def dialect_distance(l1, l2, jsondata):
-    """
-    计算基于语言树的两种方言之间的距离。
-    
-    Args:
-        l1 (str): 第一种方言的名称。
-        l2 (str): 第二种方言的名称。
-        jsondata (Dict): 包含语言树结构的JSON数据。
-        
-    Returns:
-        int: 两种方言之间的距离。
-        
-    Raises:
-        KeyError: 如果指定的方言名称在语言树中不存在。
-    """ 
-    # 加载JSON数据
-    data = jsondata
-    root = build_tree(data)
-
-    # 创建名称到节点的映射
+def dialect_distance(l1: str, l2: str, jsondata: Dict[str, Any]) -> int:
+    """计算基于语言树的两种方言之间的距离。"""
+    root = build_tree(jsondata)
     nodes_dict = {}
-    def map_nodes(node):
+    def map_nodes(node: TreeNode):
         nodes_dict[node.name] = node
         for child in node.children:
             map_nodes(child)
     map_nodes(root)
     
-    # 检查方言是否存在
     if l1 not in nodes_dict:
         raise KeyError(f"方言 '{l1}' 在语言树中不存在")
     if l2 not in nodes_dict:
         raise KeyError(f"方言 '{l2}' 在语言树中不存在")
     
-    # 计算两个方言的距离
     dialect_a = nodes_dict[l1]
     dialect_b = nodes_dict[l2]
-    distance = calculate_distance(dialect_a, dialect_b)
-    return distance
+    return calculate_distance(dialect_a, dialect_b)
 
-def linguistic_matrix(excel_path, json_path) -> np.ndarray:
-    '''
-    读取省份的代表性语言，计算各自的语言远近距离，输出矩阵
-    '''
-    data = pd.read_csv(excel_path) # excel数据分布
-    with open(json_path, encoding='utf-8') as f:
-        linguistic_tree = json.load(f) # 语言谱系树
+def linguistic_matrix(
+    prov_lang_path: str, 
+    json_tree_path: str, 
+    ordered_provinces: List[str]
+) -> pd.DataFrame:
+    """
+    根据给定的省份排序，计算语言距离矩阵。
 
-    matrix = np.zeros((len(data), len(data)))
-    for i in range(len(data)):
-        for j in range(len(data)):
-            if i != j:
-                matrix[i, j] = dialect_distance(data.iloc[i, 0], data.iloc[j, 0], linguistic_tree)
-            else:
+    Args:
+        prov_lang_path (str): 省份-语言对应关系的CSV文件路径。
+        json_tree_path (str): 语言谱系树的JSON文件路径。
+        ordered_provinces (List[str]): 需要输出的、排序好的省份列表。
+
+    Returns:
+        pd.DataFrame: 排序并标记好的省份间语言距离矩阵。
+    """
+    lang_data = pd.read_csv(prov_lang_path, header=None, index_col=0, names=['dialect'])
+    lang_dict = lang_data['dialect'].to_dict()
+
+    with open(json_tree_path, encoding='utf-8') as f:
+        linguistic_tree = json.load(f)
+
+    n = len(ordered_provinces)
+    matrix = np.zeros((n, n))
+
+    for i in range(n):
+        for j in range(n):
+            if i == j:
                 matrix[i, j] = 0
+                continue
+
+            prov1 = ordered_provinces[i]
+            prov2 = ordered_provinces[j]
+            
+            dialect1 = lang_dict.get(prov1)
+            dialect2 = lang_dict.get(prov2)
+
+            if dialect1 is None or dialect2 is None:
+                raise ValueError(f"在语言数据中找不到省份 {prov1} 或 {prov2}")
+
+            if dialect1 == '其他' or dialect2 == '其他':
+                matrix[i, j] = 10  # 为'其他'设置最大距离
+            else:
+                matrix[i, j] = dialect_distance(dialect1, dialect2, linguistic_tree)
     
-    # 输出矩阵
-    return matrix
+    df = pd.DataFrame(matrix, index=ordered_provinces, columns=ordered_provinces)
+    return df
 
-def save_to_csv(matrix, path):
-    df = pd.DataFrame(matrix)
-    df.to_csv(path, index=False)
-
+def save_to_csv(df: pd.DataFrame, path: str):
+    """将DataFrame保存为CSV文件，包含索引。"""
+    df.to_csv(path, index=True)
 
 if __name__ == '__main__':
-    with open("data/linguistic.json", encoding='utf-8') as f:
-        linguistic_tree = json.load(f)
-    print(dialect_distance('吴语','湘语',linguistic_tree))
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
     
+    prov_lang_path = os.path.join(project_root, "data/processed/prov_language.csv")
+    json_tree_path = os.path.join(project_root, "data/processed/linguistic_tree.json")
+    ranked_prov_path = os.path.join(project_root, "data/processed/prov_name_ranked.json")
+    output_path = os.path.join(project_root, "data/processed/linguistic_distance_matrix.csv")
+    
+    with open(ranked_prov_path, 'r', encoding='utf-8') as f:
+        ordered_provinces = json.load(f)
+        
+    distance_df = linguistic_matrix(
+        prov_lang_path=prov_lang_path, 
+        json_tree_path=json_tree_path,
+        ordered_provinces=ordered_provinces
+    )
+    
+    save_to_csv(distance_df, output_path)
+    print(f"Linguistic distance matrix saved to {output_path}")

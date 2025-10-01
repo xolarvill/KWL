@@ -33,7 +33,7 @@ class DataLoader:
         
 
     def load_individual_data(self) -> pd.DataFrame:
-        """加载并预处理个体面板数据(CFPS)。"""
+        """加载并预处理个体面板数据。"""
         path = self.config.individual_data_path
         #self._validate_path(path, "个体数据(dta)")
         

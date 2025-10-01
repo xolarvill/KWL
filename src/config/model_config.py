@@ -28,33 +28,49 @@ class ModelConfig:
     3: 涉及参数、函数等模型修改时，需要同时修改其他py文件中的对应部分。
     4: 人群种类tau影响的变量有gamma0_tau1、gamma0_tau2、gamma0_tau3，config对其赋值的为gamma0_tau1_ini、gamma0_tau2_ini、gamma0_tau3_ini。对应的概率为pi_tau1、pi_tau2、pi_tau3。
     '''
+    
+    # 项目参数
 
-    # 数据路径参数
-    individual_data_path: str = 'data/processed/cfps10_22mc.dta'
+    ## 数据路径参数
+    individual_data_path: str = 'data/processed/clds.csv'
     regional_data_path: str = 'data/processed/geo.xlsx'
 
     prov_code_ranked_path: str = 'data/processed/prov_code_ranked.json'
     prov_name_ranked_path: str = 'data/processed/prov_name_ranked.json'
-    adjacency_matrix_path: str = 'data/processed/adjacent.xlsx'  # 邻接矩阵
-    prov_language_data_path: str = 'data/processed/prov_language_data.csv'  # 省份代表性语言
-    linguistic_data_path: str = 'data/processed/linguistic.json'  # 语言谱系树
-    linguistic_matrix_path: str = 'data/processed/linguistic_matrix.csv'  # 语言亲疏度矩阵，越大越疏远
+    adjacency_matrix_path: str = 'data/processed/adjacent_matrix.xlsx'  # 邻接矩阵
     distance_matrix_path: str = 'data/processed/distance_matrix.csv'  # 物理距离矩阵
+    linguistic_matrix_path: str = 'data/processed/linguistic_matrix.csv'  # 语言亲疏度矩阵，越大越疏远
+    prov_language_data_path: str = 'data/processed/prov_language_data.csv'  # 省份代表性语言
+    linguistic_data_path: str = 'data/processed/linguistic_tree.json'  # 语言谱系树
+    
+    ## 输出参数
+    output_language: OutputLanguage = OutputLanguage.LATEX
+    output_file: OutputFileFormat = OutputFileFormat.LATEX
+    output_style: OutputStyle = OutputStyle.BOOKTAB
+    base_dir: str = 'logs_outputs'
+    logs_dir: str = 'logs_outputs/logs'
+    outputs_dir: str = 'logs_outputs/outputs'
 
-    # 外生参数
+    # 超参数
+    
+    ## 优化参数
+    max_iter: int = 1000
+    tolerance: float = 1e-6
+
+    ## 外生参数
     discount_factor: float = 0.95  # 贴现因子
     n_regions: int = 31  # 地区数量
     n_period: int = 7  # 时期数量
     age_min: int = 18  # 最小年龄
     age_max: int = 65  # 最大年龄
 
-    # 未知变量相关参数 - 支撑点数量
+    ## 未知变量相关参数 - 支撑点数量
     n_nu_support_points: int = 5  # 个体-地区匹配效应
     n_xi_support_points: int = 5  # 地区偏好效应
     n_eta_support_points: int = 7  # 个体固定效应
     n_sigmavarepsilon_support_points: int = 3  # 暂态效应方差
 
-    # 支撑点概率（由均匀分布假设）
+    ## 支撑点概率（由均匀分布假设）
     prob_nu_support_points: List[float] = field(init=False)
     prob_xi_support_points: List[float] = field(init=False)
     prob_eta_support_points: List[float] = field(init=False)
@@ -67,9 +83,48 @@ class ModelConfig:
         self.prob_xi_support_points = [1.0 / self.n_xi_support_points] * self.n_xi_support_points
         self.prob_eta_support_points = [1.0 / self.n_eta_support_points] * self.n_eta_support_points
         self.prob_sigmavarepsilon_support_points = [1.0 / self.n_sigmavarepsilon_support_points] * self.n_sigmavarepsilon_support_points
-        
-        
-    # 代估支撑点值（初始值）
+    
+    # 异质有限混合
+    n_tau_types: int = 3  # 迁移类型数量
+    tau: List[int] = field(default_factory=lambda: [1, 2, 3])
+    
+    # 结构参数
+    
+    ## 收入函数
+    alpha_w: float = 2
+    lamb: float = 1
+    mu_j: float = 0.5
+    delta_0: float = 1
+    delta_0: float =1
+    
+    ## 户口效应函数
+    theta_base_tier_1: float = 3
+    theta_base_tier_2: float = 2
+    theta_base_tier_3: float = 1
+    theta_edu: float = 1
+    theta_health: float = 1
+    theta_house: float = 1
+    
+    # 效用函数待估参数
+    alpha1_ini: float = 0.8  # houseprice
+    alpha2_ini: float = 0.8  # environment
+    alpha3_ini: float = 0.8  # education
+    alpha4_ini: float = 0.8  # health
+    alpha5_ini: float = 0.8  # business
+    alpha6_ini: float = 0.3  # cultural: linguistic
+    alpha7_ini: float = 0.5  # public goods
+
+    # 迁移成本参数（gamma）
+    gamma0_tau1_ini: float = 0.3
+    gamma0_tau2_ini: float = 0.4
+    gamma0_tau3_ini: float = 0.3
+    gamma1_ini: float = -0.1  # 距离衰减
+    gamma2_ini: float = -0.2  # 邻近折扣
+    gamma3_ini: float = -0.4  # 先前省份折扣
+    gamma4_ini: float = 0.5   # 年龄影响
+    gamma5_ini: float = -0.8  # 城市规模影响
+    
+    ## 支撑点初始值
     nu_support_1_ini: float = 0.3
     nu_support_2_ini: float = 0.6
 
@@ -85,52 +140,10 @@ class ModelConfig:
     sigmavarepsilon_support_3_ini: float = 0.6
     sigmavarepsilon_support_4_ini: float = 0.8
 
-    # 异质性群体
-    n_tau_types: int = 3  # 迁移类型数量
-    tau: List[int] = field(default_factory=lambda: [1, 2, 3])
-
+    # 有限混合概率
     pi_1_ini: float = 0.3
     pi_2_ini: float = 0.4
     # pi_3_ini = 1 - pi_1_ini - pi_2_ini （可由外部计算）
-
-    # 效用函数待估参数
-    alpha0_ini: float = 0.8  # wage income
-    alpha1_ini: float = 0.8  # houseprice
-    alpha2_ini: float = 0.8  # environment
-    alpha3_ini: float = 0.8  # education
-    alpha4_ini: float = 0.8  # health
-    alpha5_ini: float = 0.8  # business
-    alpha6_ini: float = 0.3  # cultural: linguistic
-    alpha7_ini: float = 0.5  # public goods
-    alphaH_ini: float = 0.1  # home premium
-    alphaP_ini: float = 0.1  # hukou penalty
-
-    # wage 参数
-    r1_ini: float = 0.8  # 年龄一次项
-    r2_ini: float = 0.8  # 年龄二次项
-    rt_ini: float = 0.8  # 时间项
-
-    # 迁移成本参数（gamma）
-    gamma0_tau1_ini: float = 0.3
-    gamma0_tau2_ini: float = 0.4
-    gamma0_tau3_ini: float = 0.3
-    gamma1_ini: float = -0.1  # 距离衰减
-    gamma2_ini: float = -0.2  # 邻近折扣
-    gamma3_ini: float = -0.4  # 先前省份折扣
-    gamma4_ini: float = 0.5   # 年龄影响
-    gamma5_ini: float = -0.8  # 城市规模影响
-
-    # 优化参数
-    max_iter: int = 1000
-    tolerance: float = 1e-6
-
-    # 输出参数
-    output_language: OutputLanguage = OutputLanguage.LATEX
-    output_file: OutputFileFormat = OutputFileFormat.LATEX
-    output_style: OutputStyle = OutputStyle.BOOKTAB
-    base_dir: str = 'logs_outputs'
-    logs_dir: str = 'logs_outputs/logs'
-    outputs_dir: str = 'logs_outputs/outputs'
 
 
 # -----------------------------
