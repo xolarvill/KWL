@@ -7,181 +7,30 @@
 
 ## 项目结构
 
-
-### 结构树
-
-暂定如下
-
-```bash
-├── LICENSE
-├── README.md
-├── build
-├── data
-│   ├── geo
-│   │   ├── adjacent.xlsx
-│   │   ├── geo.xlsx
-│   │   └── house_prix.xlsx
-│   ├── interim
-│   │   └── cfps10_22mc.dta
-│   ├── processed
-│   │   ├── adjacent.xlsx
-│   │   ├── distance_matrix.csv
-│   │   ├── geo.xlsx
-│   │   ├── prov_code_ranked.json
-│   │   └── prov_name_ranked.json
-│   └── raw
-│       ├── geo_backup
-│       │   ├── adjacent
-│       │   │   └── ADJ.xlsx
-│       │   ├── 教育经费 万元.xls
-│       │   ├── 交通事故.xls
-│       │   ├── 初中师生比.xls
-│       │   ├── 小学师生比.xls
-│       │   ├── 普高师生比.xls
-│       │   ├── 年末常住人口.xls
-│       │   ├── 人均可支配收入.xls
-│       │   ├── 人均日生活用水.xls
-│       │   ├── 医疗卫生机构数.xls
-│       │   ├── 医院平均住院日.xls
-│       │   ├── 城市燃气普及率.xls
-│       │   ├── 城市用水普及率.xls
-│       │   ├── 地方财政医疗支出 亿元.xls
-│       │   ├── 地方财政教育支出 亿元.xls
-│       │   ├── 轨道交通运营里程 公里.xls
-│       │   ├── 人均公园绿地面积.xls
-│       │   ├── 连锁餐饮门店总数.xls
-│       │   ├── 每万人卫生技术人员.xls
-│       │   ├── 社会零售消费品总额.xls
-│       │   ├── 公共汽电车运营总长度 公里.xls
-│       │   ├── 每万人拥有公共厕所数量.xls
-│       │   ├── 自然灾害受灾万人次人口.xls
-│       │   ├── 每万人拥有公共交通车数量 标台.xls
-│       │   ├── 每万人医疗卫生机构床位数.xls
-│       │   ├── 每万人拥有公共交通车数量.xls
-│       │   └── 城镇基本医疗保险年末参保人数.xls
-│       ├── linguistic.json
-│       ├── linguistic2.json
-│       └── prov_language.csv
-├── main.py
-├── notes.md
-├── pyproject.toml
-├── results
-│   ├── estimation
-│   ├── figures
-│   ├── logs
-│   ├── policy
-│   ├── tables
-│   │   ├── move_add.tex
-│   │   ├── move_add_proportion.tex
-│   │   └── moved.tex
-│   └── validation
-├── scripts
-│   ├── 00_prepare_data.py
-│   ├── 01_train_ml_plugins.py
-│   ├── 02_run_estimation.py
-│   └── 03_run_abm_simulation.py
-├── src
-│   ├── abm
-│   │   ├── __init__.py
-│   │   ├── agents.py
-│   │   ├── calibration.py
-│   │   └── environment.py
-│   ├── config
-│   │   ├── __init__.py
-│   │   ├── __pycache__
-│   │   │   ├── __init__.cpython-311.pyc
-│   │   │   └── model_config.cpython-311.pyc
-│   │   └── model_config.py
-│   ├── data_handler
-│   │   ├── __init__.py
-│   │   ├── __pycache__
-│   │   │   ├── __init__.cpython-311.pyc
-│   │   │   └── data_loader.cpython-311.pyc
-│   │   ├── adjacent.py
-│   │   ├── data_loader.py
-│   │   ├── data_person.py
-│   │   ├── data_region.py
-│   │   ├── distance.py
-│   │   ├── houseprice.py
-│   │   ├── linguistic.py
-│   │   └── subsample.py
-│   ├── estimation
-│   │   ├── __init__.py
-│   │   ├── em_nfxp.py
-│   │   ├── heterogeneity.py
-│   │   └── inference.py
-│   ├── ml_plugins
-│   │   ├── __init__.py
-│   │   ├── kfold_cv.py
-│   │   └── wage_prediction.py
-│   ├── model
-│   │   ├── __init__.py
-│   │   ├── bellman.py # 贝尔曼方程求解
-│   │   ├── dynamic_model.py
-│   │   ├── likelihood.py # 似然函数计算
-│   │   ├── parameters.py # 参数管理
-│   │   └── utility.py # 效用函数组件
-│   ├── utils
-│   │   ├── __init__.py
-│   │   ├── computation.py
-│   │   ├── entropy.py
-│   │   ├── get_prov_code_rank.py
-│   │   ├── indicator.py
-│   │   ├── method_entropy.py
-│   │   ├── method_pca.py
-│   │   ├── outreg2.py
-│   │   ├── parellel.py
-│   │   ├── pca.py
-│   │   ├── topsis.py
-│   │   ├── validation.py
-│   │   └── visited.py
-│   └── visualization
-│       ├── __init__.py
-│       ├── policy_analysis.py
-│       └── results_plot.py
-├── test
-│   ├── t_lightgbm.py
-│   ├── t_mesa.py
-│   └── ztest.py
-└── uv.lock
-```
-
 ### 数据构成与形式
 
-- `file/geo.xlsx` 是地区相关数据，格式为面板数据，示例如下：
+- `data/processed/geo.xlsx` 是地区相关数据，格式为平衡面板数据，示例如下：
 
-| provcd | year | health | education | ... |
-|--------|------|--------|-----------|-----|
-| 11     | 2010 | 4.1    | 4.2       | ... |
-| 11     | 2011 | 6.1    | 6.2       | ... |
-| 21     | 2010 | 4.5    | 4.7       | ... |
-| 21     | 2011 | 5.4    | 4.9       | ... |
-| ...    | ...  | ...    | ...       | ... |
+| provcd | prov_name | year | 常住人口（万)	| 人均可支配收入（元） | ... |
+|--------|--------|------|--------|-----------|-----|
+| 11     | 北京市    | 2010 | 4.2       | 20 |--------|
+| 11     | 北京市   | 2011  | 6.2       | 30 |--------|
+| 21     | 辽宁省 | 2010   | 4.7       | 30 |--------|
+| 21     | 辽宁省 | 2011    | 4.9       | 40 |--------|
+| ...    | ...  | ...    | ...       | ... |--------|
 
-其中：
-- `provcd`：省份代码
-- `year`：年份
-- `health`：卫生指数
-- `education`：教育指数
 
-- `file/cfps10_20.dta` 是个体数据，格式为面板数据，示例如下：
+- `data/processed/clds.csv` 是个体追踪数据，格式为非平衡面板数据，示例如下：
 
-| pid | year | provcd | age | wage | ... |
-|-----|------|--------|-----|------|-----|
-| 1   | 2010 | 11     | 20  | 1000 | ... |
-| 1   | 2011 | 11     | 21  | 1200 | ... |
-| 2   | 2010 | 11     | 20  | 2100 | ... |
-| 2   | 2011 | 11     | 21  | 2600 | ... |
-| ... | ...  | ...    | ... | ...  | ... |
+| IID | year | provcd | age | income | hukou_prov | is_at_hukou|... |
+|-----|------|--------|-----|------|-----|----|----|
+| 1   | 2010 | 110000     | 20  | 1000 | 110000 |1|----|
+| 1   | 2011 | 110000 | 21  | 1200 | 310000 |0|...|
+| 2   | 2010 | 110000 | 20  | 2100 | 110000|0|...|
+| 2   | 2011 | 110000 | 21  | 2600 | 350000 |1|...|
+| ... | ...  | ...    | ... | ...  | ... |...|...|
 
-其中：
-- `pid`：个体标识符
-- `year`：年份
-- `provcd`：省份代码
-- `age`：年龄
-- `wage`：工资
-
-此外，`file` 目录还包括一些矩阵文件，例如 `file/adjacent.xlsx` 为邻接矩阵；还有一些 JSON 文件，如 `file/linguistic.json` 为语言谱系树文件。
+此外，`data/processed` 目录还包括一些矩阵文件，例如 `adjacent_matrix.xlsx` 为邻接矩阵.
 
 
 ## 实现的结果与方法

@@ -757,8 +757,8 @@ U^{\text{income}}(\ln w_{itj} | \ln w_{it}^{ref}) =
 真实世界中户籍制度带来的效应是多维度的、有异质性的，为了细致刻画这种复杂影响，本文因此假设了一个分层的、与地区特征互动的户籍效应模型：
 \begin{equation}
     \begin{split}
-        \text{HukouPenalty}(j, h_i, K_t) ={}& I(j \neq h_i) \cdot \bigl[ \sum\limits_{c \in C} \theta_{\text{base}, c} \cdot \text{Tier}_{c(j)}+ \theta_{\text{edu}} \cdot \text{Edu}(j) \\
-        & + \theta_{\text{health}} \cdot \text{Health}(j) + \theta_{\text{house}} \cdot \text{HousingPrice}(j) \bigr]
+        \text{HukouPenalty}(j, h_i, K_t) ={}& I(j \neq h_i) \cdot \bigl[ \sum\limits_{c \in C} \rho_{\text{base}, c} \cdot \text{Tier}_{c(j)}+ \rho_{\text{edu}} \cdot \text{Edu}(j) \\
+        & + \rho_{\text{health}} \cdot \text{Health}(j) + \rho_{\text{house}} \cdot \text{HousingPrice}(j) \bigr]
     \end{split}
 \label{户籍惩罚函数}
 \end{equation}
@@ -766,12 +766,12 @@ U^{\text{income}}(\ln w_{itj} | \ln w_{it}^{ref}) =
 \begin{enumerate}
   \item 指示函数 $I(j \neq h_i)$：表示只有在人户分离时，惩罚才生效。
 
-  \item 基础惩罚，$\sum\limits_{c \in C} \theta_{\text{base}, c} \cdot \text{Tier}_{c(j)}$：不同等级的城市其户籍政策的宽松程度和隐性价值存在巨大差异，为此我们根据公认的城市经济地位，将全国所有地区划分为 C 个类别（例如：一线城市、新一线城市、其他城市）。
-  其中$\text{Tier}_{c(j)}$是一个虚拟变量，当地区 $j$ 属于类别 $c$ 时取值为1，否则为0。$\theta_{\text{base}, c}$ 则是对应类别 $c$ 的待估参数。例如，我们预期 $\hat{\theta}_{\text{base, 一线}}$将会显著为正且远大于其他类别的参数，这量化了进入顶级城市所需克服的最高制度性壁垒。
+  \item 基础惩罚，$\sum\limits_{c \in C} \rho_{\text{base}, c} \cdot \text{Tier}_{c(j)}$：不同等级的城市其户籍政策的宽松程度和隐性价值存在巨大差异，为此我们根据公认的城市经济地位，将全国所有地区划分为 C 个类别（例如：一线城市、新一线城市、其他城市）。
+  其中$\text{Tier}_{c(j)}$是一个虚拟变量，当地区 $j$ 属于类别 $c$ 时取值为1，否则为0。$\rho_{\text{base}, c}$ 则是对应类别 $c$ 的待估参数。例如，我们预期 $\hat{\theta}_{\text{base, 一线}}$将会显著为正且远大于其他类别的参数，这量化了进入顶级城市所需克服的最高制度性壁垒。
 
-  \item 与公共服务互动的惩罚，$\theta_{edu} \cdot \text{Edu}(j)$: 户籍惩罚的大小与该地区的教育质量（如重点高中比例）成正比。教育资源越好的城市，没有本地户口的孩子上学越困难，因此惩罚越大。预期 $\theta_{edu} > 0$。$\theta_{health} \cdot \text{Health}(j)$与该地区医疗水平（如三甲医院数量）成正比。医疗越好的地方，医保报销的地区差异带来的损失越大。预期 $\theta_{health} > 0$。
+  \item 与公共服务互动的惩罚，$\rho_{edu} \cdot \text{Edu}(j)$: 户籍惩罚的大小与该地区的教育质量（如重点高中比例）成正比。教育资源越好的城市，没有本地户口的孩子上学越困难，因此惩罚越大。预期 $\rho_{edu} > 0$。$\rho_{health} \cdot \text{Health}(j)$与该地区医疗水平（如三甲医院数量）成正比。医疗越好的地方，医保报销的地区差异带来的损失越大。预期 $\rho_{health} > 0$。
 
-  \item 与生活成本互动的惩罚，$\theta_{house} \cdot \text{HousingPrice}(j)$: 与该地区的房价等生活成本指标互动。很多城市的购房资格与户口或社保年限挂钩，房价越高，这种限制带来的机会成本就越大。预期 $\theta_{house} > 0$。
+  \item 与生活成本互动的惩罚，$\rho_{house} \cdot \text{HousingPrice}(j)$: 与该地区的房价等生活成本指标互动。很多城市的购房资格与户口或社保年限挂钩，房价越高，这种限制带来的机会成本就越大。预期 $\rho_{house} > 0$。
 \end{enumerate}
 
 
@@ -935,7 +935,7 @@ $\varepsilon$ & 工资的暂态效应\\
     $\kappa_{it}(j,\cdot)$ & 迁移成本 \\
     $\mathrm{HukouPenalty}(\cdot)$ & 户籍惩罚 \\
     $\zeta_{ij,t}$ & 个体-地点-时间特定的随机效用冲击（Type I EV） \\
-    $\theta=(\gamma,\alpha \dots)$ & 待估结构参数向量\\
+    $\theta=(\alpha, \gamma,\rho, \delta, \lambda)$ & 待估结构参数向量\\
     $\beta$ & 外生给定的折现因子 \\
 \bottomrule
 \end{tabularx}
@@ -970,8 +970,6 @@ $\varepsilon$ & 工资的暂态效应\\
 为此本文将 CCPs 的计算内嵌在固定嵌套点（Nested Fixed Points, NFXP）的内循环中，并通过期望最大化（Expection-Maximization, EM）算法机制动态更新未观测类型的后验概率，从而实现联合估计。这种方法能够避免由分步估计带来的信息丢失，并在有限样本下表现出更好的稳健性。
 
 同时为了减轻这种全解法带来的计算资源压力，我们还设计了专门的多线程并行计算方法。
-
-
 
 \section{处理未观测到的异质性}
 
