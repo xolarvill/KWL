@@ -1,11 +1,12 @@
 import torch
 import numpy as np
-from torch import Tensor
+from torch import Tensor, nn
 from typing import Dict, List
 from config import ModelConfig
 
-class MigrationParameters:
+class MigrationParameters(nn.Module):
     def __init__(self, config: ModelConfig):
+        super().__init__()
         self.config = config
         # 使用torch.nn.Parameter存储非离散化的待估参数
         ## u(x,j)

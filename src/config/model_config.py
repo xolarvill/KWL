@@ -35,7 +35,6 @@ class ModelConfig:
     processed_data_dir: str = 'data/processed'
     individual_data_path: str = 'data/processed/clds.csv'
     regional_data_path: str = 'data/processed/geo.xlsx'
-
     prov_code_ranked_path: str = 'data/processed/prov_code_ranked.json'
     prov_name_ranked_path: str = 'data/processed/prov_name_ranked.json'
     adjacency_matrix_path: str = 'data/processed/adjacent_matrix.xlsx'  # 邻接矩阵
@@ -48,7 +47,7 @@ class ModelConfig:
     output_language: OutputLanguage = OutputLanguage.LATEX
     output_file: OutputFileFormat = OutputFileFormat.LATEX
     output_style: OutputStyle = OutputStyle.BOOKTAB
-    base_dir: str = 'results'
+    base_output_dir: str = 'results'
     logs_dir: str = 'results/logs'
     outputs_dir: str = 'results/tables'
     ml_models_dir: str = 'results/ml_models'
