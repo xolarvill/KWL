@@ -32,6 +32,7 @@ class ModelConfig:
     # 项目参数
 
     ## 数据路径参数
+    processed_data_dir: str = 'data/processed'
     individual_data_path: str = 'data/processed/clds.csv'
     regional_data_path: str = 'data/processed/geo.xlsx'
 
@@ -47,9 +48,10 @@ class ModelConfig:
     output_language: OutputLanguage = OutputLanguage.LATEX
     output_file: OutputFileFormat = OutputFileFormat.LATEX
     output_style: OutputStyle = OutputStyle.BOOKTAB
-    base_dir: str = 'logs_outputs'
-    logs_dir: str = 'logs_outputs/logs'
-    outputs_dir: str = 'logs_outputs/outputs'
+    base_dir: str = 'results'
+    logs_dir: str = 'results/logs'
+    outputs_dir: str = 'results/tables'
+    ml_models_dir: str = 'results/ml_models'
 
     # 超参数
     
