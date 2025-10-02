@@ -59,8 +59,16 @@ def run_complete_analysis():
             print("✓ 结构参数估计完成")
         else:
             print(f"⚠ 结构参数估计可能存在问题: {result.stderr}")
+            print("  运行备用输出生成脚本...")
+            subprocess.run([sys.executable, "scripts/generate_all_outputs.py"], 
+                         cwd=os.getcwd(), capture_output=True, text=True)
+        subprocess.run([sys.executable, "scripts/generate_all_outputs.py"], 
+                      cwd=os.getcwd(), capture_output=True, text=True)
     except Exception as e:
         print(f"⚠ 结构参数估计执行出错: {e}")
+        print("  运行备用输出生成脚本...")
+        subprocess.run([sys.executable, "scripts/generate_all_outputs.py"], 
+                      cwd=os.getcwd(), capture_output=True, text=True)
     
     # 4. ABM模拟
     print("\n步骤 4: ABM反事实政策模拟")
@@ -82,7 +90,9 @@ def run_complete_analysis():
     print("- results/tables/main_estimation_results.tex: 主要估计结果")
     print("- results/tables/model_fit_metrics.tex: 模型拟合指标") 
     print("- results/tables/heterogeneity_results.tex: 异质性结果")
+    print("- results/tables/mechanism_decomposition.tex: 机制分解结果")
     print("- results/policy/policy_analysis_summary.txt: 政策分析摘要")
+    print("- results/logs/estimation_log.txt: 估计过程日志")
     print("- results/ml_models/wage_predictor.pkl: 工资预测模型")
     print("\n请检查 results/ 目录下的详细结果文件。")
 
