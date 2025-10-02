@@ -1,50 +1,136 @@
-import torch
+"""
+项目主运行脚本 - 端到端执行整个研究流程
+"""
+import os
+import sys
+import subprocess
 import numpy as np
 import pandas as pd
-import os
-import time
 
-from config.model_config import ModelConfig
-from data_handler.data_loader import DataLoader
-from model.dynamic_model import DynamicModel
-from estimation.model_estimator import ModelEstimator
 
-def main():
-    """主执行函数"""
-    print("启动劳动力迁移动态离散选择模型估计...")
-    start_time = time.time()
+def run_complete_analysis():
+    """
+    执行完整的分析流程：
+    1. 数据预处理和特征工程
+    2. ML插件训练（工资预测）
+    3. 结构参数估计
+    4. 统计推断和模型拟合检验
+    5. ABM反事实政策模拟
+    """
+    print("开始执行完整的迁移模型分析流程...")
+    print("="*60)
     
-    # 1. 加载配置
-    config = ModelConfig()
-    print(f"配置加载完成，使用子样本组: {config.subsample_group}")
+    # 1. 数据预处理和特征工程
+    print("步骤 1: 数据预处理和特征工程")
+    print("-"*30)
+    try:
+        result = subprocess.run([
+            sys.executable, "scripts/00_prepare_data.py"
+        ], cwd=os.getcwd(), capture_output=True, text=True)
+        if result.returncode == 0:
+            print("✓ 数据预处理完成")
+        else:
+            print(f"⚠ 数据预处理可能存在问题: {result.stderr}")
+    except Exception as e:
+        print(f"⚠ 数据预处理执行出错: {e}")
     
-    # 2. 加载数据
-    print("开始加载数据...")
-    data_loader = DataLoader(config)
+    # 2. ML插件训练
+    print("\n步骤 2: 训练ML插件（工资预测模型）")
+    print("-"*30)
+    try:
+        result = subprocess.run([
+            sys.executable, "scripts/01_train_ml_plugins.py"
+        ], cwd=os.getcwd(), capture_output=True, text=True)
+        if result.returncode == 0:
+            print("✓ ML插件训练完成")
+        else:
+            print(f"⚠ ML插件训练可能存在问题: {result.stderr}")
+    except Exception as e:
+        print(f"⚠ ML插件训练执行出错: {e}")
     
-    # 3. 创建动态模型
-    print("初始化动态模型...")
-    # 注意：由于模型估计的复杂性，第一次运行可能需要较长时间进行即时编译和数据处理
-    dynamic_model = DynamicModel.from_data_loader(config, data_loader)
+    # 3. 结构参数估计
+    print("\n步骤 3: 结构参数估计")
+    print("-"*30)
+    try:
+        result = subprocess.run([
+            sys.executable, "scripts/02_run_estimation.py"
+        ], cwd=os.getcwd(), capture_output=True, text=True)
+        if result.returncode == 0:
+            print("✓ 结构参数估计完成")
+        else:
+            print(f"⚠ 结构参数估计可能存在问题: {result.stderr}")
+    except Exception as e:
+        print(f"⚠ 结构参数估计执行出错: {e}")
     
-    # 4. 创建模型估计器
-    print("初始化模型估计器...")
-    estimator = ModelEstimator(
-        model=dynamic_model,
-        config=config
-    )
+    # 4. ABM模拟
+    print("\n步骤 4: ABM反事实政策模拟")
+    print("-"*30)
+    try:
+        result = subprocess.run([
+            sys.executable, "scripts/03_run_abm_simulation.py"
+        ], cwd=os.getcwd(), capture_output=True, text=True)
+        if result.returncode == 0:
+            print("✓ ABM反事实政策模拟完成")
+        else:
+            print(f"⚠ ABM模拟可能存在问题: {result.stderr}")
+    except Exception as e:
+        print(f"⚠ ABM模拟执行出错: {e}")
     
-    # 5. 执行参数估计
-    print("开始执行参数估计...")
-    estimation_results = estimator.estimate()
-    
-    # 6. 保存结果 (包含参数、标准误、p值等)
-    print("正在保存估计结果...")
-    estimator.save_results()
-    
-    # 7. 生成并保存报告
-    print("正在生成并保存报告...")
-    estimator.generate_report(output_format=config.output_language, save_to_file=True)
+    print("\n" + "="*60)
+    print("完整的迁移模型分析流程执行完毕！")
+    print("\n主要输出文件：")
+    print("- results/tables/main_estimation_results.tex: 主要估计结果")
+    print("- results/tables/model_fit_metrics.tex: 模型拟合指标") 
+    print("- results/tables/heterogeneity_results.tex: 异质性结果")
+    print("- results/policy/policy_analysis_summary.txt: 政策分析摘要")
+    print("- results/ml_models/wage_predictor.pkl: 工资预测模型")
+    print("\n请检查 results/ 目录下的详细结果文件。")
 
-if __name__ == "__main__":
-    main()
+
+def check_environment():
+    """
+    检查运行环境
+    """
+    print("检查运行环境...")
+    
+    # 检查必要的目录
+    required_dirs = ['data/processed', 'results', 'results/tables', 'results/policy', 'results/ml_models']
+    for dir_path in required_dirs:
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path, exist_ok=True)
+            print(f"创建目录: {dir_path}")
+    
+    # 检查必要的数据文件
+    required_files = [
+        'data/processed/clds.csv',
+        'data/processed/geo_amenities.csv',
+        'data/processed/prov_code_ranked.json',
+        'data/processed/prov_name_ranked.json'
+    ]
+    
+    missing_files = []
+    for file_path in required_files:
+        if not os.path.exists(file_path):
+            missing_files.append(file_path)
+    
+    if missing_files:
+        print("警告：缺少以下必需的数据文件：")
+        for file in missing_files:
+            print(f"  - {file}")
+        return False
+    else:
+        print("✓ 所有必需的数据文件都存在")
+        return True
+
+
+if __name__ == '__main__':
+    print("中国劳动力迁移动态离散选择模型分析")
+    print("研究项目 - 完整分析流程")
+    print()
+    
+    # 检查环境
+    if check_environment():
+        print()
+        run_complete_analysis()
+    else:
+        print("\n环境检查失败，请确保所有必需的数据文件都已准备就绪。")
