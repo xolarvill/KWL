@@ -19,6 +19,7 @@ def calculate_choice_probabilities(
     agent_type: int,
     beta: float,
     transition_matrices: Dict[str, np.ndarray],
+    regions_df: pd.DataFrame = None,  # Additional parameter for regional data
 ) -> np.ndarray:
     """
     Calculates the conditional choice probabilities (CCPs) for each state.
@@ -31,6 +32,7 @@ def calculate_choice_probabilities(
         agent_type (int): The agent's unobserved type.
         beta (float): The discount factor.
         transition_matrices (Dict[str, np.ndarray]): State transition matrices.
+        regions_df (pd.DataFrame): DataFrame containing regional data for utility calculation.
 
     Returns:
         np.ndarray: A matrix of CCPs. Shape: (n_states, n_choices).
@@ -40,19 +42,38 @@ def calculate_choice_probabilities(
 
     # Calculate choice-specific value function v(x, j) using the converged V*
     for j in range(n_choices):
-        flow_utilities = state_space.apply(
-            lambda x: utility_function(
-                data=x,
+        # Calculate flow utility u(x, j) for all states
+        # We need to dynamically construct the data for utility calculation
+        for i in range(n_states):
+            # Get current state
+            current_state = state_space.iloc[i]
+            
+            # Create a temporary data object that contains information for 
+            # calculating utility of choosing region j from the current state
+            current_data = current_state.to_dict()
+            
+            # Add information about the destination region j
+            if regions_df is not None and j < len(regions_df):
+                destination_region = regions_df.iloc[j]
+                # Add the destination region properties to the data dict
+                for col in regions_df.columns:
+                    current_data[f"{col}_j"] = destination_region[col]
+            
+            # Add the preference match xi_ij (for now, using a placeholder)
+            # In a more complete implementation, xi_ij would be part of the params or state space
+            xi_ij = params.get(f"xi_{i}_{j}", 0.0)  # Placeholder approach
+            
+            # Calculate flow utility for this specific state and choice
+            flow_utility = utility_function(
+                data=current_data,
                 params=params,
                 agent_type=agent_type,
-                xi_ij=x[f"xi_{j}"],
-            ),
-            axis=1,
-        ).values
-
-        P_j = transition_matrices[j]
-        expected_future_value = P_j @ converged_v
-        choice_specific_values[:, j] = flow_utilities + beta * expected_future_value
+                xi_ij=xi_ij,
+            )
+            
+            P_j = transition_matrices[j]
+            expected_future_value = P_j @ converged_v
+            choice_specific_values[i, j] = flow_utility + beta * expected_future_value[i]
 
     # Apply softmax to get probabilities (Eq. 15 in the paper)
     exp_v = np.exp(choice_specific_values)
@@ -68,6 +89,7 @@ def calculate_log_likelihood(
     agent_type: int,
     beta: float,
     transition_matrices: Dict[str, np.ndarray],
+    regions_df: pd.DataFrame = None,  # Additional parameter for regional data
 ) -> float:
     """
     Calculates the log-likelihood for a given set of parameters and agent type.
@@ -81,6 +103,7 @@ def calculate_log_likelihood(
         agent_type (int): The agent's unobserved type.
         beta (float): The discount factor.
         transition_matrices (Dict[str, np.ndarray]): State transition matrices.
+        regions_df (pd.DataFrame): DataFrame containing regional data for utility calculation.
 
     Returns:
         float: The total log-likelihood value.
@@ -93,6 +116,7 @@ def calculate_log_likelihood(
         agent_type=agent_type,
         beta=beta,
         transition_matrices=transition_matrices,
+        regions_df=regions_df,  # Pass regional data
     )
 
     # 2. Calculate conditional choice probabilities (CCPs)
@@ -104,6 +128,7 @@ def calculate_log_likelihood(
         agent_type,
         beta,
         transition_matrices,
+        regions_df,  # Pass regional data
     )
 
     # 3. Match observed choices to predicted probabilities

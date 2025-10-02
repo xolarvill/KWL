@@ -66,10 +66,10 @@ class ModelConfig:
     age_max: int = 65  # 最大年龄
 
     ## 未知变量相关参数 - 支撑点数量
-    n_nu_support_points: int = 5  # 个体-地区匹配效应
-    n_xi_support_points: int = 5  # 地区偏好效应
-    n_eta_support_points: int = 7  # 个体固定效应
-    n_sigmavarepsilon_support_points: int = 3  # 暂态效应方差
+    n_nu_support_points: int = 3  # 个体-地区匹配效应，根据论文第4章实证处理调整
+    n_xi_support_points: int = 3  # 地区偏好效应，根据论文第4章实证处理调整
+    n_eta_support_points: int = 5  # 个体固定效应，根据论文第4章实证处理调整
+    n_sigmavarepsilon_support_points: int = 2  # 暂态效应方差，根据论文第4章实证处理调整
 
     ## 支撑点概率（由均匀分布假设）
     prob_nu_support_points: List[float] = field(init=False)

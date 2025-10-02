@@ -137,43 +137,45 @@ def calculate_flow_utility(
         float: The total deterministic flow utility u_it(j).
     """
     # 1. Income Utility (Eq. 4)
+    # 使用LightGBM插件预测的工资，而非原始观测值
+    predicted_wage = data.get("wage_predicted", data.get("income", data.get("wage_j", 0.0)))
     income_utility = _calculate_income_utility(
-        w_ij=data["wage_j"],
-        w_ref=data["wage_ref"],
+        w_ij=predicted_wage,
+        w_ref=data.get("wage_ref", data.get("income", predicted_wage)),  # 如果没有参考工资，使用收入作为参考
         alpha_w=params["alpha_w"],
         lambda_loss=params["lambda"],
     )
 
-    # 2. Amenities
+    # 2. Amenities (使用目的地地区的特征)
     amenity_utility = (
-        params["alpha_climate"] * data["amenity_climate"]
-        + params["alpha_health"] * data["amenity_health"]
-        + params["alpha_education"] * data["amenity_education"]
-        + params["alpha_public_services"] * data["amenity_public_services"]
+        params["alpha_climate"] * data.get("amenity_climate_dest", 0.0)
+        + params["alpha_health"] * data.get("amenity_health_dest", 0.0)
+        + params["alpha_education"] * data.get("amenity_education_dest", 0.0)
+        + params["alpha_public_services"] * data.get("amenity_public_services_dest", 0.0)
     )
 
     # 3. Home Premium
-    is_home = data["j_provcd"] == data["hukou_provcd"]
+    is_home = data.get("provcd_t", 0) == data.get("hukou_prov", 0)
     home_premium = params["alpha_home"] * is_home
 
     # 4. Hukou Penalty (Eq. 8)
     hukou_penalty = _calculate_hukou_penalty(
         is_hukou_mismatch=(not is_home),
-        region_tier=data["tier_j"],
-        edu_level=data["amenity_education"], # Using the composite indicator
-        health_level=data["amenity_health"], # Using the composite indicator
-        housing_price=data["housing_price_j"],
+        region_tier=data.get("tier_dest", 1),  # 假设默认为1级城市
+        edu_level=data.get("amenity_education_dest", 0.0), # 使用目的地的教育复合指标
+        health_level=data.get("amenity_health_dest", 0.0), # 使用目的地的医疗复合指标
+        housing_price=data.get("房价（元每平方）_dest", 0.0), # 使用目的地的房价
         params=params,
     )
 
     # 5. Migration Cost (Eq. 9)
     migration_cost = _calculate_migration_cost(
-        is_moving=(data["j_provcd"] != data["prev_provcd"]),
-        distance=data["distance_j"],
-        is_adjacent=data["is_adjacent_j"],
-        is_return_move=data["is_return_j"],
-        age=data["age"],
-        destination_population=data["population_j"],
+        is_moving=(data.get("provcd_t", 0) != data.get("prev_provcd", 0)),
+        distance=0.0,  # 距离信息需要通过其他方式获取，暂时设为0
+        is_adjacent=0,  # 邻接信息需要通过其他方式获取，暂时设为0
+        is_return_move=0,  # 回流信息需要通过其他方式获取，暂时设为0
+        age=data.get("age", 0),
+        destination_population=data.get("地区基本经济面_dest", 1000000),  # 使用目的地的经济面作为代理
         agent_type=agent_type,
         params=params,
     )

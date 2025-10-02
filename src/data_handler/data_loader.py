@@ -91,7 +91,13 @@ class DataLoader:
         self._validate_path(path, "地区距离矩阵(csv)")
         
         try:
-            distance_matrix = pd.read_csv(path)
+            # 根据文件扩展名决定读取方式
+            if path.endswith('.csv'):
+                distance_matrix = pd.read_csv(path)
+            elif path.endswith('.xlsx'):
+                distance_matrix = pd.read_excel(path, index_col=0)  # 使用第一列作为索引
+            else:
+                raise ValueError(f"不支持的距离矩阵文件格式: {path}")
         except Exception as e:
             raise RuntimeError(f"读取距离矩阵时出错 (路径: {path}): {str(e)}")
             
@@ -129,12 +135,51 @@ class DataLoader:
         self.config.regional_data_path = self.config.regional_data_path.replace('geo.xlsx', 'geo_amenities.csv')
         df_region = self.load_regional_data()
 
+        # 转换省份代码：将6位代码转换为2位代码
+        def convert_provcd_6_to_2(provcd_6):
+            """将6位省份代码转换为2位省份代码"""
+            if pd.isna(provcd_6) or provcd_6 == 0:
+                return None
+            # 将浮点数转换为整数，然后取前两位
+            provcd_6_int = int(provcd_6)
+            provcd_2 = provcd_6_int // 10000  # 取前两位
+            return provcd_2
+        
+        # 对个体数据中的省份代码进行转换
+        df_individual = df_individual.copy()  # 创建副本以避免SettingWithCopyWarning
+        df_individual['provcd_t_2digit'] = df_individual['provcd_t'].apply(convert_provcd_6_to_2)
+        df_individual['prev_provcd_2digit'] = df_individual['prev_provcd'].apply(convert_provcd_6_to_2)
+        df_individual['hukou_prov_2digit'] = df_individual['hukou_prov'].apply(lambda x: convert_provcd_6_to_2(x) if pd.notna(x) else None)
+        
+        # 创建地区映射
+        locations = sorted(df_region['provcd'].unique())
+        location_map = {loc: i for i, loc in enumerate(locations)}
+        
+        print(f"识别到 {len(locations)} 个地区: {locations[:5]}...")  # 显示前5个地区
+
+        # 使用转换后的2位代码添加目的地地区索引列（用于转移矩阵）
+        df_individual['choice_index'] = df_individual['provcd_t_2digit'].map(location_map)
+        
+        # 确保没有缺失的索引
+        missing_choices = df_individual[df_individual['choice_index'].isna()]
+        if len(missing_choices) > 0:
+            print(f"警告: {len(missing_choices)} 条观测的目的地地区在地区列表中未找到")
+            # 只保留有效选择的观测
+            df_individual = df_individual.dropna(subset=['choice_index'])
+            df_individual['choice_index'] = df_individual['choice_index'].astype(int)
+        
+        # 使用转换后的列名
+        df_individual = df_individual.rename(columns={
+            'provcd_t_2digit': 'provcd_t_new',
+            'prev_provcd_2digit': 'prev_provcd_new',
+            'hukou_prov_2digit': 'hukou_prov_new'
+        })
+
         # 2. 定义状态变量并创建状态空间
         if not simplified_state:
             raise NotImplementedError("包含历史访问集合的完整状态空间尚未实现。")
 
         ages = np.arange(df_individual['age_t'].min(), df_individual['age_t'].max() + 1)
-        locations = sorted(df_region['provcd'].unique())
         
         state_space = pd.DataFrame(
             [(age, loc) for age in ages for loc in locations],
@@ -144,30 +189,39 @@ class DataLoader:
         print(f"创建了简化的状态空间，包含 {len(state_space)} 个状态。")
 
         # 3. 将观测数据映射到状态空间
+        # 重命名个体数据中的年龄列，确保列名一致
+        df_individual_renamed = df_individual.rename(columns={'age_t': 'age'})
+        
+        # 确保列名匹配
         df_estimation = pd.merge(
-            df_individual,
+            df_individual_renamed,
             state_space,
-            left_on=['age_t', 'prev_provcd'],
+            left_on=['age', 'prev_provcd_new'],
             right_on=['age', 'prev_provcd'],
-            how='left'
+            how='inner',  # 使用inner join确保只保留匹配的观测
+            suffixes=('', '_state')  # 避免重复列名
         )
         
-        # 添加选择索引
-        location_map = {loc: i for i, loc in enumerate(locations)}
-        df_estimation['choice_index'] = df_estimation['provcd_t'].map(location_map)
+        print(f"合并后估计数据集包含 {len(df_estimation)} 个观测。")
 
         # 4. 构建转移矩阵 (简化版)
         # 在这个简化模型中，年龄是确定性转移的，位置是内生选择的
         # 转移矩阵 P_j (shape: n_states x n_states) 表示：
         # 如果我今天在状态 s (age, prev_loc)，选择了 j，那么明天我会到哪个状态 s' (age+1, j)
+        print("开始构建转移矩阵...")
         n_states = len(state_space)
         n_choices = len(locations)
         transition_matrices = {}
 
         # 创建一个从 (age, loc) 到 state_index 的映射，用于快速查找
-        state_map = state_space.set_index(['age', 'prev_provcd'])['state_index']
+        state_index_map = {}
+        for idx, row in state_space.iterrows():
+            state_index_map[(row['age'], row['prev_provcd'])] = int(row['state_index'])
 
         for j_idx, j_loc in enumerate(locations):
+            if j_idx % 5 == 0:  # 每5个地区打印一次进度
+                print(f"正在构建转移矩阵 {j_idx+1}/{n_choices}...")
+            
             P_j = np.zeros((n_states, n_states))
             
             for s_idx, row in state_space.iterrows():
@@ -177,20 +231,22 @@ class DataLoader:
                 next_loc = j_loc # 下一期的 'prev_loc' 就是本期的选择 'j'
                 
                 # 查找下一个状态的索引
-                if (next_age, next_loc) in state_map.index:
-                    s_next_idx = state_map.loc[(next_age, next_loc)]
-                    P_j[s_idx, s_next_idx] = 1.0
-                # 如果年龄超出范围，则没有下一个状态（吸收态），保持为0
+                next_state_key = (next_age, next_loc)
+                if next_state_key in state_index_map:
+                    s_next_idx = state_index_map[next_state_key]
+                    # 确保索引是整数
+                    P_j[int(s_idx), int(s_next_idx)] = 1.0
+                # 如果年龄超出范围或地点不存在，则没有下一个状态（吸收态），保持为0
             
             transition_matrices[j_idx] = P_j
+            
+        print(f"构建了 {len(transition_matrices)} 个状态转移矩阵。")
 
         print(f"构建了 {len(transition_matrices)} 个状态转移矩阵。")
         
-        # 清理和检查
-        if df_estimation['state_index'].isnull().any():
-            print("警告: 部分观测未能匹配到状态。正在丢弃这些观测。")
-            df_estimation.dropna(subset=['state_index'], inplace=True)
-            df_estimation['state_index'] = df_estimation['state_index'].astype(int)
+        # 为估计数据集添加地区特征（如果需要），但我们先简化处理
+        print(f"最终估计数据集形状: {df_estimation.shape}")
+        print(f"估计数据集列名: {list(df_estimation.columns)[:10]}...")  # 显示前10列
 
         print("数据集、状态空间和转移矩阵创建完成。")
         return df_estimation, state_space, transition_matrices
