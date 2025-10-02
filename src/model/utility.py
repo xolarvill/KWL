@@ -56,8 +56,9 @@ def _calculate_hukou_penalty(
     if not is_hukou_mismatch:
         return 0.0
 
-    # Base penalty based on city tier
-    base_penalty = params.get(f"rho_base_tier_{region_tier}", 0.0)
+    # Base penalty based on city tier (ensure tier is integer)
+    region_tier_int = int(region_tier) if not np.isnan(region_tier) else 1
+    base_penalty = params.get(f"rho_base_tier_{region_tier_int}", 0.0)
 
     # Interaction penalties
     edu_penalty = params["rho_edu"] * edu_level

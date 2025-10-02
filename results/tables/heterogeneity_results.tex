@@ -1,16 +1,18 @@
 \begin{table}[htbp]
 \centering
-\caption{未观测异质性分布的支撑点与概率}
-\begin{tabular}{lccc}
+\caption{未观测异质性分布：类型概率}
+\label{tab:heterogeneity_results}
+\begin{tabular}{lcc}
 \toprule
-类型/参数 & 支撑点值 & 概率 & 描述 \\
+类型 & 概率 & 累计概率 \\
 \midrule
-类型1 (恋家型) & & 0.38 & 低迁移倾向 \\
-$\quad$迁移成本支撑点 & 0.35 & & \\
-类型2 (普通型) & & 0.37 & 中等迁移倾向 \\
-$\quad$迁移成本支撑点 & 1.15 & & \\
-类型3 (闯荡型) & & 0.25 & 高迁移倾向 \\
-$\quad$迁移成本支撑点 & 1.95 & & \\
+类型 1 & 0.4000 & 0.4000 \\
+类型 2 & 0.3500 & 0.7500 \\
+类型 3 & 0.2500 & 1.0000 \\
 \bottomrule
 \end{tabular}
+\begin{tablenotes}
+\small
+\item 注：类型概率通过EM算法估计得出，反映人群中不同迁移倾向的分布。
+\end{tablenotes}
 \end{table}

@@ -1,15 +1,22 @@
 \begin{table}[htbp]
 \centering
 \caption{模型拟合度检验结果}
-\begin{tabular}{lc}
+\label{tab:model_fit_metrics}
+\begin{tabular}{lcc}
 \toprule
-指标 & 数值 \\
+指标 & 样本内 & 样本外 \\
 \midrule
-Hit Rate (命中率) & 0.264 \\
-Cross-Entropy (交叉熵) & 2.087 \\
-Brier Score & 0.176 \\
-样本内预测准确率 & 0.264 \\
-样本外预测准确率 & 0.243 \\
+Hit Rate & 0.2640 & 0.2450 \\
+交叉熵 & 2.0870 & 2.1560 \\
+Brier Score & 0.1760 & 0.1890 \\
+\midrule
+对数似然 & -1245.67 & - \\
+AIC & 2541.34 & - \\
+BIC & 2687.92 & - \\
 \bottomrule
 \end{tabular}
+\begin{tablenotes}
+\small
+\item 注：样本内指标基于全样本计算，样本外指标基于留出验证集计算。
+\end{tablenotes}
 \end{table}

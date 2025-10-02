@@ -76,9 +76,20 @@ def calculate_choice_probabilities(
             choice_specific_values[i, j] = flow_utility + beta * expected_future_value[i]
 
     # Apply softmax to get probabilities (Eq. 15 in the paper)
-    exp_v = np.exp(choice_specific_values)
+    # Use numerically stable softmax
+    max_v = np.max(choice_specific_values, axis=1, keepdims=True)
+    exp_v = np.exp(choice_specific_values - max_v)
     sum_exp_v = exp_v.sum(axis=1, keepdims=True)
-    ccps = exp_v / sum_exp_v
+    
+    # Add small epsilon to prevent division by zero
+    ccps = exp_v / np.maximum(sum_exp_v, 1e-15)
+    
+    # Ensure probabilities are valid
+    ccps = np.nan_to_num(ccps, nan=1.0/choice_specific_values.shape[1], posinf=1.0, neginf=0.0)
+    
+    # Renormalize to ensure sum to 1
+    row_sums = ccps.sum(axis=1, keepdims=True)
+    ccps = ccps / np.maximum(row_sums, 1e-15)
 
     return ccps
 
@@ -136,7 +147,11 @@ def calculate_log_likelihood(
     # 'choice_index' is the column index of the choice that was made
     
     # Get the probabilities of the choices that were actually made
-    likelihoods = ccps[observed_data['state_index'], observed_data['choice_index']]
+    # Ensure indices are integers
+    state_indices = observed_data['state_index'].astype(int).values
+    choice_indices = observed_data['choice_index'].astype(int).values
+    
+    likelihoods = ccps[state_indices, choice_indices]
 
     # 4. Calculate the log-likelihood
     # Add a small epsilon to prevent log(0)

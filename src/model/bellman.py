@@ -98,7 +98,14 @@ def solve_bellman_iteration(
 
     # Step 2: Update the expected value function V(x) using log-sum-exp
     # This is the Emax operator for Type I EV shocks
-    v_new = np.log(np.sum(np.exp(choice_specific_values), axis=1))
+    # Use numerically stable log-sum-exp
+    max_v = np.max(choice_specific_values, axis=1, keepdims=True)
+    v_new = max_v.squeeze() + np.log(np.sum(np.exp(choice_specific_values - max_v), axis=1))
+    
+    # Check for invalid values
+    if np.any(np.isnan(v_new)) or np.any(np.isinf(v_new)):
+        print(f"Warning: Invalid values in value function update")
+        v_new = np.nan_to_num(v_new, nan=0.0, posinf=1e10, neginf=-1e10)
 
     return v_new
 

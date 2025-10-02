@@ -24,7 +24,7 @@ def _calculate_mixture_log_likelihood(
     log_likelihood_matrix: np.ndarray, pi_k: np.ndarray
 ) -> float:
     """
-    Calculates the total log-likelihood of the mixture model.
+    Calculates the total log-likelihood of the mixture model with numerical stability.
     
     Args:
         log_likelihood_matrix (np.ndarray): Matrix of log-likelihoods (N, K).
@@ -33,14 +33,23 @@ def _calculate_mixture_log_likelihood(
     Returns:
         float: The total log-likelihood of the sample.
     """
-    log_pi_k = np.log(pi_k)
+    # Ensure pi_k has a minimum value to avoid log(0)
+    pi_k_safe = np.maximum(pi_k, 1e-10)
+    pi_k_safe = pi_k_safe / np.sum(pi_k_safe)  # Renormalize
+    
+    log_pi_k = np.log(pi_k_safe)
     weighted_log_lik = log_likelihood_matrix + log_pi_k
     
     # Use log-sum-exp for numerical stability
-    max_log_lik = np.max(weighted_log_lik, axis=1)
-    log_marginal_lik = max_log_lik + np.log(
-        np.sum(np.exp(weighted_log_lik - max_log_lik[:, np.newaxis]), axis=1)
+    max_log_lik = np.max(weighted_log_lik, axis=1, keepdims=True)
+    log_marginal_lik = max_log_lik.squeeze() + np.log(
+        np.sum(np.exp(weighted_log_lik - max_log_lik), axis=1)
     )
+    
+    # Check for invalid values
+    if np.any(np.isnan(log_marginal_lik)) or np.any(np.isinf(log_marginal_lik)):
+        print("Warning: Invalid values in log_marginal_lik")
+        return -1e10  # Return a very negative value instead of inf
     
     return np.sum(log_marginal_lik)
 
@@ -56,7 +65,8 @@ def e_step(
     regions_df: pd.DataFrame = None,  # Additional parameter for regional data
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Performs the E-step: calculates posterior probabilities and the log-likelihood matrix.
+    Performs the E-step: calculates posterior probabilities and the log-likelihood matrix
+    with numerical stability improvements.
     """
     N = observed_data["individual_id"].nunique()
     K = len(pi_k)
@@ -65,33 +75,62 @@ def e_step(
     # Group data by individual once
     grouped_data = observed_data.groupby("individual_id")
     
+    print(f"  Computing log-likelihoods for {N} individuals across {K} types...")
+    
     for k in range(K):
-        # Calculate log-likelihood for all observations for a given type k
-        # Note: calculate_log_likelihood returns the *negative* log-likelihood
-        log_lik_obs = -calculate_log_likelihood(
-            params=params,
-            observed_data=observed_data,
-            state_space=state_space,
-            agent_type=k,
-            beta=beta,
-            transition_matrices=transition_matrices,
-            regions_df=regions_df,  # Pass regional data
-        )
-        
-        # Sum log-likelihoods for each individual
-        observed_data_copy = observed_data.copy()
-        observed_data_copy['log_lik_obs'] = log_lik_obs
-        individual_log_lik = observed_data_copy.groupby("individual_id")['log_lik_obs'].sum()
-        log_likelihood_matrix[:, k] = individual_log_lik.values
+        try:
+            # Calculate log-likelihood for all observations for a given type k
+            # Note: calculate_log_likelihood returns the *negative* log-likelihood
+            log_lik_obs = -calculate_log_likelihood(
+                params=params,
+                observed_data=observed_data,
+                state_space=state_space,
+                agent_type=k,
+                beta=beta,
+                transition_matrices=transition_matrices,
+                regions_df=regions_df,  # Pass regional data
+            )
+            
+            # Check for invalid values
+            if np.any(np.isnan(log_lik_obs)) or np.any(np.isinf(log_lik_obs)):
+                print(f"  Warning: Invalid log-likelihood values for type {k}")
+                log_lik_obs = np.nan_to_num(log_lik_obs, nan=-1e10, posinf=-1e10, neginf=-1e10)
+            
+            # Sum log-likelihoods for each individual
+            observed_data_copy = observed_data.copy()
+            observed_data_copy['log_lik_obs'] = log_lik_obs
+            individual_log_lik = observed_data_copy.groupby("individual_id")['log_lik_obs'].sum()
+            log_likelihood_matrix[:, k] = individual_log_lik.values
+            
+        except Exception as e:
+            print(f"  Error computing likelihood for type {k}: {e}")
+            log_likelihood_matrix[:, k] = -1e10
 
-    # Calculate posterior probabilities using Bayes' rule in log space
-    log_pi_k = np.log(pi_k)
+    # Calculate posterior probabilities using Bayes' rule in log space with numerical stability
+    # Ensure pi_k has minimum value
+    pi_k_safe = np.maximum(pi_k, 1e-10)
+    pi_k_safe = pi_k_safe / np.sum(pi_k_safe)
+    
+    log_pi_k = np.log(pi_k_safe)
     weighted_log_lik = log_likelihood_matrix + log_pi_k
     
-    log_marginal_lik = np.log(np.sum(np.exp(weighted_log_lik), axis=1, keepdims=True))
+    # Use log-sum-exp trick for numerical stability
+    max_log_lik = np.max(weighted_log_lik, axis=1, keepdims=True)
+    log_marginal_lik = max_log_lik + np.log(
+        np.sum(np.exp(weighted_log_lik - max_log_lik), axis=1, keepdims=True)
+    )
     log_posterior = weighted_log_lik - log_marginal_lik
     
+    # Compute posterior probabilities
     posterior_probs = np.exp(log_posterior)
+    
+    # Ensure probabilities sum to 1 and are non-negative
+    posterior_probs = np.maximum(posterior_probs, 0)
+    row_sums = posterior_probs.sum(axis=1, keepdims=True)
+    posterior_probs = posterior_probs / np.maximum(row_sums, 1e-10)
+    
+    print(f"  E-step completed. Posterior probability range: [{posterior_probs.min():.6f}, {posterior_probs.max():.6f}]")
+    
     return posterior_probs, log_likelihood_matrix
 
 def m_step(
@@ -104,7 +143,7 @@ def m_step(
     regions_df: pd.DataFrame = None,  # Additional parameter for regional data
 ) -> Tuple[Dict[str, Any], np.ndarray]:
     """
-    Performs the M-step: updates parameters and type probabilities.
+    Performs the M-step: updates parameters and type probabilities with numerical safeguards.
     """
     K = posterior_probs.shape[1]
     
@@ -116,44 +155,75 @@ def m_step(
         params_k = _unpack_params(param_values, param_names)
         total_weighted_log_lik = 0
         
-        for k in range(K):
-            weights = posterior_probs[:, k]
+        try:
+            for k in range(K):
+                weights = posterior_probs[:, k]
+                
+                # Skip if weights are too small
+                if np.sum(weights) < 1e-10:
+                    continue
+                
+                # Calculate log-likelihood for this type
+                log_lik_k_obs = -calculate_log_likelihood(
+                    params=params_k,
+                    observed_data=observed_data,
+                    state_space=state_space,
+                    agent_type=k,
+                    beta=beta,
+                    transition_matrices=transition_matrices,
+                    regions_df=regions_df,  # Pass regional data
+                )
+                
+                # Check for invalid values
+                if np.any(np.isnan(log_lik_k_obs)) or np.any(np.isinf(log_lik_k_obs)):
+                    log_lik_k_obs = np.nan_to_num(log_lik_k_obs, nan=-1e10, posinf=-1e10, neginf=-1e10)
+                
+                # Weight it by the posterior probabilities
+                observed_data_copy = observed_data.copy()
+                observed_data_copy['log_lik_k_obs'] = log_lik_k_obs
+                individual_log_lik = observed_data_copy.groupby("individual_id")['log_lik_k_obs'].sum()
+                total_weighted_log_lik += np.sum(weights * individual_log_lik)
             
-            # Calculate log-likelihood for this type
-            log_lik_k_obs = -calculate_log_likelihood(
-                params=params_k,
-                observed_data=observed_data,
-                state_space=state_space,
-                agent_type=k,
-                beta=beta,
-                transition_matrices=transition_matrices,
-                regions_df=regions_df,  # Pass regional data
-            )
+            # Return negative for minimization
+            return -total_weighted_log_lik
             
-            # Weight it by the posterior probabilities
-            observed_data_copy = observed_data.copy()
-            observed_data_copy['log_lik_k_obs'] = log_lik_k_obs
-            individual_log_lik = observed_data_copy.groupby("individual_id")['log_lik_k_obs'].sum()
-            total_weighted_log_lik += np.sum(weights * individual_log_lik)
-            
-        return -total_weighted_log_lik
+        except Exception as e:
+            print(f"  Error in objective function: {e}")
+            return 1e10  # Return large positive value to discourage this parameter set
 
     # Initial guess for parameters
     initial_param_values, param_names = _pack_params(initial_params)
     
-    # Run optimizer
-    result = minimize(
-        objective_function,
-        initial_param_values,
-        args=(param_names,),
-        method='BFGS',
-        options={'disp': True, 'maxiter': 100} # Limit iterations for M-step
-    )
-    
-    updated_params = _unpack_params(result.x, param_names)
+    # Run optimizer with error handling
+    try:
+        result = minimize(
+            objective_function,
+            initial_param_values,
+            args=(param_names,),
+            method='BFGS',
+            options={'disp': False, 'maxiter': 100}  # Reduce verbosity
+        )
+        
+        if result.success:
+            updated_params = _unpack_params(result.x, param_names)
+            print(f"  M-step optimization successful. Final objective: {result.fun:.4f}")
+        else:
+            print(f"  M-step optimization did not converge. Using previous parameters.")
+            updated_params = initial_params
+            
+    except Exception as e:
+        print(f"  Error in M-step optimization: {e}. Using previous parameters.")
+        updated_params = initial_params
 
-    # Update type probabilities
+    # Update type probabilities with lower bound constraint
     updated_pi_k = posterior_probs.mean(axis=0)
+    
+    # Enforce minimum probability to prevent degeneracy
+    MIN_PROB = 1e-6
+    updated_pi_k = np.maximum(updated_pi_k, MIN_PROB)
+    updated_pi_k = updated_pi_k / np.sum(updated_pi_k)  # Renormalize
+    
+    print(f"  M-step completed. Type probabilities: {updated_pi_k}")
 
     return updated_params, updated_pi_k
 
