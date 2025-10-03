@@ -10,13 +10,16 @@ from src.model.likelihood import calculate_log_likelihood
 
 def _pack_params(params: Dict[str, Any]) -> Tuple[np.ndarray, List[str]]:
     """Packs a dictionary of parameters into a numpy array for the optimizer."""
-    param_names = sorted(params.keys())
+    # 排除n_choices，它不应该被优化
+    param_names = sorted([k for k in params.keys() if k != 'n_choices'])
     param_values = np.array([params[name] for name in param_names])
     return param_values, param_names
 
-def _unpack_params(param_values: np.ndarray, param_names: List[str]) -> Dict[str, Any]:
+def _unpack_params(param_values: np.ndarray, param_names: List[str], n_choices: int) -> Dict[str, Any]:
     """Unpacks a numpy array back into a dictionary of parameters."""
-    return dict(zip(param_names, param_values))
+    params_dict = dict(zip(param_names, param_values))
+    params_dict['n_choices'] = n_choices  # 添加回n_choices作为整数
+    return params_dict
 
 # --- Log-Likelihood Calculation ---
 
@@ -81,11 +84,13 @@ def e_step(
         try:
             # Calculate log-likelihood for all observations for a given type k
             # Note: calculate_log_likelihood returns the *negative* log-likelihood
+            # 确保agent_type是整数
+            agent_type_int = int(k)
             log_lik_obs = -calculate_log_likelihood(
                 params=params,
                 observed_data=observed_data,
                 state_space=state_space,
-                agent_type=k,
+                agent_type=agent_type_int,
                 beta=beta,
                 transition_matrices=transition_matrices,
                 regions_df=regions_df,  # Pass regional data
@@ -152,7 +157,7 @@ def m_step(
     
     # Create the objective function for the optimizer
     def objective_function(param_values: np.ndarray, param_names: List[str]) -> float:
-        params_k = _unpack_params(param_values, param_names)
+        params_k = _unpack_params(param_values, param_names, initial_params['n_choices'])
         total_weighted_log_lik = 0
         
         try:
@@ -164,11 +169,13 @@ def m_step(
                     continue
                 
                 # Calculate log-likelihood for this type
+                # 确保agent_type是整数
+                agent_type_int = int(k)
                 log_lik_k_obs = -calculate_log_likelihood(
                     params=params_k,
                     observed_data=observed_data,
                     state_space=state_space,
-                    agent_type=k,
+                    agent_type=agent_type_int,
                     beta=beta,
                     transition_matrices=transition_matrices,
                     regions_df=regions_df,  # Pass regional data
@@ -205,7 +212,7 @@ def m_step(
         )
         
         if result.success:
-            updated_params = _unpack_params(result.x, param_names)
+            updated_params = _unpack_params(result.x, param_names, initial_params['n_choices'])
             print(f"  M-step optimization successful. Final objective: {result.fun:.4f}")
         else:
             print(f"  M-step optimization did not converge. Using previous parameters.")

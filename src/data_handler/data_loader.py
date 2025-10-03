@@ -192,15 +192,48 @@ class DataLoader:
         # 重命名个体数据中的年龄列，确保列名一致
         df_individual_renamed = df_individual.rename(columns={'age_t': 'age'})
         
-        # 确保列名匹配
+        # 处理prev_provcd缺失值：第一期观测使用当期位置作为prev_provcd
+        df_individual_renamed['prev_provcd_new'] = df_individual_renamed['prev_provcd_new'].fillna(
+            df_individual_renamed['provcd_t_new']
+        )
+        
+        # 确保列名匹配 - 使用left join保留所有观测
         df_estimation = pd.merge(
             df_individual_renamed,
             state_space,
             left_on=['age', 'prev_provcd_new'],
             right_on=['age', 'prev_provcd'],
-            how='inner',  # 使用inner join确保只保留匹配的观测
-            suffixes=('', '_state')  # 避免重复列名
+            how='left',  # 改为left join保留所有观测
+            suffixes=('', '_state')
         )
+        
+        # 对于无法匹配到状态空间的观测（年龄超出范围等），手动分配state_index
+        # 这些观测将被赋予最接近的状态
+        missing_state = df_estimation['state_index'].isna()
+        if missing_state.sum() > 0:
+            print(f"警告: {missing_state.sum()} 条观测无法匹配到状态空间，将使用最近邻状态")
+            
+            # 对于缺失的state_index，找到最接近的状态
+            for idx in df_estimation[missing_state].index:
+                age = df_estimation.loc[idx, 'age']
+                prev_loc = df_estimation.loc[idx, 'prev_provcd_new']
+                
+                # 找到年龄最接近且位置匹配的状态
+                age_diff = np.abs(state_space['age'] - age)
+                loc_match = state_space['prev_provcd'] == prev_loc
+                
+                if loc_match.any():
+                    # 优先匹配位置，然后选最近的年龄
+                    candidate_states = state_space[loc_match]
+                    closest_idx = candidate_states.iloc[(candidate_states['age'] - age).abs().argmin()]['state_index']
+                else:
+                    # 如果位置不匹配，选择年龄最接近的任意状态
+                    closest_idx = state_space.iloc[age_diff.argmin()]['state_index']
+                
+                df_estimation.loc[idx, 'state_index'] = closest_idx
+        
+        # 确保state_index是整数类型
+        df_estimation['state_index'] = df_estimation['state_index'].astype(int)
         
         print(f"合并后估计数据集包含 {len(df_estimation)} 个观测。")
 

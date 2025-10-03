@@ -23,8 +23,12 @@ def _calculate_income_utility(
     Returns:
         float: Utility derived from income.
     """
-    log_w_ij = np.log(w_ij)
-    log_w_ref = np.log(w_ref)
+    # FIX: Add protection against log(0) or log(negative)
+    w_ij_safe = np.maximum(w_ij, 1e-6)
+    w_ref_safe = np.maximum(w_ref, 1e-6)
+    
+    log_w_ij = np.log(w_ij_safe)
+    log_w_ref = np.log(w_ref_safe)
     
     if log_w_ij >= log_w_ref:
         return alpha_w * (log_w_ij - log_w_ref)
@@ -41,23 +45,13 @@ def _calculate_hukou_penalty(
 ) -> float:
     """
     Calculates the penalty for living outside one's hukou registration area.
-
-    Args:
-        is_hukou_mismatch (bool): True if living in a non-hukou location.
-        region_tier (int): The tier of the city/region.
-        edu_level (float): Education amenity level of the region.
-        health_level (float): Health amenity level of the region.
-        housing_price (float): Housing price in the region.
-        params (Dict[str, float]): Dictionary of model parameters.
-
-    Returns:
-        float: The calculated hukou penalty.
     """
     if not is_hukou_mismatch:
         return 0.0
 
-    # Base penalty based on city tier (ensure tier is integer)
-    region_tier_int = int(region_tier) if not np.isnan(region_tier) else 1
+    # FIX: Ensure region_tier is a clean integer for indexing
+    # Handle potential NaNs and cast to int
+    region_tier_int = int(region_tier) if pd.notna(region_tier) else 1 # Default to tier 1 if NaN
     base_penalty = params.get(f"rho_base_tier_{region_tier_int}", 0.0)
 
     # Interaction penalties

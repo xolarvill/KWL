@@ -85,10 +85,12 @@ def solve_bellman_iteration(
                 
                 # Calculate expected future value E[V(x')]
                 # P_j is the transition matrix for choice j: (n_states, n_states)
-                P_j = transition_matrices[j]
+                j_key = int(j)  # 确保j是整数键
+                i_key = int(i)  # 确保i是整数索引
+                P_j = transition_matrices[j_key]
                 expected_future_value = P_j @ v_old
 
-                choice_specific_values[i, j] = flow_utility + beta * expected_future_value[i]
+                choice_specific_values[i_key, j_key] = flow_utility + beta * expected_future_value[i_key]
             except KeyError as e:
                 print(f"KeyError in utility calculation: {e}")
                 print(f"Available keys in current_data: {list(current_data.keys())}")
@@ -119,7 +121,7 @@ def solve_bellman_equation(
     tolerance: float = 1e-6,
     max_iterations: int = 1000,
     regions_df: pd.DataFrame = None,  # Additional parameter for regional data
-) -> (np.ndarray, int):
+) -> 'tuple[np.ndarray, int]':
     """
     Solves the Bellman equation using value function iteration until convergence.
 

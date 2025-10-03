@@ -53,8 +53,10 @@ def calculate_choice_probabilities(
             current_data = current_state.to_dict()
             
             # Add information about the destination region j
-            if regions_df is not None and j < len(regions_df):
-                destination_region = regions_df.iloc[j]
+            # 确保j是整数且在有效范围内
+            j_int = int(j)
+            if regions_df is not None and j_int < len(regions_df):
+                destination_region = regions_df.iloc[j_int]
                 # Add the destination region properties to the data dict
                 for col in regions_df.columns:
                     current_data[f"{col}_j"] = destination_region[col]
@@ -71,9 +73,12 @@ def calculate_choice_probabilities(
                 xi_ij=xi_ij,
             )
             
-            P_j = transition_matrices[j]
+            # 确保j是整数以正确索引transition_matrices
+            j_key = int(j)
+            P_j = transition_matrices[j_key]
             expected_future_value = P_j @ converged_v
-            choice_specific_values[i, j] = flow_utility + beta * expected_future_value[i]
+            i_int = int(i)
+            choice_specific_values[i_int, j_key] = flow_utility + beta * expected_future_value[i_int]
 
     # Apply softmax to get probabilities (Eq. 15 in the paper)
     # Use numerically stable softmax
