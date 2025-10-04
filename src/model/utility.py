@@ -150,16 +150,19 @@ def calculate_flow_utility(
     )
 
     # 3. Home Premium
-    is_home = data.get("provcd_t", 0) == data.get("hukou_prov", 0)
+    # 修正：家乡溢价应与hometown（家乡）而非hukou_prov（户籍地）关联
+    is_home = data.get("provcd_dest", 0) == data.get("hometown", 0)
     home_premium = params["alpha_home"] * is_home
 
     # 4. Hukou Penalty (Eq. 8)
+    # 户籍惩罚与hukou_prov（户籍地）关联
+    is_hukou_mismatch = data.get("provcd_dest", 0) != data.get("hukou_prov", 0)
     hukou_penalty = _calculate_hukou_penalty(
-        is_hukou_mismatch=(not is_home),
-        region_tier=data.get("tier_dest", 1),  # 假设默认为1级城市
-        edu_level=data.get("amenity_education_dest", 0.0), # 使用目的地的教育复合指标
-        health_level=data.get("amenity_health_dest", 0.0), # 使用目的地的医疗复合指标
-        housing_price=data.get("房价（元每平方）_dest", 0.0), # 使用目的地的房价
+        is_hukou_mismatch=is_hukou_mismatch,
+        region_tier=data.get("tier_dest", 1),
+        edu_level=data.get("amenity_education_dest", 0.0),
+        health_level=data.get("amenity_health_dest", 0.0),
+        housing_price=data.get("房价（元每平方）_dest", 0.0),
         params=params,
     )
 
