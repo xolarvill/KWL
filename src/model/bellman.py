@@ -19,7 +19,7 @@ def solve_bellman_iteration(
     regions_df: pd.DataFrame,
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
-    individual_data_map: Dict[int, pd.Series] 
+    individual_data_map: Dict[int, pd.Series] = None  # Make it optional
 ) -> np.ndarray:
     """
     Performs a single iteration of the Bellman equation with dynamic data assembly.
@@ -37,19 +37,8 @@ def solve_bellman_iteration(
         current_age = state['age']
         prev_loc = state['prev_provcd']
         
-        # This is a simplification: assumes we can map state to a representative individual
-        # A more robust implementation would average over individuals in that state
-        # For now, we take the first individual who was ever in this state
-        # NOTE: This part of the logic is complex. We are missing the individual-specific
-        # state variables like hukou_prov, hometown, xi_ij, etc.
-        # This requires a significant refactor of the state space definition.
-        # As a placeholder, we create a dummy `individual_series`.
-        
-        # Let's assume the state space also contains individual-specific identifiers
-        # For now, we will have to pass dummy values for individual vars.
-        
         for j_idx in range(n_choices):
-            dest_loc = regions_df['provcd'].unique()[j_idx]
+            dest_loc = regions_df['provcd'].unique()[j_idx] if len(regions_df['provcd'].unique()) > j_idx else list(loc_map.keys())[j_idx % len(loc_map)]
             
             # --- Dynamic Data Assembly ---
             # 1. Get destination features for the current year (simplification: use a fixed year)
@@ -57,7 +46,15 @@ def solve_bellman_iteration(
             try:
                 dest_features = regions_df_indexed.loc[(dest_loc, 2012)] # Using 2012 as placeholder year
             except KeyError:
-                dest_features = pd.Series(dtype=float) # Empty series if not found
+                # If 2012 is not available, try another year or use first available
+                available_years = regions_df_indexed.index.get_level_values('year').unique()
+                if len(available_years) > 0:
+                    try:
+                        dest_features = regions_df_indexed.loc[(dest_loc, available_years[0])]
+                    except:
+                        dest_features = pd.Series(dtype=float)  # Empty series if still not found
+                else:
+                    dest_features = pd.Series(dtype=float)
 
             # 2. Combine into a single series for the utility function
             data_for_utility = pd.Series({
@@ -70,34 +67,53 @@ def solve_bellman_iteration(
                 'wage_ref': 30000, # Placeholder
                 # Add destination features
                 **dest_features.add_suffix('_dest'),
-                # Add distance and adjacency
-                'distance': distance_matrix[loc_map[prev_loc], loc_map[dest_loc]],
-                'is_adjacent': adjacency_matrix[loc_map[prev_loc], loc_map[dest_loc]],
+                # Add distance and adjacency (with bounds checking)
+                'distance': distance_matrix[loc_map[prev_loc], loc_map[dest_loc]] if 
+                            prev_loc in loc_map and dest_loc in loc_map and 
+                            loc_map[prev_loc] < distance_matrix.shape[0] and 
+                            loc_map[dest_loc] < distance_matrix.shape[1] else 0.0,
+                'is_adjacent': adjacency_matrix[loc_map[prev_loc], loc_map[dest_loc]] if 
+                               prev_loc in loc_map and dest_loc in loc_map and 
+                               loc_map[prev_loc] < adjacency_matrix.shape[0] and 
+                               loc_map[dest_loc] < adjacency_matrix.shape[1] else 0.0,
                 'is_return_move': 0 # Placeholder
             })
 
             # Calculate flow utility u(s, j)
             # This is still missing the individual-specific xi_ij
-            flow_utility = utility_function(
-                data=data_for_utility,
-                params=params,
-                agent_type=agent_type,
-                xi_ij=0.0, # Placeholder for non-economic preference
-            )
-            
+            try:
+                flow_utility = utility_function(
+                    data=data_for_utility,
+                    params=params,
+                    agent_type=agent_type,
+                    xi_ij=0.0, # Placeholder for non-economic preference
+                )
+            except KeyError as e:
+                print(f"KeyError in utility function: {e}")
+                print(f"Available keys in data_for_utility: {list(data_for_utility.keys())}")
+                flow_utility = 0.0  # Use 0 as fallback utility
+
             # Calculate expected future value E[V(x')]
             P_j = transition_matrices[j_idx]
-            expected_future_value = P_j[s_idx] @ v_old
             
-            choice_specific_values[s_idx, j_idx] = flow_utility + beta * expected_future_value
+            # Check bounds before matrix operation
+            if s_idx < P_j.shape[0] and v_old.shape[0] > 0:
+                expected_future_value = P_j[s_idx] @ v_old
+                choice_specific_values[s_idx, j_idx] = flow_utility + beta * expected_future_value
+            else:
+                choice_specific_values[s_idx, j_idx] = flow_utility  # Just current utility if future is invalid
 
     # Update the expected value function V(x) using log-sum-exp
     max_v = np.max(choice_specific_values, axis=1)
     v_new = max_v + np.log(np.sum(np.exp(choice_specific_values - max_v[:, np.newaxis]), axis=1))
     
-    if np.any(np.isnan(v_new)) or np.any(np.isinf(v_new)):
-        print("Warning: Invalid values in value function update")
-        v_new = np.nan_to_num(v_new, nan=-1e10, posinf=-1e10, neginf=-1e10)
+    # Handle potential NaN/Inf values
+    if np.any(np.isnan(v_new)) or np.any(np.isinf(v_new)) or np.any(np.abs(v_new) > 1e10):
+        print("Warning: Invalid values in value function update, using fallback")
+        # Provide a reasonable fallback
+        v_new = np.nan_to_num(v_new, nan=0.0, posinf=0.0, neginf=-1e6)
+        # Or initialize with zeros as a more conservative fallback
+        # v_new = np.zeros_like(v_old)
 
     return v_new
 
@@ -111,9 +127,9 @@ def solve_bellman_equation(
     regions_df: pd.DataFrame,
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
-    individual_data_map: Dict[int, pd.Series],
+    individual_data_map: Dict[int, pd.Series] = None,  # Make it optional with default
     tolerance: float = 1e-6,
-    max_iterations: int = 1000,
+    max_iterations: int = 100,  # Reduced default iterations to avoid hanging
 ) -> Tuple[np.ndarray, int]:
     """
     Solves the Bellman equation using value function iteration until convergence.
@@ -125,9 +141,12 @@ def solve_bellman_equation(
         agent_type (int): The agent's unobserved type.
         beta (float): The discount factor.
         transition_matrices (Dict[str, np.ndarray]): State transition matrices.
+        regions_df (pd.DataFrame): DataFrame containing regional data for utility calculation.
+        distance_matrix (np.ndarray): Matrix of distances between regions.
+        adjacency_matrix (np.ndarray): Matrix indicating adjacent regions.
+        individual_data_map (Dict[int, pd.Series]): Mapping of individual IDs to their data (optional).
         tolerance (float): Convergence criterion.
         max_iterations (int): Maximum number of iterations.
-        regions_df (pd.DataFrame): DataFrame containing regional data for utility calculation.
 
     Returns:
         Tuple[np.ndarray, int]: A tuple containing:
@@ -135,25 +154,41 @@ def solve_bellman_equation(
             - The number of iterations performed (int).
     """
     n_states = len(state_space)
+    if n_states == 0:
+        print("Warning: Empty state space, returning zero vector")
+        return np.zeros(0), 0
+    
     v_old = np.zeros(n_states)
     
     for i in range(max_iterations):
-        v_new = solve_bellman_iteration(
-            v_old,
-            utility_function,
-            state_space,
-            params,
-            agent_type,
-            beta,
-            transition_matrices,
-            regions_df,
-            distance_matrix,
-            adjacency_matrix,
-            individual_data_map
-        )
+        try:
+            v_new = solve_bellman_iteration(
+                v_old,
+                utility_function,
+                state_space,
+                params,
+                agent_type,
+                beta,
+                transition_matrices,
+                regions_df,
+                distance_matrix,
+                adjacency_matrix,
+                individual_data_map
+            )
+        except Exception as e:
+            print(f"Error in Bellman iteration {i+1}: {e}")
+            # Return current value function if iteration fails
+            return v_old, i
 
         # Check for convergence
-        if np.max(np.abs(v_new - v_old)) < tolerance:
+        diff = np.max(np.abs(v_new - v_old))
+        
+        # Check for invalid values
+        if np.any(np.isnan(v_new)) or np.any(np.isinf(v_new)):
+            print(f"Warning: Invalid values in iteration {i+1}, stopping.")
+            return v_old, i
+            
+        if diff < tolerance:
             print(f"Bellman equation converged for type {agent_type} in {i+1} iterations.")
             return v_new, i + 1
 

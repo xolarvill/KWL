@@ -679,8 +679,8 @@ $\zeta_{itj}$为不可观测的效用冲击，是在任意时期和地点都独�
 为了捕捉驱动迁移决策的关键因素，可观测效用流$u_t$函数的具体形式设定如下：
 \begin{equation}
 \begin{split}
-     u_{it}(j, x_{it}; \theta) = & \underbrace{ U^{\text{income}}(w_{itj} | w_{it}^{ref}) }_{\text{对经济收入的预期管理}} + \underbrace{\sum_s \alpha_s \cdot y_{sj}(K_t)}_{\text{地区舒适度}} + \underbrace{\alpha_{home} \cdot I(j=h_i)}_{\text{家乡溢价}} \\
-    & - \underbrace{\text{HukouPenalty}(j, h_i, K_t)}_{\text{户籍制度惩罚}} - \underbrace{\kappa_{it}(j, x_{it})}_{\text{迁移成本}} + \underbrace{\xi_{ij}}_{\text{偏好匹配}}
+     u_{it}(j, x_{it}; \theta) = & \underbrace{ U^{\text{income}}(w_{itj} | w_{it}^{ref}) }_{\text{对经济收入的预期管理}} + \underbrace{\sum_s \alpha_s \cdot y_{sj}(K_t)}_{\text{地区舒适度}} + \underbrace{\alpha_{home} \cdot I(j=home_i)}_{\text{家乡溢价}} \\
+    & - \underbrace{\text{HukouPenalty}(j, hukou_i, K_t)}_{\text{户籍制度惩罚}} - \underbrace{\kappa_{it}(j, x_{it})}_{\text{迁移成本}} + \underbrace{\xi_{ij}}_{\text{偏好匹配}}
 \end{split}
 \label{eq:确定性效用函数}
 \end{equation}
@@ -757,14 +757,14 @@ U^{\text{income}}(\ln w_{itj} | \ln w_{it}^{ref}) =
 真实世界中户籍制度带来的效应是多维度的、有异质性的，为了细致刻画这种复杂影响，本文因此假设了一个分层的、与地区特征互动的户籍效应模型：
 \begin{equation}
     \begin{split}
-        \text{HukouPenalty}(j, h_i, K_t) ={}& I(j \neq h_i) \cdot \bigl[ \sum\limits_{c \in C} \rho_{\text{base}, c} \cdot \text{Tier}_{c(j)}+ \rho_{\text{edu}} \cdot \text{Edu}(j) \\
+        \text{HukouPenalty}(j, h_i, K_t) ={}& I(j \neq hukou_i) \cdot \bigl[ \sum\limits_{c \in C} \rho_{\text{base}, c} \cdot \text{Tier}_{c(j)}+ \rho_{\text{edu}} \cdot \text{Edu}(j) \\
         & + \rho_{\text{health}} \cdot \text{Health}(j) + \rho_{\text{house}} \cdot \text{HousingPrice}(j) \bigr]
     \end{split}
 \label{户籍惩罚函数}
 \end{equation}
 其中：
 \begin{enumerate}
-  \item 指示函数 $I(j \neq h_i)$：表示只有在人户分离时，惩罚才生效。
+  \item 指示函数 $I(j \neq hukou_i)$：表示只有在人户分离时，惩罚才生效。
 
   \item 基础惩罚，$\sum\limits_{c \in C} \rho_{\text{base}, c} \cdot \text{Tier}_{c(j)}$：不同等级的城市其户籍政策的宽松程度和隐性价值存在巨大差异，为此我们根据公认的城市经济地位，将全国所有地区划分为 C 个类别（例如：一线城市、新一线城市、其他城市）。
   其中$\text{Tier}_{c(j)}$是一个虚拟变量，当地区 $j$ 属于类别 $c$ 时取值为1，否则为0。$\rho_{\text{base}, c}$ 则是对应类别 $c$ 的待估参数。例如，我们预期 $\hat{\theta}_{\text{base, 一线}}$将会显著为正且远大于其他类别的参数，这量化了进入顶级城市所需克服的最高制度性壁垒。
@@ -779,7 +779,7 @@ U^{\text{income}}(\ln w_{itj} | \ln w_{it}^{ref}) =
 这是一个推离异乡（Push Factor）的力。
 它是一种负向效用（成本或惩罚），在个体身处任何非户口所在地时都会承受。该变量对所有 $m-1$ 个非户口所在地都生效，且惩罚大小因地而异。户籍效应可以通过观察个体在不同城市间的选择来识别。例如，如果两个城市A和B工资和舒适度相似，但城市A的户籍管制更严（公共服务更好），那么需要一个更高的工资差异才能吸引无户口者去A城。这个补偿性工资差异就反映了户籍惩罚的大小。
 
-本文同时还在模型中假设了家乡溢价效应，$\alpha_{home} \cdot I(j=h_i)$，这个变量不同于户籍效应，是一个拉回家乡（Pull Factor）的力，是一种正向效用，只在个体身处家乡时才会获得。该变量刻画的是心理、社会、文化层面的情感依恋，是对家乡非理性偏好的量化。它源于家庭纽带、朋友圈、熟悉的文化环境等。只对家乡$h_i$生效。家乡溢价效应变量通过观察个体即使在面临更好的外地经济机会时，依然选择留在或返回家乡的行为来识别。
+本文同时还在模型中假设了家乡溢价效应，$\alpha_{home} \cdot I(j=home_i)$，这个变量不同于户籍效应，是一个拉回家乡（Pull Factor）的力，是一种正向效用，只在个体身处家乡时才会获得。该变量刻画的是心理、社会、文化层面的情感依恋，是对家乡非理性偏好的量化。它源于家庭纽带、朋友圈、熟悉的文化环境等。只对家乡$h_i$生效。家乡溢价效应变量通过观察个体即使在面临更好的外地经济机会时，依然选择留在或返回家乡的行为来识别。
 
 模型中的地区舒适度和户籍惩罚可能包含相同的地区特征变量，如教育和医疗资源。这并非重复计算，而是为了识别这些资源在效用层面上的两种不同渠道。
 
@@ -797,7 +797,7 @@ U^{\text{income}}(\ln w_{itj} | \ln w_{it}^{ref}) =
 \begin{equation}
 \begin{split}
 \kappa_{it}(j, x_{it}) = & I(j \neq l_{i,t-1}) \cdot \biggl[ \gamma_{0\tau} + \gamma_1 Dis(l_{i,t-1}, j) - \gamma_2 I(j \in \text{Adj}(l_{i,t-1})) \\
-    & - \gamma_3 I(j \in H_{it}) + \gamma_4 a_{it} - \gamma_5 n_j(K_t) \biggr]
+    & - \gamma_3 I(j \in H_{it}) + \gamma_4 a_{it} - \gamma_5 n_{jt}(K_t) \biggr]
 \end{split}
 \label{eq:迁移成本函数}
 \end{equation}
@@ -814,7 +814,7 @@ U^{\text{income}}(\ln w_{itj} | \ln w_{it}^{ref}) =
 
   \item $\gamma_4 a_{it}$: 年龄越大，迁移的心理或生理成本越高，这是随年龄增长而增加的迁移阻力。
 
-  \item $-\gamma_5 n_j(K_t)$: 迁入地人口规模带来的成本减免效应，反映了更大城市网络带来的便利。目标地区人口规模 $n_j$ 越大，迁移成本减少 $\gamma_5 n_j$。这是因为大规模地区可能有更多潜在支持（如亲友网络、服务机构），减少安家难度，从而降低迁移成本（$\gamma_5 > 0$），符合引力模型中人口规模吸引迁移的经典结论。  
+  \item $-\gamma_5 n_{jt}(K_t)$: 迁入地人口规模带来的成本减免效应，反映了更大城市网络带来的便利。目标地区人口规模 $n_j$ 越大，迁移成本减少 $\gamma_5 n_j$。这是因为大规模地区可能有更多潜在支持（如亲友网络、服务机构），减少安家难度，从而降低迁移成本（$\gamma_5 > 0$），符合引力模型中人口规模吸引迁移的经典结论。  
 \end{enumerate}
 
 
@@ -1196,8 +1196,18 @@ p(j_{it}^{\text{obs}}, w_{it}^{\text{obs}} | x_{it}, \tau, \omega_i; \Theta) =
 \end{equation}
 其中，因变量 $\ln(\text{income}_{it})$ 是个体 i 在时期 t 的对数收入。$\mathbf{X}_{it}$ 是一系列时变的个体层面控制变量，包括年龄及其平方项、受教育年限、婚姻状况和自评健康状况。$\alpha_i$ 是个体固定效应，它吸收了所有不随时间改变的个体特征。
 参数 $\delta_{jt}$是一组完整的交互固定效应，其估计值 $\hat{\delta}_{jt}$，是在控制了个体所有可观测和不随时间改变的不可观测特征后，仅仅因为在时期 $t$ 身处地区 $j$ 所能带来的平均对数工资溢价。
-我们提取出的这一系列 $\hat{\delta}_{jt}$ 系数，便构成了我们主模型中使用的地区基础工资水平 $\mu_{jt}$。通过这种方式，我们得到了一个干净的、能够反映地区间真实经济动态差异的指标。
+我们提取出的这一系列 $\hat{\delta}_{jt}$ 系数，如表格所示，便构成了我们主模型中使用的地区基础工资水平 $\mu_{jt}$。通过这种方式，我们得到了一个干净的、能够反映地区间真实经济动态差异的指标。
 
+\begin{table}[!ht]
+\centering
+\caption{地区基本平均工资估计结果}
+\begin{tabularx}{\textwidth}{@{}cXXX@{}}
+\toprule
+\midrule
+\bottomrule
+\end{tabularx}
+\label{tab:CMDS同乡网络矩阵}
+\end{table}
 
 本文使用的地理数据包含CLDS对应的我国29个行政区，其中常住人口数量、人均可支配收入、自然灾害数据、城市人口数据、医疗数据、教育数据等数据来自于国家统计局公布的数据统计年鉴。
 

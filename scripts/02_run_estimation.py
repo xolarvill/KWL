@@ -33,13 +33,13 @@ def main():
         print("加载和准备数据...")
         data_loader = DataLoader(config)
         
-        # 重构后的加载器返回四个对象
-        df_individual, df_region, state_space, transition_matrices = \
-            data_loader.create_estimation_dataset_and_state_space(simplified_state=True)
-
         # 加载额外的矩阵
         distance_matrix = data_loader.load_distance_matrix()
         adjacency_matrix = data_loader.load_adjacency_matrix()
+        
+        # 重构后的加载器返回四个对象
+        df_individual, df_region, state_space, transition_matrices = \
+            data_loader.create_estimation_dataset_and_state_space(simplified_state=True)
 
         print("\n数据准备完成。")
         print(f"估计观测数量: {len(df_individual)}")
