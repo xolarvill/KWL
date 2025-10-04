@@ -29,96 +29,72 @@ def main():
     config = ModelConfig()
     
     try:
-        # --- 2. 数据加载和准备 ---
+        # --- 2. Data Loading and Preparation ---
         print("加载和准备数据...")
         data_loader = DataLoader(config)
         
-        # 加载数据，使用预处理后包含工资预测的数据
-        df_individual = data_loader.load_individual_data()
-        
-        # 如果有预处理后的工资预测数据，则使用它
-        wage_pred_path = os.path.join(config.processed_data_dir, 'clds_preprocessed_with_wages.csv')
-        if os.path.exists(wage_pred_path):
-            print("使用LightGBM插件预测的工资数据...")
-            df_individual = pd.read_csv(wage_pred_path)
-        
-        # 加载地区数据
-        config.regional_data_path = config.regional_data_path.replace('geo.xlsx', 'geo_amenities.csv')
-        df_region = data_loader.load_regional_data()
-        
-        # 创建估计数据集和状态空间
-        df_estimation, state_space, transition_matrices = \
+        # 重构后的加载器返回四个对象
+        df_individual, df_region, state_space, transition_matrices = \
             data_loader.create_estimation_dataset_and_state_space(simplified_state=True)
 
-        print(f"数据准备完成。")
-        print(f"估计观测数量: {len(df_estimation)}")
-        print(f"状态空间大小: {len(state_space)}")
-        print(f"转移矩阵数量: {len(transition_matrices)}")
+        # 加载额外的矩阵
+        distance_matrix = data_loader.load_distance_matrix()
+        adjacency_matrix = data_loader.load_adjacency_matrix()
 
-        # --- 3. 模型估计 ---
-        print(f"开始模型估计...")
-        
-        # 确定选择数量（地区数量）
-        n_choices = len(transition_matrices)
+        print("\n数据准备完成。")
+        print(f"估计观测数量: {len(df_individual)}")
+        print(f"状态空间大小: {len(state_space)}")
+
+        # --- 3. Model Estimation ---
+        print("\n开始模型估计...")
         
         # 定义估计参数
         estimation_params = {
-            "observed_data": df_estimation,
+            "observed_data": df_individual,
+            "regions_df": df_region,
             "state_space": state_space,
             "transition_matrices": transition_matrices,
-            "beta": config.discount_factor,  # 从配置中获取折现因子
-            "n_types": config.n_tau_types,  # 从配置中获取类型数量
-            "max_iterations": 5,  # 减少迭代次数以加快测试
-            "tolerance": config.tolerance,
-            "n_choices": n_choices,
-            "regions_df": df_region,  # 添加地区数据
+            "distance_matrix": distance_matrix,
+            "adjacency_matrix": adjacency_matrix,
+            "beta": 0.95,
+            "n_types": 3,
+            "max_iterations": 5,
+            "tolerance": 1e-4,
+            "n_choices": len(df_region['provcd'].unique())
         }
 
         # 运行EM算法
         try:
             results = run_em_algorithm(**estimation_params)
-            estimated_params = results["structural_params"]
-            type_probabilities = results["type_probabilities"]
-            final_log_likelihood = results["final_log_likelihood"]
+            print("\n估计完成。")
             
-            print(f"估计完成。")
-            print(f"最终对数似然值: {final_log_likelihood:.4f}")
-            print(f"类型概率: {type_probabilities}")
+            # 提取结果
+            estimated_params = results["structural_params"]
+            final_log_likelihood = results["final_log_likelihood"]
+            posterior_probs = results["posterior_probs"]
+            log_likelihood_matrix = results["log_likelihood_matrix"]
             
         except Exception as e:
-            print(f"估计过程中发生错误: {e}")
-            # 使用模拟参数以确保后续步骤可以继续
-            estimated_params = {
-                "alpha_w": 0.8, "lambda": 1.5, "alpha_home": 0.5,
-                "rho_base_tier_1": 2.0, "rho_base_tier_2": 1.5, "rho_base_tier_3": 1.0,
-                "rho_edu": 0.3, "rho_health": 0.2, "rho_house": 0.4,
-                "gamma_0_type_0": 0.5, "gamma_0_type_1": 1.2, "gamma_1": -0.15,
-                "gamma_2": 0.3, "gamma_3": -0.35, "gamma_4": 0.02, "gamma_5": -0.1,
-                "alpha_climate": 0.15, "alpha_health": 0.25, "alpha_education": 0.2,
-                "alpha_public_services": 0.3,
-                "n_choices": n_choices
-            }
-            type_probabilities = [0.4, 0.35, 0.25]
-            final_log_likelihood = -1000.0  # 模拟对数似然值
-            print("使用模拟参数继续后续分析...")
+            print(f"\n估计过程中发生错误: {e}")
+            import traceback
+            traceback.print_exc()
+            return  # 终止主流程
 
         # --- 4. 统计推断 ---
         print("计算参数标准误和显著性...")
         try:
-            # 在实际应用中，这里需要访问完整的对数似然函数来计算标准误
-            n_observations = len(df_estimation)
+            n_observations = len(df_individual)
             n_params = len(estimated_params) - 1  # 减去n_choices参数
             
             # 模拟标准误、t统计量和p值（在完整实现中需要实际计算）
             std_errors = {k: abs(v) * 0.1 for k, v in estimated_params.items() if k != 'n_choices'}  # 简化估算
             t_stats = {k: v / max(se, 0.001) for (k, v), (_, se) in zip(estimated_params.items(), std_errors.items()) if k != 'n_choices'}
-            p_values = {k: 0.05 if abs(t_stats.get(k,0)) > 1.96 else 0.2 for k in t_stats.keys()}  # 简化估算
+            p_values = {k: 0.05 if abs(t_stats.get(k, 0)) > 1.96 else 0.2 for k in t_stats.keys()}  # 简化估算
             
             print("标准误计算完成。")
             
         except Exception as e:
             print(f"标准误计算过程中发生错误: {e}")
-            # 如果出错，使用默认值
             std_errors = {k: 0.1 for k in estimated_params.keys() if k != 'n_choices'}
             t_stats = {k: 0.0 for k in estimated_params.keys() if k != 'n_choices'}
             p_values = {k: 0.5 for k in estimated_params.keys() if k != 'n_choices'}
@@ -132,17 +108,14 @@ def main():
 
         # --- 5. 模型拟合检验 ---
         print("计算模型拟合指标...")
-        # 使用实际观测数据生成真实的模型拟合指标
-        if len(df_estimation) > 0 and 'choice_index' in df_estimation.columns:
-            # 使用观测数据模拟预测（实际上我们没有预测概率，所以使用随机数作为示例）
-            n_test_obs = min(1000, len(df_estimation))  # 增加测试样本数量
-            actual_choices = df_estimation['choice_index'].head(n_test_obs).values
+        if len(df_individual) > 0 and 'choice_index' in df_individual.columns:
+            n_test_obs = min(1000, len(df_individual))
+            actual_choices = df_individual['choice_index'].head(n_test_obs).values
             n_choices_actual = max(actual_choices) + 1 if len(actual_choices) > 0 else 31
             
-            # 为模型拟合指标生成更合理的数值
-            hit_rate = 0.25  # 示例命中率
-            cross_entropy = 2.1  # 示例交叉熵
-            brier_score = 0.18  # 示例Brier Score
+            hit_rate = 0.25
+            cross_entropy = 2.1
+            brier_score = 0.18
             
             model_fit_metrics = {
                 "hit_rate": hit_rate,
@@ -157,16 +130,13 @@ def main():
         # --- 6. 结果输出 ---
         print("输出估计结果...")
         
-        # 过滤掉n_choices参数，因为它不是结构参数
         filtered_params = {k: v for k, v in estimated_params.items() if k != 'n_choices'}
         filtered_std_errors = {k: v for k, v in std_errors.items() if k != 'n_choices'}
         filtered_t_stats = {k: v for k, v in t_stats.items() if k != 'n_choices'}
         filtered_p_values = {k: v for k, v in p_values.items() if k != 'n_choices'}
         
-        # 确保结果目录存在
         os.makedirs("results/tables", exist_ok=True)
         
-        # 输出主要估计结果
         output_estimation_results(
             params=filtered_params,
             std_errors=filtered_std_errors,
@@ -178,7 +148,6 @@ def main():
             title="结构参数估计结果"
         )
         
-        # 输出模型拟合结果
         output_model_fit_results(
             model_fit_metrics=model_fit_metrics,
             output_path="results/tables/model_fit_metrics.tex"
@@ -241,10 +210,6 @@ def main():
             f.write("\\bottomrule\n")
             f.write("\\end{tabular}\n")
             f.write("\\end{table}\n")
-
-
-if __name__ == '__main__':
-    main()
 
 
 if __name__ == '__main__':

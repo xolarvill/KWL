@@ -38,7 +38,7 @@ class ModelConfig:
     prov_code_ranked_path: str = 'data/processed/prov_code_ranked.json'
     prov_name_ranked_path: str = 'data/processed/prov_name_ranked.json'
     adjacency_matrix_path: str = 'data/processed/adjacent_matrix.xlsx'  # 邻接矩阵
-    distance_matrix_path: str = 'data/processed/distance_matrix.csv'  # 物理距离矩阵
+    distance_matrix_path: str = 'data/processed/distance_matrix.xlsx'  # 物理距离矩阵
     linguistic_matrix_path: str = 'data/processed/linguistic_matrix.csv'  # 语言亲疏度矩阵，越大越疏远
     prov_language_data_path: str = 'data/processed/prov_language_data.csv'  # 省份代表性语言
     linguistic_data_path: str = 'data/processed/linguistic_tree.json'  # 语言谱系树

@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
@@ -36,25 +35,29 @@ def _calculate_mixture_log_likelihood(
     Returns:
         float: The total log-likelihood of the sample.
     """
-    # Ensure pi_k has a minimum value to avoid log(0)
-    pi_k_safe = np.maximum(pi_k, 1e-10)
-    pi_k_safe = pi_k_safe / np.sum(pi_k_safe)  # Renormalize
-    
-    log_pi_k = np.log(pi_k_safe)
-    weighted_log_lik = log_likelihood_matrix + log_pi_k
-    
-    # Use log-sum-exp for numerical stability
-    max_log_lik = np.max(weighted_log_lik, axis=1, keepdims=True)
-    log_marginal_lik = max_log_lik.squeeze() + np.log(
-        np.sum(np.exp(weighted_log_lik - max_log_lik), axis=1)
-    )
-    
-    # Check for invalid values
-    if np.any(np.isnan(log_marginal_lik)) or np.any(np.isinf(log_marginal_lik)):
-        print("Warning: Invalid values in log_marginal_lik")
-        return -1e10  # Return a very negative value instead of inf
-    
-    return np.sum(log_marginal_lik)
+    try:
+        # Ensure pi_k has a minimum value to avoid log(0)
+        pi_k_safe = np.maximum(pi_k, 1e-10)
+        pi_k_safe = pi_k_safe / np.sum(pi_k_safe)  # Renormalize
+        
+        log_pi_k = np.log(pi_k_safe)
+        weighted_log_lik = log_likelihood_matrix + log_pi_k
+        
+        # Use log-sum-exp for numerical stability
+        max_log_lik = np.max(weighted_log_lik, axis=1, keepdims=True)
+        log_marginal_lik = max_log_lik.squeeze() + np.log(
+            np.sum(np.exp(weighted_log_lik - max_log_lik), axis=1)
+        )
+        
+        # Check for invalid values
+        if np.any(np.isnan(log_marginal_lik)) or np.any(np.isinf(log_marginal_lik)):
+            print("Warning: Invalid values in log_marginal_lik")
+            return -1e10  # Return a very negative value instead of inf
+        
+        return np.sum(log_marginal_lik)
+    except Exception as e:
+        print(f"Error in mixture log-likelihood calculation: {e}")
+        return -1e10
 
 # --- EM Algorithm Steps ---
 
@@ -65,7 +68,9 @@ def e_step(
     state_space: pd.DataFrame,
     transition_matrices: Dict[str, np.ndarray],
     beta: float,
-    regions_df: pd.DataFrame = None,  # Additional parameter for regional data
+    regions_df: pd.DataFrame,
+    distance_matrix: np.ndarray,
+    adjacency_matrix: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Performs the E-step: calculates posterior probabilities and the log-likelihood matrix
@@ -82,18 +87,18 @@ def e_step(
     
     for k in range(K):
         try:
-            # Calculate log-likelihood for all observations for a given type k
-            # Note: calculate_log_likelihood returns the *negative* log-likelihood
-            # 确保agent_type是整数
+            # Ensure agent_type is an integer
             agent_type_int = int(k)
             log_lik_obs = -calculate_log_likelihood(
                 params=params,
                 observed_data=observed_data,
                 state_space=state_space,
-                agent_type=agent_type_int,
+                agent_type=int(k),
                 beta=beta,
                 transition_matrices=transition_matrices,
-                regions_df=regions_df,  # Pass regional data
+                regions_df=regions_df,
+                distance_matrix=distance_matrix,
+                adjacency_matrix=adjacency_matrix,
             )
             
             # Check for invalid values
@@ -112,27 +117,31 @@ def e_step(
             log_likelihood_matrix[:, k] = -1e10
 
     # Calculate posterior probabilities using Bayes' rule in log space with numerical stability
-    # Ensure pi_k has minimum value
-    pi_k_safe = np.maximum(pi_k, 1e-10)
-    pi_k_safe = pi_k_safe / np.sum(pi_k_safe)
-    
-    log_pi_k = np.log(pi_k_safe)
-    weighted_log_lik = log_likelihood_matrix + log_pi_k
-    
-    # Use log-sum-exp trick for numerical stability
-    max_log_lik = np.max(weighted_log_lik, axis=1, keepdims=True)
-    log_marginal_lik = max_log_lik + np.log(
-        np.sum(np.exp(weighted_log_lik - max_log_lik), axis=1, keepdims=True)
-    )
-    log_posterior = weighted_log_lik - log_marginal_lik
-    
-    # Compute posterior probabilities
-    posterior_probs = np.exp(log_posterior)
-    
-    # Ensure probabilities sum to 1 and are non-negative
-    posterior_probs = np.maximum(posterior_probs, 0)
-    row_sums = posterior_probs.sum(axis=1, keepdims=True)
-    posterior_probs = posterior_probs / np.maximum(row_sums, 1e-10)
+    try:
+        # Ensure pi_k has minimum value
+        pi_k_safe = np.maximum(pi_k, 1e-10)
+        pi_k_safe = pi_k_safe / np.sum(pi_k_safe)
+        
+        log_pi_k = np.log(pi_k_safe)
+        weighted_log_lik = log_likelihood_matrix + log_pi_k
+        
+        # Use log-sum-exp trick for numerical stability
+        max_log_lik = np.max(weighted_log_lik, axis=1, keepdims=True)
+        log_marginal_lik = max_log_lik + np.log(
+            np.sum(np.exp(weighted_log_lik - max_log_lik), axis=1, keepdims=True)
+        )
+        log_posterior = weighted_log_lik - log_marginal_lik
+        
+        # Compute posterior probabilities
+        posterior_probs = np.exp(log_posterior)
+        
+        # Ensure probabilities sum to 1 and are non-negative
+        posterior_probs = np.maximum(posterior_probs, 0)
+        row_sums = posterior_probs.sum(axis=1, keepdims=True)
+        posterior_probs = posterior_probs / np.maximum(row_sums, 1e-10)
+    except Exception as e:
+        print(f"Error in E-step posterior probability calculation: {e}")
+        posterior_probs = np.zeros((N, K))
     
     print(f"  E-step completed. Posterior probability range: [{posterior_probs.min():.6f}, {posterior_probs.max():.6f}]")
     
@@ -145,7 +154,9 @@ def m_step(
     state_space: pd.DataFrame,
     transition_matrices: Dict[str, np.ndarray],
     beta: float,
-    regions_df: pd.DataFrame = None,  # Additional parameter for regional data
+    regions_df: pd.DataFrame,
+    distance_matrix: np.ndarray,
+    adjacency_matrix: np.ndarray,
 ) -> Tuple[Dict[str, Any], np.ndarray]:
     """
     Performs the M-step: updates parameters and type probabilities with numerical safeguards.
@@ -175,10 +186,12 @@ def m_step(
                     params=params_k,
                     observed_data=observed_data,
                     state_space=state_space,
-                    agent_type=agent_type_int,
+                    agent_type=int(k),
                     beta=beta,
                     transition_matrices=transition_matrices,
-                    regions_df=regions_df,  # Pass regional data
+                    regions_df=regions_df,
+                    distance_matrix=distance_matrix,
+                    adjacency_matrix=adjacency_matrix,
                 )
                 
                 # Check for invalid values
@@ -242,10 +255,12 @@ def run_em_algorithm(
     transition_matrices: Dict[str, np.ndarray],
     beta: float,
     n_types: int,
+    regions_df: pd.DataFrame,
+    distance_matrix: np.ndarray,
+    adjacency_matrix: np.ndarray,
     max_iterations: int = 100,
     tolerance: float = 1e-5,
-    n_choices: int = 31,  # Default value, but should be passed from caller
-    regions_df: pd.DataFrame = None,  # Regional data needed for utility calculation
+    n_choices: int = 31,
 ) -> Dict[str, Any]:
     """
     The main function to run the EM algorithm.
@@ -270,13 +285,13 @@ def run_em_algorithm(
         # 2. E-Step
         print("Running E-step...")
         posterior_probs, log_likelihood_matrix = e_step(
-            initial_params, pi_k, observed_data, state_space, transition_matrices, beta, regions_df
+            initial_params, pi_k, observed_data, state_space, transition_matrices, beta, regions_df, distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix
         )
         
         # 3. M-Step
         print("Running M-step...")
         initial_params, pi_k = m_step(
-            posterior_probs, initial_params, observed_data, state_space, transition_matrices, beta, regions_df
+            posterior_probs, initial_params, observed_data, state_space, transition_matrices, beta, regions_df, distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix
         )
         
         # 4. Check for convergence

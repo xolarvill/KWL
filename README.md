@@ -32,6 +32,32 @@
 
 此外，`data/processed` 目录还包括一些矩阵文件，例如 `adjacent_matrix.xlsx` 为邻接矩阵.
 
+此外，我将附上一些数据中变量对应到论文中具体内容的表格
+|文件|变量名|论文中的变量|论文中的意义|
+|---|---|---|---|
+|clds.csv|IID|i|个体标识|
+|clds.csv|year|t|时间|
+|clds.csv|provcd|j|所在地区|
+|clds.csv|hukou_prov|hukou|个体i的户口地区|
+|clds.csv|hometown|home|个体i的家乡|
+|clds.csv|is_at_hukou|I(j=hukou_i)|个体i当前是否在户口地|
+|clds.csv|income|w_itj|个体i在t期j地时的收入|
+|clds.csv|age|a_it|个体i在t期的年龄|
+|distance_matrix.xlsx|本身是矩阵|Dis|表示两个地区之间的距离|
+|adjacent_matrix.xlsx|本身是矩阵|Adj|表示两个地区是否相邻|
+|linguistic_distance_matrix.csv|本身是矩阵|Similarity|用语言距离表示两个省份之间的文化亲近度|
+|geo_amenities.csv|amenity_climater|Climate|气候，属于amenities的一部分|
+|geo_amenities.csv|amenity_education|Edu|教育，属于amenities的一部分|
+|geo_amenities.csv|自然灾害受灾人口（万人）|Hazzard|自然灾害，属于amenities的一部分|
+|geo_amenities.csv|amenity_|Education|教育，属于amenities的一部分|
+|geo_amenities.csv|房价收入比|HousingPrice|房价收入比，属于amenities的一部分|
+|geo_amenities.csv|amenity_public_services|Public|公共服务，属于amenities的一部分|
+|geo_amenities.csv|amenity_health|Health|医疗，属于amenities的一部分|
+|geo.xlsx|移动电话普及率|Internet|互联网接入度|
+|geo.xlsx|常住人口万|n_jt|j地区在t期的人口|
+|geo.xlsx|地区基本经济面|mu_jt|地区的相对基本工资|
+|geo.xlsx|户籍难度等级|Tier|获取当地户口的难度|
+
 
 ## 实现的结果与方法
 
@@ -283,46 +309,7 @@
 
 每个阶段都有明确的输入输出接口，支持独立运行和调试，便于分布式开发和维护。
 
-### 实施时间表与资源需求
 
-**阶段一：数据准备** (预计 2-3 周)
-- 人力需求：1-2 名数据工程师
-- 计算资源：中等配置服务器 (16GB RAM, 8 核 CPU)
-- 关键里程碑：完成所有数据预处理管道，生成标准化数据集
-
-**阶段二：ML 插件训练** (预计 1-2 周)
-- 人力需求：1 名机器学习工程师
-- 计算资源：GPU 服务器 (推荐 RTX 3080 或以上)
-- 关键里程碑：完成工资预测模型训练，验证交叉拟合效果
-
-**阶段三：DDCM 估计** (预计 4-6 周)
-- 人力需求：2-3 名计量经济学研究员 + 1 名高性能计算专家
-- 计算资源：高性能计算集群 (64GB+ RAM, 32+ 核 CPU)
-- 关键里程碑：完成参数估计，通过模型验证测试
-
-**阶段四：ABM 模拟** (预计 3-4 周)
-- 人力需求：1-2 名复杂系统建模专家
-- 计算资源：分布式计算环境或云计算平台
-- 关键里程碑：完成政策模拟，生成可视化结果
-
-**总体时间表**: 10-15 周 (约 3-4 个月)
-
-### 实施建议与风险控制
-
-**技术风险缓解**:
-1. **数值稳定性**: 在 EM-NFXP 估计中实现多种数值稳定化技术
-2. **收敛诊断**: 建立完善的收敛监控和诊断机制
-3. **模型验证**: 在每个阶段实施严格的单元测试和集成测试
-
-**性能优化策略**:
-1. **内存优化**: 实现数据流式处理，避免内存溢出
-2. **计算优化**: 利用 PyTorch 的 JIT 编译和 CUDA 加速
-3. **并行优化**: 根据硬件配置动态调整并行度
-
-**开发最佳实践**:
-1. **版本控制**: 使用 Git 进行代码版本管理，建立分支策略
-2. **文档管理**: 维护详细的 API 文档和使用说明
-3. **结果可复现**: 设置随机种子，保存中间结果和检查点
 
 ### 扩展性考虑
 
