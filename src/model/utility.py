@@ -23,28 +23,45 @@ def _calculate_income_utility(
     Returns:
         float: Utility derived from income.
     """
-    # FIX: Add protection against log(0) or log(negative)
+    # FIX: Add protection against log(0) or log(negative) and extreme values
     w_ij_safe = np.maximum(w_ij, 1e-6)
     w_ref_safe = np.maximum(w_ref, 1e-6)
-    
+
     log_w_ij = np.log(w_ij_safe)
     log_w_ref = np.log(w_ref_safe)
-    
+
+    # Clip log difference to prevent extreme utility values
+    log_diff = np.clip(log_w_ij - log_w_ref, -10, 10)
+
     if log_w_ij >= log_w_ref:
-        return alpha_w * (log_w_ij - log_w_ref)
+        utility = alpha_w * log_diff
     else:
-        return alpha_w * lambda_loss * (log_w_ij - log_w_ref)
+        utility = alpha_w * lambda_loss * log_diff
+
+    # Final clipping to ensure utility stays in reasonable range
+    return np.clip(utility, -100, 100)
 
 def _calculate_hukou_penalty(
     is_hukou_mismatch: bool,
     region_tier: int,
     edu_level: float,
     health_level: float,
-    housing_price: float,
+    housing_price_ratio: float,
     params: Dict[str, float],
 ) -> float:
     """
     Calculates the penalty for living outside one's hukou registration area.
+
+    Args:
+        is_hukou_mismatch (bool): Whether there is a hukou mismatch.
+        region_tier (int): Tier of the region (1, 2, or 3).
+        edu_level (float): Education amenity level.
+        health_level (float): Health amenity level.
+        housing_price_ratio (float): Housing price-to-income ratio (房价收入比).
+        params (Dict[str, float]): Model parameters.
+
+    Returns:
+        float: The calculated hukou penalty.
     """
     if not is_hukou_mismatch:
         return 0.0
@@ -57,9 +74,16 @@ def _calculate_hukou_penalty(
     # Interaction penalties
     edu_penalty = params["rho_edu"] * edu_level
     health_penalty = params["rho_health"] * health_level
-    house_penalty = params["rho_house"] * housing_price
 
-    return base_penalty + edu_penalty + health_penalty + house_penalty
+    # Use housing price-to-income ratio (already normalized)
+    # Handle potential invalid values
+    housing_price_ratio_safe = np.maximum(housing_price_ratio, 0.0)
+    house_penalty = params["rho_house"] * housing_price_ratio_safe
+
+    total_penalty = base_penalty + edu_penalty + health_penalty + house_penalty
+
+    # Clip to reasonable range to prevent extreme penalties
+    return np.clip(total_penalty, 0.0, 50.0)
 
 def _calculate_migration_cost(
     is_moving: bool,
@@ -76,11 +100,12 @@ def _calculate_migration_cost(
 
     Args:
         is_moving (bool): True if the agent is moving to a new location.
-        distance (float): Distance between origin and destination.
+        distance (float): Distance between origin and destination (km).
         is_adjacent (bool): True if the destination is adjacent to the origin.
         is_return_move (bool): True if moving back to a previously visited location.
         age (int): Age of the agent.
-        destination_population (float): Population of the destination.
+        destination_population (float): Log of destination population (log(万人)).
+                                       用对数形式以处理量纲问题。
         agent_type (int): The unobserved type of the agent.
         params (Dict[str, float]): Dictionary of model parameters.
 
@@ -98,6 +123,7 @@ def _calculate_migration_cost(
     adjacency_discount = params["gamma_2"] * is_adjacent
     return_discount = params["gamma_3"] * is_return_move
     age_cost = params["gamma_4"] * age
+    # gamma_5应为负数，表示大城市吸引力(人口规模折扣)
     population_discount = params["gamma_5"] * destination_population
 
     total_cost = (
@@ -162,18 +188,23 @@ def calculate_flow_utility(
         region_tier=data.get("tier_dest", 1),
         edu_level=data.get("amenity_education_dest", 0.0),
         health_level=data.get("amenity_health_dest", 0.0),
-        housing_price=data.get("房价（元每平方）_dest", 0.0),
+        housing_price_ratio=data.get("房价收入比_dest", 0.0),  # 使用房价收入比而非房价
         params=params,
     )
 
     # 5. Migration Cost (Eq. 9)
+    # 获取目标地人口(常住人口万)
+    dest_population = data.get("常住人口万_dest", 4000.0)  # 默认值约为全国平均
+    # 使用对数形式以处理量纲并降低数值范围
+    log_dest_population = np.log(np.maximum(dest_population, 1.0))
+
     migration_cost = _calculate_migration_cost(
         is_moving=(data.get("provcd_t", 0) != data.get("prev_provcd", 0)),
-        distance=0.0,  # 距离信息需要通过其他方式获取，暂时设为0
-        is_adjacent=0,  # 邻接信息需要通过其他方式获取，暂时设为0
-        is_return_move=0,  # 回流信息需要通过其他方式获取，暂时设为0
+        distance=data.get("distance", 0.0),
+        is_adjacent=data.get("is_adjacent", 0),
+        is_return_move=data.get("is_return_move", 0),
         age=data.get("age", 0),
-        destination_population=data.get("地区基本经济面_dest", 1000000),  # 使用目的地的经济面作为代理
+        destination_population=log_dest_population,  # 使用对数人口
         agent_type=agent_type,
         params=params,
     )
@@ -191,4 +222,8 @@ def calculate_flow_utility(
         + xi_ij
     )
 
-    return total_utility
+    # Ensure total utility is within reasonable bounds to prevent numerical issues
+    # in downstream calculations (e.g., exp in softmax)
+    total_utility_clipped = np.clip(total_utility, -500, 500)
+
+    return total_utility_clipped

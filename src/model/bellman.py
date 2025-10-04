@@ -103,17 +103,35 @@ def solve_bellman_iteration(
             else:
                 choice_specific_values[s_idx, j_idx] = flow_utility  # Just current utility if future is invalid
 
-    # Update the expected value function V(x) using log-sum-exp
-    max_v = np.max(choice_specific_values, axis=1)
-    v_new = max_v + np.log(np.sum(np.exp(choice_specific_values - max_v[:, np.newaxis]), axis=1))
-    
-    # Handle potential NaN/Inf values
-    if np.any(np.isnan(v_new)) or np.any(np.isinf(v_new)) or np.any(np.abs(v_new) > 1e10):
-        print("Warning: Invalid values in value function update, using fallback")
+    # Update the expected value function V(x) using log-sum-exp with improved numerical stability
+    # Step 1: Clip choice_specific_values to prevent extreme values
+    choice_specific_values_clipped = np.clip(choice_specific_values, -500, 500)
+
+    # Step 2: Apply log-sum-exp trick
+    max_v = np.max(choice_specific_values_clipped, axis=1)
+
+    # Step 3: Compute exp differences with underflow protection
+    exp_diff = np.exp(choice_specific_values_clipped - max_v[:, np.newaxis])
+    sum_exp = np.sum(exp_diff, axis=1)
+
+    # Step 4: Handle edge cases where sum_exp is too small
+    sum_exp_safe = np.maximum(sum_exp, 1e-300)
+
+    # Step 5: Compute log-sum-exp
+    log_sum_exp = np.log(sum_exp_safe)
+    v_new = max_v + log_sum_exp
+
+    # Step 6: Final validation and clipping
+    v_new = np.clip(v_new, -1e6, 1e6)
+
+    # Handle potential NaN/Inf values as last resort
+    if np.any(np.isnan(v_new)) or np.any(np.isinf(v_new)):
+        n_invalid = np.sum(np.isnan(v_new) | np.isinf(v_new))
+        print(f"Warning: Invalid values detected in {n_invalid}/{len(v_new)} states")
+        print(f"  Choice values range: [{np.min(choice_specific_values):.2f}, {np.max(choice_specific_values):.2f}]")
+        print(f"  Max exp difference sum: {np.max(sum_exp):.2e}, Min: {np.min(sum_exp):.2e}")
         # Provide a reasonable fallback
         v_new = np.nan_to_num(v_new, nan=0.0, posinf=0.0, neginf=-1e6)
-        # Or initialize with zeros as a more conservative fallback
-        # v_new = np.zeros_like(v_old)
 
     return v_new
 

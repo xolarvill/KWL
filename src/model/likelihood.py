@@ -73,10 +73,22 @@ def calculate_choice_probabilities(
             
             choice_specific_values[s_idx, j_idx] = flow_utility + beta * expected_future_value
 
-    # Apply softmax to get probabilities
-    exp_v = np.exp(choice_specific_values)
-    sum_exp_v = exp_v.sum(axis=1, keepdims=True)
-    ccps = exp_v / np.maximum(sum_exp_v, 1e-15)
+    # Apply softmax to get probabilities with improved numerical stability
+    # Step 1: Clip extreme values
+    choice_specific_values_clipped = np.clip(choice_specific_values, -500, 500)
+
+    # Step 2: Apply log-sum-exp trick
+    max_v = np.max(choice_specific_values_clipped, axis=1, keepdims=True)
+    exp_v = np.exp(choice_specific_values_clipped - max_v)
+    sum_exp_v = np.sum(exp_v, axis=1, keepdims=True)
+
+    # Step 3: Compute probabilities with underflow protection
+    sum_exp_v_safe = np.maximum(sum_exp_v, 1e-300)
+    ccps = exp_v / sum_exp_v_safe
+
+    # Step 4: Ensure probabilities are valid (non-negative, sum to 1)
+    ccps = np.maximum(ccps, 1e-15)  # Floor to prevent exact zeros
+    ccps = ccps / np.sum(ccps, axis=1, keepdims=True)  # Renormalize
 
     return ccps
 

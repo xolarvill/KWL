@@ -61,16 +61,24 @@ class DataLoader:
         return df_region
         
     def load_adjacency_matrix(self) -> np.ndarray:
-        """加载地区邻接矩阵。"""
+        """
+        加载地区邻接矩阵。
+
+        Returns:
+            np.ndarray: 纯数值的邻接矩阵，形状为 (n_regions, n_regions)
+        """
         path = self.config.adjacency_matrix_path
         self._validate_path(path, "地区邻接矩阵(xlsx)")
-        
+
         try:
-            adjacency_matrix = pd.read_excel(path)
+            adjacency_df = pd.read_excel(path)
+            # 移除第一列(省份名称列)，只保留数值邻接关系
+            # 假设第一列是省份名称，从第二列开始是邻接矩阵
+            adjacency_matrix = adjacency_df.iloc[:, 1:].to_numpy(dtype=float)
         except Exception as e:
             raise RuntimeError(f"读取邻接矩阵时出错 (路径: {path}): {str(e)}")
-        
-        return adjacency_matrix.to_numpy()
+
+        return adjacency_matrix
     
     def load_prov_code_ranked(self) -> List[str]:
         """从JSON文件加载有序的省份代码列表。"""
