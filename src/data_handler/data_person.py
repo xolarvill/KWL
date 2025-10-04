@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import json # Added for json.load
 
 def preprocess_individual_data(file_path: str) -> pd.DataFrame:
     """
@@ -25,6 +26,56 @@ def preprocess_individual_data(file_path: str) -> pd.DataFrame:
     # 为清晰起见，重命名核心列
     # 'provcd' 代表个体在 'year' 这一期所在的省份
     df.rename(columns={'provcd': 'provcd_t', 'year': 'year_t', 'age': 'age_t', 'IID': 'individual_id'}, inplace=True)
+
+    # 检查省份列是否已经是数字编码
+    if pd.api.types.is_numeric_dtype(df['provcd_t']):
+        print("省份列已是数字编码，跳过名称映射。")
+    else:
+        # 加载省份名称列表和省份代码列表
+        prov_name_ranked_path = os.path.join(os.path.dirname(file_path), 'prov_name_ranked.json')
+        prov_code_ranked_path = os.path.join(os.path.dirname(file_path), 'prov_code_ranked.json')
+        
+        with open(prov_name_ranked_path, 'r', encoding='utf-8') as f:
+            prov_names = json.load(f)
+        with open(prov_code_ranked_path, 'r', encoding='utf-8') as f:
+            prov_codes = json.load(f)
+            
+        # 创建省份名称到行政区划代码的映射
+        prov_name_to_admin_code = {name: code for name, code in zip(prov_names, prov_codes)}
+
+        # 将省份名称转换为数字编码
+        df['provcd_t'] = df['provcd_t'].map(prov_name_to_admin_code)
+        df['hukou_prov'] = df['hukou_prov'].map(prov_name_to_admin_code)
+        df['hometown'] = df['hometown'].map(prov_name_to_admin_code)
+
+    # 转换 'gender' 列为数字 (男=1, 女=0)
+    df['gender'] = df['gender'].map({'男': 1, '女': 0})
+
+    # 转换 'is_at_hukou' 列为数字 (是=1, 否=0)
+    df['is_at_hukou'] = df['is_at_hukou'].map({'是': 1, '否': 0})
+
+    # 确保映射成功，处理可能存在的NaN（未匹配的省份名称）
+    if df['provcd_t'].isnull().any():
+        unmatched_provcd_t = df.loc[df['provcd_t'].isnull(), 'provcd_t'].unique()
+        print(f"警告: 'provcd_t' 列中存在未匹配的省份名称: {unmatched_provcd_t}")
+        df.dropna(subset=['provcd_t'], inplace=True) # 重新启用dropna
+    if df['hukou_prov'].isnull().any():
+        unmatched_hukou_prov = df.loc[df['hukou_prov'].isnull(), 'hukou_prov'].unique()
+        print(f"警告: 'hukou_prov' 列中存在未匹配的省份名称: {unmatched_hukou_prov}")
+        df.dropna(subset=['hukou_prov'], inplace=True) # 重新启用dropna
+    if df['hometown'].isnull().any():
+        unmatched_hometown = df.loc[df['hometown'].isnull(), 'hometown'].unique()
+        print(f"警告: 'hometown' 列中存在未匹配的省份名称: {unmatched_hometown}")
+        df.dropna(subset=['hometown'], inplace=True) # 重新启用dropna
+
+    # 过滤掉年龄超出配置范围的个体
+    # 需要先加载 ModelConfig
+    from src.config.model_config import ModelConfig
+    config = ModelConfig()
+    initial_len = len(df)
+    df = df[(df['age_t'] >= config.age_min) & (df['age_t'] <= config.age_max)]
+    if len(df) < initial_len:
+        print(f"过滤掉 {initial_len - len(df)} 条年龄超出范围的观测。当前剩余 {len(df)} 条观测。")
 
     # 确保数据按个体和时间正确排序
     df.sort_values(['individual_id', 'year_t'], inplace=True)

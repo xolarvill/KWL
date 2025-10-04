@@ -62,6 +62,8 @@ def main():
     # 读取数据
     try:
         df = pd.read_excel(input_path)
+        print("--- Original geo.xlsx columns before PCA ---")
+        print(df.columns.tolist())
     except FileNotFoundError:
         print(f"错误: 文件未找到 at {input_path}")
         return
@@ -81,8 +83,8 @@ def main():
     # 选择要保留的列（原始标识符 + 新的综合指标 + 其他重要变量）
     columns_to_keep = [
         'provcd', 'prov_name', 'year', 'identifier', 'area', 
-        '常住人口（万人', '人均可支配收入（元） ', '自然灾害受灾人口（万人）',
-        '房价（元每平方）', '房价指数', '移动电话普及率', '地区基本经济面', '代表性方言',
+        '常住人口万', '人均可支配收入（元） ', '自然灾害受灾人口万',
+        '房价（元每平方）', '房价收入比', '移动电话普及率', '地区基本经济面', '代表性方言',
         'amenity_climate', 'amenity_health', 'amenity_education', 'amenity_public_services'
     ]
     
