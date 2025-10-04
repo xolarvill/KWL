@@ -165,23 +165,40 @@ def m_step(
     
     # For simplicity, we assume all types share the same structural parameters theta
     # A more complex model could have type-specific parameters
-    
+
+    # Print type weight diagnostics
+    print(f"\n  Type weight diagnostics:")
+    for k in range(K):
+        weight_sum = np.sum(posterior_probs[:, k])
+        weight_mean = np.mean(posterior_probs[:, k])
+        print(f"    Type {k}: sum={weight_sum:10.4f}, mean={weight_mean:.6f}")
+
     # Create the objective function for the optimizer
     def objective_function(param_values: np.ndarray, param_names: List[str]) -> float:
+        # Add function call counter
+        if not hasattr(objective_function, 'call_count'):
+            objective_function.call_count = 0
+        objective_function.call_count += 1
+
         params_k = _unpack_params(param_values, param_names, initial_params['n_choices'])
         total_weighted_log_lik = 0
-        
+
         try:
             for k in range(K):
                 weights = posterior_probs[:, k]
-                
+                weight_sum = np.sum(weights)
+
                 # Skip if weights are too small
-                if np.sum(weights) < 1e-10:
+                if weight_sum < 1e-10:
+                    if objective_function.call_count == 1:
+                        print(f"    Skipping type {k} (weight sum {weight_sum:.2e} < 1e-10)")
                     continue
                 
                 # Calculate log-likelihood for this type
                 # 确保agent_type是整数
                 agent_type_int = int(k)
+                # Disable verbose for M-step optimization (except first call)
+                verbose_flag = (objective_function.call_count == 1)
                 log_lik_k_obs = -calculate_log_likelihood(
                     params=params_k,
                     observed_data=observed_data,
@@ -192,6 +209,7 @@ def m_step(
                     regions_df=regions_df,
                     distance_matrix=distance_matrix,
                     adjacency_matrix=adjacency_matrix,
+                    verbose=verbose_flag,  # Control verbosity
                 )
                 
                 # Check for invalid values
@@ -215,24 +233,34 @@ def m_step(
     initial_param_values, param_names = _pack_params(initial_params)
     
     # Run optimizer with error handling
+    print(f"\n  Starting BFGS optimization...")
     try:
         result = minimize(
             objective_function,
             initial_param_values,
             args=(param_names,),
             method='BFGS',
-            options={'disp': False, 'maxiter': 100}  # Reduce verbosity
+            options={
+                'disp': False,  # We'll print our own summary
+                'maxiter': 50,  # Limit iterations to prevent excessive computation
+                'gtol': 1e-4,   # Gradient tolerance for convergence
+            }
         )
-        
+
         if result.success:
             updated_params = _unpack_params(result.x, param_names, initial_params['n_choices'])
-            print(f"  M-step optimization successful. Final objective: {result.fun:.4f}")
+            print(f"  ✓ M-step optimization successful:")
+            print(f"    - Function evaluations: {objective_function.call_count}")
+            print(f"    - Final objective: {result.fun:.4f}")
+            print(f"    - Iterations: {result.nit}")
         else:
-            print(f"  M-step optimization did not converge. Using previous parameters.")
+            print(f"  ✗ M-step optimization did not converge: {result.message}")
+            print(f"    - Using previous parameters.")
             updated_params = initial_params
-            
+
     except Exception as e:
-        print(f"  Error in M-step optimization: {e}. Using previous parameters.")
+        print(f"  ✗ Error in M-step optimization: {e}")
+        print(f"    - Using previous parameters.")
         updated_params = initial_params
 
     # Update type probabilities with lower bound constraint

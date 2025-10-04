@@ -102,15 +102,19 @@ def calculate_log_likelihood(
     regions_df: pd.DataFrame,
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
+    verbose: bool = True,  # Add verbose parameter
 ) -> float:
     """
     Calculates the log-likelihood for a given set of parameters and agent type.
+
+    Args:
+        verbose (bool): Whether to print Bellman convergence messages.
     """
     # 1. Solve the DP problem for the given parameters
     # Create a dummy individual_data_map for now - this needs to be properly constructed
     # based on the actual individual data for state-specific calculations
     individual_data_map = {}  # Placeholder - needs proper implementation
-    
+
     converged_v, _ = solve_bellman_equation(
         utility_function=calculate_flow_utility,
         state_space=state_space,
@@ -122,6 +126,7 @@ def calculate_log_likelihood(
         distance_matrix=distance_matrix,
         adjacency_matrix=adjacency_matrix,
         individual_data_map=individual_data_map,
+        verbose=verbose,  # Pass verbose flag
     )
 
     # 2. Calculate conditional choice probabilities (CCPs)

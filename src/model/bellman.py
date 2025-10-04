@@ -148,6 +148,7 @@ def solve_bellman_equation(
     individual_data_map: Dict[int, pd.Series] = None,  # Make it optional with default
     tolerance: float = 1e-6,
     max_iterations: int = 100,  # Reduced default iterations to avoid hanging
+    verbose: bool = True,  # Control printing
 ) -> Tuple[np.ndarray, int]:
     """
     Solves the Bellman equation using value function iteration until convergence.
@@ -165,6 +166,7 @@ def solve_bellman_equation(
         individual_data_map (Dict[int, pd.Series]): Mapping of individual IDs to their data (optional).
         tolerance (float): Convergence criterion.
         max_iterations (int): Maximum number of iterations.
+        verbose (bool): Whether to print convergence messages.
 
     Returns:
         Tuple[np.ndarray, int]: A tuple containing:
@@ -173,11 +175,12 @@ def solve_bellman_equation(
     """
     n_states = len(state_space)
     if n_states == 0:
-        print("Warning: Empty state space, returning zero vector")
+        if verbose:
+            print("Warning: Empty state space, returning zero vector")
         return np.zeros(0), 0
-    
+
     v_old = np.zeros(n_states)
-    
+
     for i in range(max_iterations):
         try:
             v_new = solve_bellman_iteration(
@@ -194,23 +197,27 @@ def solve_bellman_equation(
                 individual_data_map
             )
         except Exception as e:
-            print(f"Error in Bellman iteration {i+1}: {e}")
+            if verbose:
+                print(f"Error in Bellman iteration {i+1}: {e}")
             # Return current value function if iteration fails
             return v_old, i
 
         # Check for convergence
         diff = np.max(np.abs(v_new - v_old))
-        
+
         # Check for invalid values
         if np.any(np.isnan(v_new)) or np.any(np.isinf(v_new)):
-            print(f"Warning: Invalid values in iteration {i+1}, stopping.")
+            if verbose:
+                print(f"Warning: Invalid values in iteration {i+1}, stopping.")
             return v_old, i
-            
+
         if diff < tolerance:
-            print(f"Bellman equation converged for type {agent_type} in {i+1} iterations.")
+            if verbose:
+                print(f"Bellman equation converged for type {agent_type} in {i+1} iterations.")
             return v_new, i + 1
 
         v_old = v_new
 
-    print(f"Warning: Bellman equation did not converge for type {agent_type} after {max_iterations} iterations.")
+    if verbose:
+        print(f"Warning: Bellman equation did not converge for type {agent_type} after {max_iterations} iterations.")
     return v_old, max_iterations
