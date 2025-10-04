@@ -25,6 +25,7 @@ data/geo/adjacent/
 *.ttf
 !楷体_GB2312.ttf
 test/
+progress/
 
 # General
 .DS_Store
