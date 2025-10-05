@@ -17,6 +17,7 @@ dependencies = [
     "pandas>=2.3.0",
     "scikit-learn>=1.7.0",
     "scipy>=1.16.0",
+    "snakeviz>=2.2.2",
     "torch>=2.7.1",
 ]
 

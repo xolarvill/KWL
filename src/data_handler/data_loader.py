@@ -39,7 +39,6 @@ class DataLoader:
         self._validate_path(path, "个体数据(csv)")
         
         try:
-            # 调用新的预处理函数
             df_individual = preprocess_individual_data(path)
         except Exception as e:
             raise RuntimeError(f"读取或处理个体数据时出错 (路径: {path}): {str(e)}")
@@ -48,12 +47,10 @@ class DataLoader:
         
     def load_regional_data(self) -> pd.DataFrame:
         """加载并预处理地区特征数据。"""
-        # 注意：此方法现在假定地区数据是CSV格式
         path = self.config.regional_data_path
         self._validate_path(path, "地区特征数据(csv)")
         
         try:
-            # 修改为读取CSV
             df_region = pd.read_csv(path)
         except Exception as e:
             raise RuntimeError(f"读取或处理地区数据时出错 (路径: {path}): {str(e)}")
@@ -61,19 +58,12 @@ class DataLoader:
         return df_region
         
     def load_adjacency_matrix(self) -> np.ndarray:
-        """
-        加载地区邻接矩阵。
-
-        Returns:
-            np.ndarray: 纯数值的邻接矩阵，形状为 (n_regions, n_regions)
-        """
+        """加载地区邻接矩阵。"""
         path = self.config.adjacency_matrix_path
         self._validate_path(path, "地区邻接矩阵(xlsx)")
 
         try:
             adjacency_df = pd.read_excel(path)
-            # 移除第一列(省份名称列)，只保留数值邻接关系
-            # 假设第一列是省份名称，从第二列开始是邻接矩阵
             adjacency_matrix = adjacency_df.iloc[:, 1:].to_numpy(dtype=float)
         except Exception as e:
             raise RuntimeError(f"读取邻接矩阵时出错 (路径: {path}): {str(e)}")
@@ -99,11 +89,10 @@ class DataLoader:
         self._validate_path(path, "地区距离矩阵(csv)")
         
         try:
-            # 根据文件扩展名决定读取方式
             if path.endswith('.csv'):
                 distance_matrix = pd.read_csv(path)
             elif path.endswith('.xlsx'):
-                distance_matrix = pd.read_excel(path, index_col=0)  # 使用第一列作为索引
+                distance_matrix = pd.read_excel(path, index_col=0)
             else:
                 raise ValueError(f"不支持的距离矩阵文件格式: {path}")
         except Exception as e:
@@ -125,45 +114,33 @@ class DataLoader:
 
     def create_estimation_dataset_and_state_space(self, simplified_state: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, np.ndarray]]:
         """
-        重构后的方法：加载并准备所有数据，创建状态空间，并为观测值添加状态索引。
-        不再进行大规模的交叉合并，合并操作将在计算似然时动态进行。
-
-        Args:
-            simplified_state (bool): 是否使用简化的状态空间（age, prev_loc）。
-
-        返回:
-            Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, np.ndarray]]:
-                - df_individual: 预处理后的个体面板数据，包含 state_index 和 choice_index。
-                - df_region: 预处理后的地区数据。
-                - state_space: 描述模型所有可能状态的DataFrame。
-                - transition_matrices: 状态转移矩阵。
+        加载并准备所有数据，创建状态空间，并为观测值添加状态索引。
         """
         print("开始创建估计数据集和状态空间...")
 
-        # 1. 加载和预处理数据
-        # 使用带有工资预测的新个体数据文件
         self.config.individual_data_path = os.path.join(self.config.processed_data_dir, 'clds_preprocessed_with_wages.csv')
         df_individual = self.load_individual_data()
         
         self.config.regional_data_path = os.path.join(self.config.processed_data_dir, 'geo_amenities.csv')
         df_region = self.load_regional_data()
 
-        # 2. 定义状态变量并创建状态空间
         if not simplified_state:
             raise NotImplementedError("完整状态空间尚未实现。")
 
-        # 使用配置中的年龄范围，而不是从数据中动态获取
         ages = np.arange(self.config.age_min, self.config.age_max + 1)
         locations = sorted(df_region['provcd'].unique())
+        location_map = {loc: i for i, loc in enumerate(locations)}
         
         state_space = pd.DataFrame(
             [(age, loc) for age in ages for loc in locations],
             columns=['age', 'prev_provcd']
         )
         state_space['state_index'] = state_space.index
-        print(f"创建了简化的状态空间，包含 {len(state_space)} 个状态。")
+        
+        # --- FIX: Add the required index column for vectorization ---
+        state_space['prev_provcd_idx'] = state_space['prev_provcd'].map(location_map)
+        print(f"创建了简化的状态空间，包含 {len(state_space)} 个状态，并添加了 'prev_provcd_idx' 列。")
 
-        # 3. 将观测数据映射到状态空间
         df_individual = pd.merge(
             df_individual,
             state_space,
@@ -172,11 +149,8 @@ class DataLoader:
             how='left'
         )
         
-        # 添加选择索引
-        location_map = {loc: i for i, loc in enumerate(locations)}
         df_individual['choice_index'] = df_individual['provcd_t'].map(location_map)
 
-        # 4. 构建转移矩阵 (逻辑不变)
         n_states = len(state_space)
         transition_matrices = {}
         state_map = state_space.set_index(['age', 'prev_provcd'])['state_index']
@@ -192,7 +166,6 @@ class DataLoader:
             transition_matrices[j_idx] = P_j
         print(f"构建了 {len(transition_matrices)} 个状态转移矩阵。")
         
-        # 清理和检查
         if df_individual['state_index'].isnull().any():
             unmatched_states = df_individual.loc[df_individual['state_index'].isnull(), ['age_t', 'prev_provcd']].drop_duplicates()
             print(f"警告: {df_individual['state_index'].isnull().sum()} 条观测未能匹配到状态。未匹配的状态组合:\n{unmatched_states}")

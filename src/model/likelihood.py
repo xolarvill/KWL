@@ -1,4 +1,3 @@
-
 """
 This module constructs the log-likelihood function for the structural model,
 connecting the Bellman solver and utility functions to the observed data.
@@ -9,7 +8,7 @@ import pandas as pd
 from typing import Dict, Any, Callable, Tuple
 
 from src.model.bellman import solve_bellman_equation
-from src.model.utility import calculate_flow_utility
+from src.model.utility import calculate_flow_utility_vectorized # 导入新的向量化函数
 
 def calculate_choice_probabilities(
     converged_v: np.ndarray,
@@ -25,47 +24,56 @@ def calculate_choice_probabilities(
 ) -> np.ndarray:
     """
     Calculates the conditional choice probabilities (CCPs) for each state.
+    NOTE: This function will also be vectorized or updated to work with vectorized inputs.
+    For now, we adapt it to work with the output of the vectorized Bellman solver.
     """
+    # This function needs to be fully vectorized as well for max performance.
+    # For now, let's ensure it's compatible.
+    # The logic here is largely superseded by the vectorized Bellman calculation,
+    # as choice probabilities can be derived directly from choice_specific_values.
+    # We will refactor this to be more efficient.
+    
     n_states, n_choices = len(state_space), params["n_choices"]
-    choice_specific_values = np.zeros((n_states, n_choices))
+    
+    # Re-calculating choice-specific values. This is inefficient and should be optimized.
+    # A better approach would be to have solve_bellman return choice_specific_values.
+    # For now, we replicate the calculation.
+    
+    state_space_np = {col: state_space[col].to_numpy() for col in state_space.columns}
+    numeric_cols = regions_df.select_dtypes(include=np.number).columns.tolist()
+    regions_df_indexed = regions_df.set_index('provcd')
+    unique_provcds = regions_df['provcd'].unique()
+    regions_df_np = {
+        col: regions_df_indexed.loc[unique_provcds][col].to_numpy()
+        for col in numeric_cols if col != 'provcd'
+    }
+    regions_df_np['provcd'] = unique_provcds
 
-    regions_df_indexed = regions_df.set_index(['provcd', 'year'])
-    loc_map = {loc: i for i, loc in enumerate(sorted(regions_df['provcd'].unique()))}
+    flow_utility_matrix = utility_function(
+        state_data=state_space_np,
+        region_data=regions_df_np,
+        distance_matrix=distance_matrix,
+        adjacency_matrix=adjacency_matrix,
+        params=params,
+        agent_type=agent_type,
+        n_states=n_states,
+        n_choices=n_choices
+    )
 
-    for s_idx, state in state_space.iterrows():
-        current_age = state['age']
-        prev_loc = state['prev_provcd']
+    expected_future_value_matrix = np.zeros((n_states, n_choices))
+    for j_idx in range(n_choices):
+        P_j = transition_matrices[j_idx]
+        expected_future_value_matrix[:, j_idx] = P_j @ converged_v
         
-        for j_idx in range(n_choices):
-            dest_loc = regions_df['provcd'].unique()[j_idx]
-            
-            try:
-                dest_features = regions_df_indexed.loc[(dest_loc, 2012)]
-            except KeyError:
-                dest_features = pd.Series(dtype=float)
-
-            data_for_utility = pd.Series({
-                'age': current_age, 'prev_provcd': prev_loc, 'provcd_dest': dest_loc,
-                'hometown': 0, 'hukou_prov': 0, 'wage_predicted': 30000, 'wage_ref': 30000,
-                **dest_features.add_suffix('_dest'),
-                'distance': distance_matrix[loc_map[prev_loc], loc_map[dest_loc]],
-                'is_adjacent': adjacency_matrix[loc_map[prev_loc], loc_map[dest_loc]],
-                'is_return_move': 0
-            })
-
-            flow_utility = utility_function(
-                data=data_for_utility, params=params, agent_type=agent_type, xi_ij=0.0,
-            )
-            
-            P_j = transition_matrices[j_idx]
-            expected_future_value = P_j[s_idx] @ converged_v
-            choice_specific_values[s_idx, j_idx] = flow_utility + beta * expected_future_value
+    choice_specific_values = flow_utility_matrix + beta * expected_future_value_matrix
 
     max_v = np.max(choice_specific_values, axis=1, keepdims=True)
     exp_v = np.exp(choice_specific_values - max_v)
     sum_exp_v = np.sum(exp_v, axis=1, keepdims=True)
     ccps = exp_v / np.maximum(sum_exp_v, 1e-300)
+    
     return np.maximum(ccps, 1e-15)
+
 
 def calculate_log_likelihood(
     params: Dict[str, Any],
@@ -92,7 +100,7 @@ def calculate_log_likelihood(
     else:
         logger.info(f"      [Likelihood] Cache MISS for agent_type={agent_type}. Solving Bellman equation...")
         converged_v, _ = solve_bellman_equation(
-            utility_function=calculate_flow_utility,
+            utility_function=calculate_flow_utility_vectorized, # FIX: Point to the correct vectorized function
             state_space=state_space, params=params, agent_type=agent_type, beta=beta,
             transition_matrices=transition_matrices, regions_df=regions_df,
             distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix,
@@ -103,11 +111,19 @@ def calculate_log_likelihood(
             logger.info(f"      [Likelihood] Bellman solution stored in cache for agent_type={agent_type}.")
 
     ccps = calculate_choice_probabilities(
-        converged_v, calculate_flow_utility, state_space, params, agent_type, beta,
+        converged_v, calculate_flow_utility_vectorized, state_space, params, agent_type, beta, # FIX: Point to the correct vectorized function
         transition_matrices, regions_df, distance_matrix, adjacency_matrix,
     )
 
-    likelihoods = ccps[observed_data['state_index'], observed_data['choice_index']]
+    # Ensure indices are valid
+    state_indices = observed_data['state_index'].values
+    choice_indices = observed_data['choice_index'].values
+    
+    if np.any(state_indices >= ccps.shape[0]) or np.any(choice_indices >= ccps.shape[1]):
+        logger.error("Error: Invalid state or choice index detected.")
+        return -1e10 # Return a large negative number
+
+    likelihoods = ccps[state_indices, choice_indices]
     log_likelihood = np.sum(np.log(likelihoods))
 
     return -log_likelihood
