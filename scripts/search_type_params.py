@@ -32,7 +32,10 @@ from src.estimation.em_nfxp import run_em_algorithm
 from src.estimation.param_search import (
     evaluate_type_separation,
     check_degeneracy,
-    suggest_gamma_adjustment
+    suggest_gamma_adjustment,
+    evaluate_type_separation_for_low_migration_rate,
+    check_degeneracy_for_low_migration_data,
+    adaptive_type_identification_score
 )
 from src.model.likelihood import calculate_log_likelihood
 
@@ -76,6 +79,33 @@ def generate_gamma_grid(n_types: int = 3, granularity: str = 'sparse') -> list:
     return combinations
 
 
+def calculate_migration_rate(observed_data: pd.DataFrame) -> float:
+    """
+    计算数据中的迁移率
+    """
+    # 假设存在migration_flag列，标记是否发生迁移
+    if 'mig_flag' in observed_data.columns:
+        n_migrants = observed_data.groupby('individual_id')['mig_flag'].sum().sum()
+        total_obs = len(observed_data)
+        migration_rate = n_migrants / total_obs if total_obs > 0 else 0.0
+    else:
+        # 如果没有明确的迁移标志，可以根据位置变化计算
+        # 计算每个个体的位置变化次数
+        n_changes = 0
+        n_total_obs = 0
+        
+        for individual_id, group in observed_data.groupby('individual_id'):
+            if 'location' in group.columns and len(group) > 1:
+                locations = group['location'].values
+                changes = sum(1 for i in range(1, len(locations)) if locations[i] != locations[i-1])
+                n_changes += changes
+                n_total_obs += len(group) - 1
+        
+        migration_rate = n_changes / n_total_obs if n_total_obs > 0 else 0.0
+    
+    return migration_rate
+
+
 def evaluate_single_combination_fast(
     gamma_combination: tuple,
     observed_data: pd.DataFrame,
@@ -89,12 +119,16 @@ def evaluate_single_combination_fast(
 ) -> dict:
     """
     快速评估单个gamma_0参数组合（只运行E步）
+    现在支持低迁移率数据的评估
 
     Returns:
         评估结果字典
     """
     n_types = len(gamma_combination)
     N = observed_data["individual_id"].nunique()
+
+    # 计算迁移率
+    migration_rate = calculate_migration_rate(observed_data)
 
     # 构建参数字典
     params = {
@@ -116,9 +150,14 @@ def evaluate_single_combination_fast(
 
     for k in range(n_types):
         try:
+            # 创建类型特定参数
+            type_specific_params = params.copy()
+            if f'gamma_0_type_{k}' in params:
+                type_specific_params['gamma_0'] = params[f'gamma_0_type_{k}']
+            
             # 调用calculate_log_likelihood with verbose=False
             log_lik_obs = -calculate_log_likelihood(
-                params=params,
+                params=type_specific_params,
                 observed_data=observed_data,
                 state_space=state_space,
                 agent_type=int(k),
@@ -164,22 +203,25 @@ def evaluate_single_combination_fast(
     # 计算total log-likelihood
     log_likelihood = np.sum(log_marginal_lik)
 
-    # 计算评估指标
+    # 计算评估指标（使用适应低迁移率的版本）
     n_params = len(params)
     n_obs = len(observed_data)
 
-    metrics = evaluate_type_separation(
-        posterior_probs, log_likelihood, n_params, n_obs
+    metrics = evaluate_type_separation_for_low_migration_rate(
+        posterior_probs, log_likelihood, n_params, n_obs, migration_rate
     )
 
     # 添加gamma值信息
     for i, gamma_val in enumerate(gamma_combination):
         metrics[f'gamma_0_type_{i}'] = gamma_val
 
-    # 检查退化
-    is_degenerate, deg_msg = check_degeneracy(posterior_probs)
+    # 检查退化（使用适应低迁移率的版本）
+    is_degenerate, deg_msg = check_degeneracy_for_low_migration_data(posterior_probs, migration_rate)
     metrics['is_degenerate'] = is_degenerate
     metrics['degeneracy_message'] = deg_msg
+
+    # 添加迁移率信息
+    metrics['migration_rate'] = migration_rate
 
     return metrics
 
@@ -198,17 +240,25 @@ def evaluate_single_combination(
 ) -> dict:
     """
     评估单个gamma_0参数组合（运行完整EM算法）
+    现在支持低迁移率数据的评估
 
     Returns:
         评估结果字典
     """
     n_types = len(gamma_combination)
 
-    # 构建参数字典
+    # 计算迁移率
+    migration_rate = calculate_migration_rate(observed_data)
+
+    # 构建参数字典（支持多维度类型特定参数）
     initial_params = {
         "alpha_w": 1.0, "lambda": 2.0, "alpha_home": 1.0,
         "rho_base_tier_1": 1.0, "rho_edu": 0.1, "rho_health": 0.1, "rho_house": 0.1,
         **{f"gamma_0_type_{i}": gamma_combination[i] for i in range(n_types)},
+        # 添加其他类型特定参数
+        **{f"gamma_1_type_{i}": -0.1 for i in range(n_types)},  # 示例参数
+        **{f"alpha_home_type_{i}": 1.0 for i in range(n_types)}, # 示例参数
+        **{f"lambda_type_{i}": 2.0 for i in range(n_types)},    # 示例参数
         "gamma_1": -0.1, "gamma_2": 0.2, "gamma_3": -0.4,
         "gamma_4": 0.01, "gamma_5": -0.05,
         "alpha_climate": 0.1, "alpha_health": 0.1,
@@ -234,6 +284,7 @@ def evaluate_single_combination(
                 adjacency_matrix=adjacency_matrix,
                 max_iterations=n_em_iterations,
                 n_choices=31,
+                use_migration_behavior_init=True,  # 使用迁移行为初始化
             )
     else:
         result = run_em_algorithm(
@@ -247,6 +298,7 @@ def evaluate_single_combination(
             adjacency_matrix=adjacency_matrix,
             max_iterations=n_em_iterations,
             n_choices=31,
+            use_migration_behavior_init=True,  # 使用迁移行为初始化
         )
 
     # 提取评估指标
@@ -255,18 +307,21 @@ def evaluate_single_combination(
     n_params = len(initial_params)
     n_obs = len(observed_data)
 
-    metrics = evaluate_type_separation(
-        posterior_probs, log_likelihood, n_params, n_obs
+    metrics = evaluate_type_separation_for_low_migration_rate(
+        posterior_probs, log_likelihood, n_params, n_obs, migration_rate
     )
 
     # 添加gamma值信息
     for i, gamma_val in enumerate(gamma_combination):
         metrics[f'gamma_0_type_{i}'] = gamma_val
 
-    # 检查退化
-    is_degenerate, deg_msg = check_degeneracy(posterior_probs)
+    # 检查退化（使用适应低迁移率的版本）
+    is_degenerate, deg_msg = check_degeneracy_for_low_migration_data(posterior_probs, migration_rate)
     metrics['is_degenerate'] = is_degenerate
     metrics['degeneracy_message'] = deg_msg
+
+    # 添加迁移率信息
+    metrics['migration_rate'] = migration_rate
 
     return metrics
 
@@ -284,12 +339,18 @@ def stage1_coarse_search(
 ) -> pd.DataFrame:
     """
     阶段1：粗粒度网格搜索
+    现在支持低迁移率数据的评估
 
     Args:
         granularity: 'sparse'(稀疏,~20组合), 'full'(完整,~120组合), 'fine'(精细,~500组合)
     """
     print("="*80)
     print(f"Stage 1: Coarse Grid Search ({granularity} mode)")
+    print("="*80)
+
+    # 计算迁移率
+    migration_rate = calculate_migration_rate(observed_data)
+    print(f"Data migration rate: {migration_rate:.3f}")
     print("="*80)
 
     # 生成参数网格
@@ -320,7 +381,7 @@ def stage1_coarse_search(
             print(f"  Balance score: {metrics['balance_score']:.3f}, "
                   f"Type probs: [{metrics['type_0_prob']:.2f}, "
                   f"{metrics['type_1_prob']:.2f}, {metrics['type_2_prob']:.2f}], "
-                  f"BIC: {metrics['bic']:.1f}")
+                  f"BIC: {metrics['bic']:.1f}, Migration rate: {migration_rate:.3f}")
 
         except Exception as e:
             print(f"  Error: {e}")
@@ -345,7 +406,7 @@ def stage1_coarse_search(
 
     # 显示top 5
     print("\n" + "="*80)
-    print("Top 5 Parameter Combinations (by balance score):")
+    print(f"Top 5 Parameter Combinations (by balance score) - Migration rate: {migration_rate:.3f}")
     print("="*80)
 
     n_results = min(5, len(results_df))
@@ -375,9 +436,15 @@ def stage2_fine_optimization(
 ) -> pd.DataFrame:
     """
     阶段2：对top candidates进行精细评估
+    现在支持低迁移率数据的评估
     """
     print("\n" + "="*80)
     print("Stage 2: Fine-grained Optimization")
+    print("="*80)
+
+    # 计算迁移率
+    migration_rate = calculate_migration_rate(observed_data)
+    print(f"Data migration rate: {migration_rate:.3f}")
     print("="*80)
 
     # 选择top K个候选
@@ -417,7 +484,7 @@ def stage2_fine_optimization(
 
     # 选择最优参数
     print("\n" + "="*80)
-    print("FINAL RECOMMENDATION")
+    print(f"FINAL RECOMMENDATION - Migration rate: {migration_rate:.3f}")
     print("="*80)
 
     # 综合评分：balance_score + BIC归一化
@@ -437,6 +504,7 @@ def stage2_fine_optimization(
     print(f"   Type distribution: [{best['type_0_prob']:.2f}, "
           f"{best['type_1_prob']:.2f}, {best['type_2_prob']:.2f}]")
     print(f"   BIC: {best['bic']:.1f}")
+    print(f"   Migration rate: {migration_rate:.3f}")
     print(f"   Status: {best['degeneracy_message']}")
 
     # 保存推荐参数到JSON
@@ -444,11 +512,13 @@ def stage2_fine_optimization(
         'gamma_0_type_0': float(best['gamma_0_type_0']),
         'gamma_0_type_1': float(best['gamma_0_type_1']),
         'gamma_0_type_2': float(best['gamma_0_type_2']),
+        'migration_rate': migration_rate,
         'metrics': {
             'balance_score': float(best['balance_score']),
             'type_probs': [float(best['type_0_prob']), float(best['type_1_prob']), float(best['type_2_prob'])],
             'bic': float(best['bic']),
-            'log_likelihood': float(best['log_likelihood'])
+            'log_likelihood': float(best['log_likelihood']),
+            'migration_rate': migration_rate
         },
         'timestamp': datetime.now().isoformat()
     }

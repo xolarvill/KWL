@@ -60,7 +60,8 @@ def main():
             "n_types": 3,
             "max_iterations": 5,
             "tolerance": 1e-4,
-            "n_choices": len(df_region['provcd'].unique())
+            "n_choices": len(df_region['provcd'].unique()),
+            "use_migration_behavior_init": True  # 使用迁移行为初始化
         }
 
         # 运行EM算法

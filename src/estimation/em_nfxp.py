@@ -4,6 +4,7 @@ from scipy.optimize import minimize
 from typing import Dict, Any, Tuple, List
 
 from src.model.likelihood import calculate_log_likelihood
+from src.estimation.migration_behavior_analysis import identify_migration_behavior_types, create_behavior_based_initial_params
 
 # --- Helper functions for parameter handling ---
 
@@ -71,13 +72,15 @@ def e_step(
     regions_df: pd.DataFrame,
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
+    n_types: int = None,
+    force_type_separation: bool = True  # 新增参数：强制类型分离
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Performs the E-step: calculates posterior probabilities and the log-likelihood matrix
-    with numerical stability improvements.
+    with numerical stability improvements. Supports type-specific parameters.
     """
     N = observed_data["individual_id"].nunique()
-    K = len(pi_k)
+    K = len(pi_k) if n_types is None else n_types
     log_likelihood_matrix = np.zeros((N, K))
 
     # Group data by individual once
@@ -87,10 +90,23 @@ def e_step(
     
     for k in range(K):
         try:
+            # Create type-specific parameters for this type k
+            type_specific_params = params.copy()
+            
+            # Update parameters that are type-specific
+            if f'gamma_0_type_{k}' in params:
+                type_specific_params['gamma_0'] = params[f'gamma_0_type_{k}']
+            if f'gamma_1_type_{k}' in params:
+                type_specific_params['gamma_1'] = params[f'gamma_1_type_{k}']
+            if f'alpha_home_type_{k}' in params:
+                type_specific_params['alpha_home'] = params[f'alpha_home_type_{k}']
+            if f'lambda_type_{k}' in params:
+                type_specific_params['lambda'] = params[f'lambda_type_{k}']
+            
             # Ensure agent_type is an integer
             agent_type_int = int(k)
             log_lik_obs = -calculate_log_likelihood(
-                params=params,
+                params=type_specific_params,
                 observed_data=observed_data,
                 state_space=state_space,
                 agent_type=int(k),
@@ -139,6 +155,30 @@ def e_step(
         posterior_probs = np.maximum(posterior_probs, 0)
         row_sums = posterior_probs.sum(axis=1, keepdims=True)
         posterior_probs = posterior_probs / np.maximum(row_sums, 1e-10)
+        
+        # 强制类型分离：防止某个类型完全消失
+        if force_type_separation:
+            # 设置最小类型概率阈值，确保每个类型都有一定代表性
+            MIN_TYPE_PROB = 0.05  # 每个类型至少占5%
+            for i in range(N):
+                for k_idx in range(K):
+                    # 如果后验概率过低，提升到最小值
+                    if posterior_probs[i, k_idx] < MIN_TYPE_PROB:
+                        # 重新分配概率以确保每个类型都有最小占比
+                        remaining_prob = 1.0 - (K - 1) * MIN_TYPE_PROB
+                        if remaining_prob > MIN_TYPE_PROB:
+                            posterior_probs[i, k_idx] = MIN_TYPE_PROB
+                            # 重新标准化其他类型
+                            other_types_total = np.sum(posterior_probs[i, :]) - MIN_TYPE_PROB
+                            if other_types_total > 0:
+                                for j in range(K):
+                                    if j != k_idx:
+                                        posterior_probs[i, j] = posterior_probs[i, j] * (1 - MIN_TYPE_PROB) / other_types_total
+            
+            # 再次归一化确保每行和为1
+            row_sums = posterior_probs.sum(axis=1, keepdims=True)
+            posterior_probs = posterior_probs / np.maximum(row_sums, 1e-10)
+            
     except Exception as e:
         print(f"Error in E-step posterior probability calculation: {e}")
         posterior_probs = np.zeros((N, K))
@@ -157,15 +197,14 @@ def m_step(
     regions_df: pd.DataFrame,
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
+    n_types: int = None
 ) -> Tuple[Dict[str, Any], np.ndarray]:
     """
     Performs the M-step: updates parameters and type probabilities with numerical safeguards.
+    Supports type-specific parameters.
     """
-    K = posterior_probs.shape[1]
+    K = posterior_probs.shape[1] if n_types is None else n_types
     
-    # For simplicity, we assume all types share the same structural parameters theta
-    # A more complex model could have type-specific parameters
-
     # Print type weight diagnostics
     print(f"\n  Type weight diagnostics:")
     for k in range(K):
@@ -194,13 +233,26 @@ def m_step(
                         print(f"    Skipping type {k} (weight sum {weight_sum:.2e} < 1e-10)")
                     continue
                 
+                # Create type-specific parameters for this type k
+                type_specific_params = params_k.copy()
+                
+                # Update parameters that are type-specific
+                if f'gamma_0_type_{k}' in params_k:
+                    type_specific_params['gamma_0'] = params_k[f'gamma_0_type_{k}']
+                if f'gamma_1_type_{k}' in params_k:
+                    type_specific_params['gamma_1'] = params_k[f'gamma_1_type_{k}']
+                if f'alpha_home_type_{k}' in params_k:
+                    type_specific_params['alpha_home'] = params_k[f'alpha_home_type_{k}']
+                if f'lambda_type_{k}' in params_k:
+                    type_specific_params['lambda'] = params_k[f'lambda_type_{k}']
+                
                 # Calculate log-likelihood for this type
                 # 确保agent_type是整数
                 agent_type_int = int(k)
                 # Disable verbose for M-step optimization (except first call)
                 verbose_flag = (objective_function.call_count == 1)
                 log_lik_k_obs = -calculate_log_likelihood(
-                    params=params_k,
+                    params=type_specific_params,
                     observed_data=observed_data,
                     state_space=state_space,
                     agent_type=int(k),
@@ -222,8 +274,13 @@ def m_step(
                 individual_log_lik = observed_data_copy.groupby("individual_id")['log_lik_k_obs'].sum()
                 total_weighted_log_lik += np.sum(weights * individual_log_lik)
             
-            # Return negative for minimization
-            return -total_weighted_log_lik
+            # Apply entropy regularization to encourage balanced type assignment
+            # This helps prevent degeneracy by penalizing concentrated assignments
+            type_probs = posterior_probs.mean(axis=0)
+            entropy_reg = -0.1 * np.sum(type_probs * np.log(type_probs + 1e-10))
+            
+            # Return negative for minimization (add regularization to make it a penalty in the negative log-lik context)
+            return -(total_weighted_log_lik + entropy_reg)
             
         except Exception as e:
             print(f"  Error in objective function: {e}")
@@ -266,8 +323,8 @@ def m_step(
     # Update type probabilities with lower bound constraint
     updated_pi_k = posterior_probs.mean(axis=0)
     
-    # Enforce minimum probability to prevent degeneracy
-    MIN_PROB = 1e-6
+    # Enforce minimum probability with a more balanced approach for low migration data
+    MIN_PROB = 0.05  # 增加最小概率以防止类型完全消失
     updated_pi_k = np.maximum(updated_pi_k, MIN_PROB)
     updated_pi_k = updated_pi_k / np.sum(updated_pi_k)  # Renormalize
     
@@ -289,21 +346,51 @@ def run_em_algorithm(
     max_iterations: int = 100,
     tolerance: float = 1e-5,
     n_choices: int = 31,
+    use_migration_behavior_init: bool = True,  # New flag to control initialization method
 ) -> Dict[str, Any]:
     """
-    The main function to run the EM algorithm.
+    The main function to run the EM algorithm with migration behavior-based initialization.
     """
-    # 1. Initialize parameters and type probabilities
-    # TODO: A more robust initialization is needed
-    initial_params = {
-        "alpha_w": 1.0, "lambda": 2.0, "alpha_home": 1.0,
-        "rho_base_tier_1": 1.0, "rho_edu": 0.1, "rho_health": 0.1, "rho_house": 0.1,
-        "gamma_0_type_0": 1.0, "gamma_0_type_1": 1.5, "gamma_1": -0.1, "gamma_2": 0.2,
-        "gamma_3": -0.4, "gamma_4": 0.01, "gamma_5": -0.05,
-        "alpha_climate": 0.1, "alpha_health": 0.1, "alpha_education": 0.1, "alpha_public_services": 0.1,
-        "n_choices": n_choices  # Add n_choices to params
-    }
-    pi_k = np.full(n_types, 1 / n_types)
+    # 1. Initialize parameters and type probabilities based on migration behavior
+    if use_migration_behavior_init:
+        print("Initializing with migration behavior analysis...")
+        # Use migration behavior to initialize type probabilities
+        try:
+            _, initial_posterior_probs = identify_migration_behavior_types(observed_data, n_types)
+            
+            # Use behavior-based parameters
+            initial_params = create_behavior_based_initial_params(n_types)
+            
+            # Compute initial type probabilities from the posterior
+            pi_k = initial_posterior_probs.mean(axis=0)
+            # Ensure minimum probability to prevent degeneracy
+            MIN_PROB = 1e-6
+            pi_k = np.maximum(pi_k, MIN_PROB)
+            pi_k = pi_k / np.sum(pi_k)  # Renormalize
+            
+        except Exception as e:
+            print(f"Error in migration behavior initialization: {e}")
+            print("Falling back to uniform initialization...")
+            initial_params = {
+                "alpha_w": 1.0, "lambda": 2.0, "alpha_home": 1.0,
+                "rho_base_tier_1": 1.0, "rho_edu": 0.1, "rho_health": 0.1, "rho_house": 0.1,
+                "gamma_0_type_0": 1.0, "gamma_0_type_1": 1.5, "gamma_1": -0.1, "gamma_2": 0.2,
+                "gamma_3": -0.4, "gamma_4": 0.01, "gamma_5": -0.05,
+                "alpha_climate": 0.1, "alpha_health": 0.1, "alpha_education": 0.1, "alpha_public_services": 0.1,
+                "n_choices": n_choices  # Add n_choices to params
+            }
+            pi_k = np.full(n_types, 1 / n_types)
+    else:
+        # Standard initialization
+        initial_params = {
+            "alpha_w": 1.0, "lambda": 2.0, "alpha_home": 1.0,
+            "rho_base_tier_1": 1.0, "rho_edu": 0.1, "rho_health": 0.1, "rho_house": 0.1,
+            "gamma_0_type_0": 1.0, "gamma_0_type_1": 1.5, "gamma_1": -0.1, "gamma_2": 0.2,
+            "gamma_3": -0.4, "gamma_4": 0.01, "gamma_5": -0.05,
+            "alpha_climate": 0.1, "alpha_health": 0.1, "alpha_education": 0.1, "alpha_public_services": 0.1,
+            "n_choices": n_choices  # Add n_choices to params
+        }
+        pi_k = np.full(n_types, 1 / n_types)
     
     old_log_likelihood = -np.inf
 
@@ -313,13 +400,17 @@ def run_em_algorithm(
         # 2. E-Step
         print("Running E-step...")
         posterior_probs, log_likelihood_matrix = e_step(
-            initial_params, pi_k, observed_data, state_space, transition_matrices, beta, regions_df, distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix
+            initial_params, pi_k, observed_data, state_space, transition_matrices, 
+            beta, regions_df, distance_matrix=distance_matrix, 
+            adjacency_matrix=adjacency_matrix, n_types=n_types
         )
         
         # 3. M-Step
         print("Running M-step...")
         initial_params, pi_k = m_step(
-            posterior_probs, initial_params, observed_data, state_space, transition_matrices, beta, regions_df, distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix
+            posterior_probs, initial_params, observed_data, state_space, transition_matrices, 
+            beta, regions_df, distance_matrix=distance_matrix, 
+            adjacency_matrix=adjacency_matrix, n_types=n_types
         )
         
         # 4. Check for convergence
