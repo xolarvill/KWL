@@ -1231,6 +1231,28 @@ p(j_{it}^{\text{obs}}, w_{it}^{\text{obs}} | x_{it}, \tau, \omega_i; \Theta) =
 \end{minipage}
 \end{table}
 
+本文样本中个体迁移次数的分布如表~\ref{tab:migration_frequency}所示。绝大多数个体（98.76\%）在观测期内仅发生过一次迁移，表明样本以首次迁移者为主；仅有1.24\%的个体经历了两次及以上迁移，其中迁移三次和四次的个体分别仅占0.16\%和0.02\%。
+
+\begin{table}[htbp]
+\centering
+\caption{个体迁移次数的频数分布}
+\label{tab:migration_frequency}
+\begin{tabular}{lrrr}
+\toprule
+迁移次数 & 频数 & 百分比 (\%) & 累计百分比 (\%) \\
+\midrule
+1 & 16,665 & 98.76 & 98.76 \\
+2 &    179 &  1.06 & 99.82 \\
+3 &     27 &  0.16 & 99.98 \\
+4 &      4 &  0.02 & 100.00 \\
+\midrule
+总计 & 16,875 & 100.00 & — \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
 
 \paragraph{区域性经济数据}
 
@@ -1369,6 +1391,10 @@ CMDS 采用分层、多阶段、与流动人口规模成比例的PPS抽样方法
 \label{tab:CMDS同乡网络矩阵}
 \end{table}
 
+
+
+
+
 \paragraph{数据的处理}
 
 本文还对数据进行了部分处理，其内容统一如表格\ref{tab:variable_processing}所示。
@@ -1493,11 +1519,11 @@ CMDS 采用分层、多阶段、与流动人口规模成比例的PPS抽样方法
 
 
 
-经过NFXP算法估计得到的参数值如下表格\ref{结构参数估计结果}所示。（附带标准误和显著性星号标记）
+经过NFXP算法估计得到的参数值如下表格\ref{tab:结构参数估计结果}所示。（附带标准误和显著性星号标记）
 
 \begin{table}[!ht]
 \centering
-\label{结构参数估计结果}
+\label{tab:结构参数估计结果}
 \caption{结构参数估计结果}
 \begin{tabular}{lcccc}
 \toprule
