@@ -8,7 +8,7 @@ import time
 import os
 from functools import wraps
 
-from src.model.likelihood import solve_bellman_for_params, calculate_likelihood_from_v
+from src.model.likelihood import solve_bellman_for_params, calculate_likelihood_from_v, clear_bellman_cache
 from src.estimation.migration_behavior_analysis import identify_migration_behavior_types, create_behavior_based_initial_params
 
 # --- Logging and Timing Setup ---
@@ -98,12 +98,12 @@ def e_step(
             if f'alpha_home_type_{k}' in params: type_specific_params['alpha_home'] = params[f'alpha_home_type_{k}']
             if f'lambda_type_{k}' in params: type_specific_params['lambda'] = params[f'lambda_type_{k}']
 
-            # Solve Bellman equation once for this type
+            # Solve Bellman equation once for this type (use cache)
             converged_v = solve_bellman_for_params(
                 params=type_specific_params, state_space=state_space, agent_type=int(k),
                 beta=beta, transition_matrices=transition_matrices, regions_df=regions_df,
                 distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix,
-                initial_v=None, verbose=False
+                initial_v=None, verbose=False, use_cache=True
             )
 
             # Calculate likelihood using the converged value function
@@ -194,15 +194,12 @@ def m_step(
                 if f'alpha_home_type_{k}' in params_k: type_specific_params['alpha_home'] = params_k[f'alpha_home_type_{k}']
                 if f'lambda_type_{k}' in params_k: type_specific_params['lambda'] = params_k[f'lambda_type_{k}']
 
-                # Hot-start: Use previous value function as initial guess
-                initial_v = hot_start_state.get(k, None)
-
-                # Solve Bellman equation with hot-start
+                # Solve Bellman equation (cache will handle hot-starting automatically)
                 converged_v = solve_bellman_for_params(
                     params=type_specific_params, state_space=state_space, agent_type=int(k),
                     beta=beta, transition_matrices=transition_matrices, regions_df=regions_df,
                     distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix,
-                    initial_v=initial_v, verbose=(objective_function.call_count == 1)
+                    initial_v=None, verbose=(objective_function.call_count == 1), use_cache=True
                 )
 
                 # Update hot-start state with converged value function
@@ -297,13 +294,18 @@ def run_em_algorithm(
     old_log_likelihood = -np.inf
     for i in range(max_iterations):
         logger.info(f"\n--- EM Iteration {i+1}/{max_iterations} ---")
-        
+
+        # Clear Bellman cache at the start of each EM iteration
+        # This ensures we start fresh with potentially updated parameters from previous iteration
+        # But within this iteration, cache is reused for efficiency
+        clear_bellman_cache()
+
         logger.info("Running E-step...")
         posterior_probs, log_likelihood_matrix = e_step(
             initial_params, pi_k, observed_data, state_space, transition_matrices, beta,
             regions_df, distance_matrix, adjacency_matrix, n_types=n_types
         )
-        
+
         logger.info("Running M-step...")
         initial_params, pi_k, hot_start_state = m_step(
             posterior_probs, initial_params, observed_data, state_space, transition_matrices,

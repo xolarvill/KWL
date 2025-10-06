@@ -69,8 +69,6 @@
     -   **效用函数参数**: `\alpha_w` (收入边际效用), `\alpha_s` (各项舒适度amenities的系数), `\alpha_{home}` (家乡溢价), `\lambda` (损失厌恶系数, 如果加入)。
     -   **户籍惩罚函数参数**: `\theta_{base}`, `\theta_{edu}`, `\theta_{health}`, `\theta_{house}`。
     -   **迁移成本函数参数**: `\gamma_1` (距离), `\gamma_2` (邻接), `\gamma_3` (历史), `\gamma_4` (年龄), `\gamma_5` (规模)。
-    -   **工资函数参数**: `r_1`, `r_2` (年龄效应)，以及其他控制变量的系数。
-    -   **折现因子**: `\beta` (如果是估计的)。
 -   **格式**: 参数名 | 估计值 (Estimate) | 标准误 (Std. Error) | 显著性标记 (*, **, ***)。
 
 **2. 有限混合模型结果表 (`\ref{tab:有限混合参数的 ઉ估计结果}`):**
@@ -141,6 +139,107 @@
     -   **图 (Pareto前沿)**: 如您所设想的，X轴为“地区均衡”（如人口集中度下降），Y轴为“总福利/产出”。图中的每个点代表一种政策强度或组合，连接起来形成效率与公平的权衡曲线。
     -   **表/图 (敏感性分析)**: 展示当外部性参数 `η_1, η_2` 等变化时，政策实验的核心结论是否依然成立。
 -   **作用**: 展示您对模型和政策复杂性的深刻理解，表明您的政策建议不是“一招鲜”，而是存在复杂的权衡取舍。
+
+## 估计日志
+
+每条日志代表一个agent_type的价值函数求解
+
+agent_type不是"个体"，而是"类型"
+- agent_type=0  # Type 0的所有个体共享的价值函数
+- agent_type=1  # Type 1的所有个体共享的价值函数
+- agent_type=2  # Type 2的所有个体共享的价值函数
+
+Bellman方程求解的是状态空间级别的，每次求解产生一个价值函数向量 $V^k(s)$：
+$$V^k(s) = \max_{j \in \mathcal{J}} \left u^k(s,j) + \beta \sum_{s'} P(s'|s,j) V^k(s') \right$$
+
+其中：
+- $k$ = agent_type（类型0, 1, 2）
+- $s$ = 状态（年龄、前期位置等的组合）
+- 你的状态空间有 1,488个状态
+
+所以一次Bellman求解产生：converged_v.shape = (1488)
+
+### 具体例子说明
+#### E-step 过程
+```python
+# E-step: 为15,864个个体计算类型后验概率
+for individual_i in 15864_individuals:
+    for k in [0, 1, 2]:  # 三种类型
+        # 计算该个体在类型k下的似然
+        # 使用类型k的价值函数V^k（已缓存，所有个体共享）
+        likelihood_i_k = compute_likelihood(individual_i, V_k)
+```
+  关键点：
+  - 15,864个个体 × 3个类型 = 47,592次似然计算
+  - 但只需要求解 3个Bellman方程（每个类型1个）
+  - 这就是为什么你只看到3条"Cache MISS"
+
+#### M-step 过程（L-BFGS-B优化）
+
+当L-BFGS-B评估目标函数时：
+```python
+def objective_function(params):
+    # L-BFGS-B会用不同的参数多次调用这个函数
+    for k in [0, 1, 2]:
+        # 提取类型k的参数
+        params_k = extract_type_k_params(params)
+
+        # 求解Bellman方程（或使用缓存）
+        V_k = solve_bellman(params_k, agent_type=k)  # ← Cache MISS/HIT在这里
+
+        # 用V_k计算所有个体的加权似然
+        for individual in all_individuals:
+            likelihood += weight[individual, k] * log_p(individual | V_k)
+```
+
+### 查看实际的日志模式:
+
+第1次评估（初始参数）:
+    ├─ Type 0 [MISS] ← 首次求解，49次迭代
+    ├─ Type 1 [MISS] ← 首次求解，49次迭代
+    └─ Type 2 [MISS] ← 首次求解，49次迭代
+
+第2次评估（参数略微调整）:
+    ├─ Type 0 [MISS] ← 参数变了，缓存失效
+    ├─ Type 1 [MISS]
+    └─ Type 2 [MISS]
+
+第3次评估:
+    ├─ Type 0 [MISS]
+    ├─ Type 1 [MISS]
+    └─ Type 2 [MISS]
+
+第4次评估:
+    ├─ Type 0 [MISS]
+    ├─ Type 1 [MISS]
+    └─ Type 2 [MISS]
+
+第5次评估（L-BFGS-B计算梯度，回到某个已评估的参数）:
+    ├─ Type 0 [HIT] ← 缓存命中！
+    ├─ Type 1 [HIT]
+    └─ Type 2 [HIT]
+
+#### 为什么有这么多MISS？
+
+L-BFGS-B是拟牛顿法，它会：
+1. 尝试不同的参数组合（探索）
+2. 计算梯度（需要重新评估某些点）
+3. 进行线搜索（沿着搜索方向尝试不同步长）
+
+
+| 概念        | 数量       | 说明             |
+|-----------|----------|----------------|
+| 个体        | 15,864   | 实际观测的农民工       |
+| 观测        | 32,826   | 个体×时期的决策记录     |
+| 类型        | 3        | 潜在的异质性类别       |
+| 状态        | 1,488    | (年龄, 前期位置) 的组合 |
+| Bellman求解 | 每次3个     | 每个类型1个价值函数     |
+| 似然计算      | 32,826×3 | 每个观测×每个类型      |
+
+每条"Cache MISS for agent_type=X"日志表示：
+- 为类型X求解一个包含1,488个状态的价值函数
+- 这个价值函数会被用于计算该类型下所有15,864个个体的似然
+
 
 ## LOG可视化文件阅读
 

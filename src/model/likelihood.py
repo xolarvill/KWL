@@ -5,10 +5,28 @@ This version is refactored for performance, decoupling Bellman solution from lik
 import logging
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, Callable, Tuple
+from typing import Dict, Any, Callable, Tuple, Optional
 
 from src.model.bellman import solve_bellman_equation
 from src.model.utility import calculate_flow_utility_vectorized
+
+# Global cache for Bellman solutions
+_BELLMAN_CACHE: Dict[Tuple, np.ndarray] = {}
+
+def _make_cache_key(params: Dict[str, Any], agent_type: int) -> Tuple:
+    """
+    Creates a hashable cache key from parameters and agent type.
+    """
+    # Only include structural parameters, exclude n_choices
+    param_items = [(k, v) for k, v in sorted(params.items()) if k != 'n_choices']
+    return (agent_type, tuple(param_items))
+
+def clear_bellman_cache():
+    """
+    Clears the global Bellman solution cache.
+    """
+    global _BELLMAN_CACHE
+    _BELLMAN_CACHE.clear()
 
 def solve_bellman_for_params(
     params: Dict[str, Any],
@@ -19,13 +37,30 @@ def solve_bellman_for_params(
     regions_df: pd.DataFrame,
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
-    initial_v: np.ndarray = None, # <-- Key addition for hot-starts
+    initial_v: np.ndarray = None,
     verbose: bool = True,
+    use_cache: bool = True,
 ) -> np.ndarray:
     """
     Solves the Bellman equation for a given set of parameters.
-    Accepts an initial value function for hot-starting the solver.
+    Uses global caching to avoid redundant computations.
+
+    Args:
+        use_cache: If True, check cache before solving and store result after solving
+        initial_v: Initial value function for hot-starting (used when cache misses)
     """
+    logger = logging.getLogger()
+
+    # Check cache first
+    if use_cache:
+        cache_key = _make_cache_key(params, agent_type)
+        if cache_key in _BELLMAN_CACHE:
+            logger.info(f"      [Likelihood] Cache HIT for agent_type={agent_type}. Reusing Bellman solution.")
+            return _BELLMAN_CACHE[cache_key]
+        else:
+            logger.info(f"      [Likelihood] Cache MISS for agent_type={agent_type}. Solving Bellman equation...")
+
+    # Solve Bellman equation
     converged_v, _ = solve_bellman_equation(
         utility_function=calculate_flow_utility_vectorized,
         state_space=state_space,
@@ -36,9 +71,16 @@ def solve_bellman_for_params(
         regions_df=regions_df,
         distance_matrix=distance_matrix,
         adjacency_matrix=adjacency_matrix,
-        initial_v=initial_v, # Pass the hot-start vector to the solver
+        initial_v=initial_v,
         verbose=verbose,
     )
+
+    # Store in cache
+    if use_cache:
+        cache_key = _make_cache_key(params, agent_type)
+        _BELLMAN_CACHE[cache_key] = converged_v
+        logger.info(f"      [Likelihood] Bellman solution stored in cache for agent_type={agent_type}.")
+
     return converged_v
 
 def calculate_likelihood_from_v(
