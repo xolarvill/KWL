@@ -254,3 +254,68 @@ class EstimationLogParser:
                 stats['iterations_completed'] = max(iterations) if iterations else 0
         
         return stats
+
+    def compare_logs(self, log_entries1: List[LogEntry], log_entries2: List[LogEntry]) -> Dict[str, Any]:
+        """
+        Compare two log files and extract key differences.
+        """
+        stats1 = self.extract_statistics(log_entries1)
+        stats2 = self.extract_statistics(log_entries2)
+        
+        comparison = {
+            'log1_stats': stats1,
+            'log2_stats': stats2,
+            'differences': {}
+        }
+        
+        # Compare key metrics
+        diff_fields = [
+            'total_entries', 'total_duration', 'iterations_completed', 
+            'error_count', 'warning_count', 'cache_stats'
+        ]
+        
+        for field in diff_fields:
+            val1 = stats1.get(field)
+            val2 = stats2.get(field)
+            
+            if val1 != val2:
+                comparison['differences'][field] = {
+                    'log1': val1,
+                    'log2': val2,
+                    'difference': None
+                }
+                
+                # Calculate difference for numeric values
+                if isinstance(val1, (int, float)) and isinstance(val2, (int, float)):
+                    comparison['differences'][field]['difference'] = val2 - val1
+        
+        # Compare log likelihood progression
+        ll1 = stats1.get('log_likelihoods', [])
+        ll2 = stats2.get('log_likelihoods', [])
+        
+        if ll1 and ll2:
+            # Get the final log likelihoods
+            final_ll1 = ll1[-1]['value'] if ll1 else None
+            final_ll2 = ll2[-1]['value'] if ll2 else None
+            
+            if final_ll1 and final_ll2:
+                comparison['differences']['final_log_likelihood'] = {
+                    'log1': final_ll1,
+                    'log2': final_ll2,
+                    'difference': final_ll2 - final_ll1
+                }
+        
+        # Compare convergence
+        comparison['convergence_info'] = {
+            'log1_converged': stats1.get('iterations_completed', 0) > 0,
+            'log2_converged': stats2.get('iterations_completed', 0) > 0,
+        }
+        
+        # Compare performance metrics
+        comparison['performance_comparison'] = {
+            'log1_duration': str(stats1.get('total_duration', 'N/A')),
+            'log2_duration': str(stats2.get('total_duration', 'N/A')),
+            'faster_log': 'log1' if stats1.get('total_duration') and stats2.get('total_duration') and stats1['total_duration'] < stats2['total_duration'] else 'log2' if stats1.get('total_duration') and stats2.get('total_duration') else 'unknown'
+        }
+        
+        return comparison

@@ -9,6 +9,7 @@ def create_cli():
     """Create command-line interface for log analysis."""
     parser = argparse.ArgumentParser(description='Estimation Log Analysis Tool')
     parser.add_argument('log_file', nargs='?', help='Path to the log file to analyze')
+    parser.add_argument('log_file2', nargs='?', help='Path to the second log file for comparison')
     
     parser.add_argument('--filter-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], 
                        default='INFO', help='Minimum log level to display')
@@ -21,6 +22,7 @@ def create_cli():
     parser.add_argument('--summary', action='store_true', help='Show summary report')
     parser.add_argument('--performance', action='store_true', help='Show performance analysis')
     parser.add_argument('--timeline', action='store_true', help='Show timeline view')
+    parser.add_argument('--compare', action='store_true', help='Compare two log files')
     parser.add_argument('--max-entries', type=int, default=50, help='Maximum number of entries to show in timeline')
     parser.add_argument('--export', type=str, help='Export filtered logs to specified file')
     
@@ -39,69 +41,107 @@ def main():
         print("  python -m src.cli_visualizer /path/to/logfile.log --summary")
         print("  python -m src.cli_visualizer /path/to/logfile.log --timeline --max-entries 100")
         print("  python -m src.cli_visualizer /path/to/logfile.log --search 'Cache HIT' --filter-level WARNING")
-        return
-    
-    log_path = Path(args.log_file)
-    if not log_path.exists():
-        print(f"Error: Log file '{log_path}' does not exist.", file=sys.stderr)
+        print("  python -m src.cli_visualizer /path/to/logfile1.log /path/to/logfile2.log --compare")
         return
     
     # Initialize parser and visualizer
     parser_instance = EstimationLogParser()
     visualizer = LogVisualizer(parser_instance)
     
-    try:
-        # Parse the log file
-        print(f"Loading log file: {log_path.name}")
-        entries = parser_instance.parse_log_file(str(log_path))
-        iterations = parser_instance.group_by_iterations(entries)
+    # Check if we're doing a comparison
+    if args.compare or args.log_file2:
+        if not args.log_file2:
+            print("Error: For comparison, two log files must be provided.", file=sys.stderr)
+            return
         
-        # Create filter options
-        filters = FilterOptions(
-            min_level=args.filter_level,
-            iteration_filter=args.iteration,
-            search_text=args.search or "",
-            show_cache_operations=args.show_cache,
-            show_bellman_operations=args.show_bellman
-        )
+        log_path1 = Path(args.log_file)
+        log_path2 = Path(args.log_file2)
         
-        # Apply filters if needed
-        if any([args.filter_level != 'INFO', args.search, args.iteration, 
-                not args.show_cache, not args.show_bellman]):
-            filtered_entries = visualizer.filter_entries(entries, filters)
-        else:
-            filtered_entries = entries
+        if not log_path1.exists():
+            print(f"Error: Log file '{log_path1}' does not exist.", file=sys.stderr)
+            return
         
-        # Determine what to show based on arguments
-        show_anything = any([args.summary, args.performance, args.timeline, args.export])
+        if not log_path2.exists():
+            print(f"Error: Log file '{log_path2}' does not exist.", file=sys.stderr)
+            return
         
-        if args.summary or not show_anything:  # Show summary by default if no specific option is given
-            summary = visualizer.generate_summary_report(entries, iterations)
-            print(summary)
+        try:
+            print(f"Loading log files: {log_path1.name} and {log_path2.name}")
             
-            if show_anything:  # Add a separator if showing multiple outputs
-                print("\n" + "="*80 + "\n")
-        
-        if args.performance:
-            performance = visualizer.print_performance_analysis(iterations)
-            print(performance)
+            # Parse both log files
+            entries1 = parser_instance.parse_log_file(str(log_path1))
+            entries2 = parser_instance.parse_log_file(str(log_path2))
             
-            if args.timeline or args.export:
-                print("\n" + "="*80 + "\n")
+            # Compare the logs
+            comparison_result = parser_instance.compare_logs(entries1, entries2)
+            
+            # Generate and print comparison report
+            comparison_report = visualizer.generate_comparison_report(comparison_result)
+            print(comparison_report)
         
-        if args.timeline:
-            timeline = visualizer.print_timeline_view(filtered_entries, args.max_entries)
-            print(timeline)
+        except Exception as e:
+            print(f"Error comparing log files: {str(e)}", file=sys.stderr)
+            sys.exit(1)
+    
+    else:
+        # Single file analysis (existing functionality)
+        log_path = Path(args.log_file)
+        if not log_path.exists():
+            print(f"Error: Log file '{log_path}' does not exist.", file=sys.stderr)
+            return
+        
+        try:
+            # Parse the log file
+            print(f"Loading log file: {log_path.name}")
+            entries = parser_instance.parse_log_file(str(log_path))
+            iterations = parser_instance.group_by_iterations(entries)
+            
+            # Create filter options
+            filters = FilterOptions(
+                min_level=args.filter_level,
+                iteration_filter=args.iteration,
+                search_text=args.search or "",
+                show_cache_operations=args.show_cache,
+                show_bellman_operations=args.show_bellman
+            )
+            
+            # Apply filters if needed
+            if any([args.filter_level != 'INFO', args.search, args.iteration, 
+                    not args.show_cache, not args.show_bellman]):
+                filtered_entries = visualizer.filter_entries(entries, filters)
+            else:
+                filtered_entries = entries
+            
+            # Determine what to show based on arguments
+            show_anything = any([args.summary, args.performance, args.timeline, args.export])
+            
+            if args.summary or not show_anything:  # Show summary by default if no specific option is given
+                summary = visualizer.generate_summary_report(entries, iterations)
+                print(summary)
+                
+                if show_anything:  # Add a separator if showing multiple outputs
+                    print("\n" + "="*80 + "\n")
+            
+            if args.performance:
+                performance = visualizer.print_performance_analysis(iterations)
+                print(performance)
+                
+                if args.timeline or args.export:
+                    print("\n" + "="*80 + "\n")
+            
+            if args.timeline:
+                timeline = visualizer.print_timeline_view(filtered_entries, args.max_entries)
+                print(timeline)
+                
+                if args.export:
+                    print("\n" + "="*80 + "\n")
             
             if args.export:
-                print("\n" + "="*80 + "\n")
+                visualizer.export_filtered_logs(filtered_entries, args.export)
         
-        if args.export:
-            visualizer.export_filtered_logs(filtered_entries, args.export)
-    
-    except Exception as e:
-        print(f"Error processing log file: {str(e)}", file=sys.stderr)
-        sys.exit(1)
+        except Exception as e:
+            print(f"Error processing log file: {str(e)}", file=sys.stderr)
+            sys.exit(1)
 
 
 if __name__ == "__main__":

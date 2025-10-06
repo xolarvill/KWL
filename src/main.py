@@ -39,6 +39,7 @@ Examples:
     
     # Arguments for CLI mode (for backward compatibility)
     parser.add_argument('log_file', nargs='?', help='Path to the log file to analyze (CLI mode)')
+    parser.add_argument('log_file2', nargs='?', help='Path to the second log file for comparison (CLI mode)')
     parser.add_argument('--filter-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], 
                        default='INFO', help='Minimum log level to display')
     parser.add_argument('--search', type=str, help='Search term to filter log entries')
@@ -50,6 +51,7 @@ Examples:
     parser.add_argument('--summary', action='store_true', help='Show summary report')
     parser.add_argument('--performance', action='store_true', help='Show performance analysis')
     parser.add_argument('--timeline', action='store_true', help='Show timeline view')
+    parser.add_argument('--compare', action='store_true', help='Compare two log files')
     parser.add_argument('--max-entries', type=int, default=50, help='Maximum number of entries to show in timeline')
     parser.add_argument('--export', type=str, help='Export filtered logs to specified file')
     
@@ -68,7 +70,7 @@ Examples:
     
     elif args.log_file or any([
         args.search, args.iteration, args.summary, args.performance, 
-        args.timeline, args.export
+        args.timeline, args.export, args.compare
     ]):
         # Run CLI mode
         cli_main()

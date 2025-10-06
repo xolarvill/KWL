@@ -66,10 +66,24 @@
             display: flex;
             gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
         }
         
         .log-options select {
             flex: 1;
+            min-width: 200px;
+        }
+        
+        .log-comparison {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .log-comparison select {
+            flex: 1;
+            min-width: 200px;
         }
         
         .tabs {
@@ -193,11 +207,24 @@
         <h1>Estimation Log Visualizer</h1>
         
         <div class="controls">
+            <!-- Single Log File Controls -->
             <div class="log-options">
                 <select id="logFileSelect">
                     <option value="">Select a log file...</option>
                 </select>
                 <button onclick="loadLogFile()">Load Log</button>
+                <button onclick="refreshLogList()">Refresh List</button>
+            </div>
+            
+            <!-- Log Comparison Controls -->
+            <div class="log-comparison" style="margin-top: 10px;">
+                <select id="logFileSelect1">
+                    <option value="">Log 1...</option>
+                </select>
+                <select id="logFileSelect2">
+                    <option value="">Log 2...</option>
+                </select>
+                <button onclick="compareLogFiles()">Compare Logs</button>
                 <button onclick="refreshLogList()">Refresh List</button>
             </div>
             
@@ -259,6 +286,7 @@
             <div class="tab" onclick="switchTab('timeline')">Timeline</div>
             <div class="tab" onclick="switchTab('performance')">Performance</div>
             <div class="tab" onclick="switchTab('filtered')">Filtered Logs</div>
+            <div class="tab" onclick="switchTab('comparison')">Comparison</div>
         </div>
         
         <div class="tab-content active" id="summary">
@@ -276,11 +304,18 @@
         <div class="tab-content" id="filtered">
             <div class="log-container" id="filteredContent">Filtered logs will appear here...</div>
         </div>
+        
+        <div class="tab-content" id="comparison">
+            <div class="log-container" id="comparisonContent">Select two log files and click "Compare Logs" to view comparison...</div>
+        </div>
     </div>
     
     <script>
         let currentLogEntries = [];
         let currentIterations = [];
+        let logData1 = null;
+        let logData2 = null;
+        let comparisonResult = null;
         
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -292,13 +327,21 @@
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('logFileSelect');
-                    select.innerHTML = '<option value="">Select a log file...</option>';
+                    const select1 = document.getElementById('logFileSelect1');
+                    const select2 = document.getElementById('logFileSelect2');
+                    
+                    // Clear all selects
+                    [select, select1, select2].forEach(sel => {
+                        sel.innerHTML = '<option value="">Select a log file...</option>';
+                    });
                     
                     data.forEach(file => {
-                        const option = document.createElement('option');
-                        option.value = file;
-                        option.textContent = file;
-                        select.appendChild(option);
+                        [select, select1, select2].forEach(sel => {
+                            const option = document.createElement('option');
+                            option.value = file;
+                            option.textContent = file;
+                            sel.appendChild(option);
+                        });
                     });
                 })
                 .catch(error => {
@@ -349,6 +392,102 @@
                 console.error('Error loading log:', error);
                 alert('Error loading log: ' + error.message);
             });
+        }
+        
+        function compareLogFiles() {
+            const filename1 = document.getElementById('logFileSelect1').value;
+            const filename2 = document.getElementById('logFileSelect2').value;
+            
+            if (!filename1 || !filename2) {
+                alert('Please select two log files to compare');
+                return;
+            }
+            
+            if (filename1 === filename2) {
+                alert('Please select two different log files');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('comparisonContent').textContent = 'Comparing logs...';
+            
+            fetch('/compare_logs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({filename1: filename1, filename2: filename2})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('comparisonContent').textContent = 'Error: ' + data.error;
+                    return;
+                }
+                
+                comparisonResult = data.comparison;
+                document.getElementById('comparisonContent').textContent = formatComparisonReport(data.comparison);
+            })
+            .catch(error => {
+                console.error('Error comparing logs:', error);
+                document.getElementById('comparisonContent').textContent = 'Error comparing logs: ' + error.message;
+            });
+        }
+        
+        function formatComparisonReport(comparison) {
+            let report = '';
+            report += 'LOG COMPARISON REPORT\n';
+            report += '='.repeat(80) + '\n\n';
+            
+            // Basic statistics comparison
+            const stats1 = comparison.log1_stats || {};
+            const stats2 = comparison.log2_stats || {};
+            
+            report += 'BASIC STATISTICS COMPARISON:\n';
+            report += `  Log 1 Total Entries: ${stats1.total_entries || 0}\n`;
+            report += `  Log 2 Total Entries: ${stats2.total_entries || 0}\n\n`;
+            
+            report += `  Log 1 Duration: ${stats1.total_duration || 'N/A'}\n`;
+            report += `  Log 2 Duration: ${stats2.total_duration || 'N/A'}\n\n`;
+            
+            report += `  Log 1 Errors: ${stats1.error_count || 0}\n`;
+            report += `  Log 2 Errors: ${stats2.error_count || 0}\n\n`;
+            
+            report += `  Log 1 Warnings: ${stats1.warning_count || 0}\n`;
+            report += `  Log 2 Warnings: ${stats2.warning_count || 0}\n\n`;
+            
+            report += `  Log 1 Cache Hits: ${stats1.cache_stats?.hits || 0}\n`;
+            report += `  Log 2 Cache Hits: ${stats2.cache_stats?.hits || 0}\n\n`;
+            
+            report += `  Log 1 Cache Misses: ${stats1.cache_stats?.misses || 0}\n`;
+            report += `  Log 2 Cache Misses: ${stats2.cache_stats?.misses || 0}\n\n`;
+            
+            // Differences
+            const differences = comparison.differences || {};
+            if (Object.keys(differences).length > 0) {
+                report += 'KEY DIFFERENCES:\n';
+                for (const [key, diff] of Object.entries(differences)) {
+                    if (diff.difference !== undefined && diff.difference !== null) {
+                        report += `  ${key}: Log1=${diff.log1}, Log2=${diff.log2}, Difference=${diff.difference}\n`;
+                    } else {
+                        report += `  ${key}: Log1=${diff.log1}, Log2=${diff.log2}\n`;
+                    }
+                }
+                report += '\n';
+            }
+            
+            // Convergence comparison
+            const convInfo = comparison.convergence_info || {};
+            report += 'CONVERGENCE COMPARISON:\n';
+            report += `  Log 1 Converged: ${convInfo.log1_converged || false}\n`;
+            report += `  Log 2 Converged: ${convInfo.log2_converged || false}\n\n`;
+            
+            const perfComp = comparison.performance_comparison || {};
+            report += `  Log 1 Duration: ${perfComp.log1_duration || 'N/A'}\n`;
+            report += `  Log 2 Duration: ${perfComp.log2_duration || 'N/A'}\n`;
+            report += `  Faster Log: ${perfComp.faster_log || 'N/A'}\n`;
+            
+            return report;
         }
         
         function updateStats(stats) {

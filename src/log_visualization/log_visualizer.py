@@ -242,3 +242,63 @@ class LogVisualizer:
                 f.write(f"{entry.message}\n")
         
         print(f"Filtered logs exported to {output_path}")
+    
+    def generate_comparison_report(self, comparison_result: Dict[str, Any]) -> str:
+        """
+        Generate a comparison report of two log files.
+        """
+        report = []
+        report.append("=" * 80)
+        report.append("LOG COMPARISON REPORT")
+        report.append("=" * 80)
+        
+        # Basic statistics comparison
+        log1_stats = comparison_result.get('log1_stats', {})
+        log2_stats = comparison_result.get('log2_stats', {})
+        
+        report.append("BASIC STATISTICS COMPARISON:")
+        report.append(f"  Log 1 Total Entries: {log1_stats.get('total_entries', 0)}")
+        report.append(f"  Log 2 Total Entries: {log2_stats.get('total_entries', 0)}")
+        
+        duration1 = log1_stats.get('total_duration')
+        duration2 = log2_stats.get('total_duration')
+        report.append(f"  Log 1 Duration: {duration1}")
+        report.append(f"  Log 2 Duration: {duration2}")
+        
+        report.append(f"  Log 1 Errors: {log1_stats.get('error_count', 0)}")
+        report.append(f"  Log 2 Errors: {log2_stats.get('error_count', 0)}")
+        
+        report.append(f"  Log 1 Warnings: {log1_stats.get('warning_count', 0)}")
+        report.append(f"  Log 2 Warnings: {log2_stats.get('warning_count', 0)}")
+        
+        report.append(f"  Log 1 Cache Hits: {log1_stats.get('cache_stats', {}).get('hits', 0)}")
+        report.append(f"  Log 2 Cache Hits: {log2_stats.get('cache_stats', {}).get('hits', 0)}")
+        
+        report.append(f"  Log 1 Cache Misses: {log1_stats.get('cache_stats', {}).get('misses', 0)}")
+        report.append(f"  Log 2 Cache Misses: {log2_stats.get('cache_stats', {}).get('misses', 0)}")
+        
+        report.append("")
+        
+        # Differences section
+        differences = comparison_result.get('differences', {})
+        if differences:
+            report.append("KEY DIFFERENCES:")
+            for key, diff in differences.items():
+                if 'difference' in diff and diff['difference'] is not None:
+                    report.append(f"  {key}: Log1={diff['log1']}, Log2={diff['log2']}, Difference={diff['difference']}")
+                else:
+                    report.append(f"  {key}: Log1={diff['log1']}, Log2={diff['log2']}")
+            report.append("")
+        
+        # Convergence comparison
+        conv_info = comparison_result.get('convergence_info', {})
+        report.append("CONVERGENCE COMPARISON:")
+        report.append(f"  Log 1 Converged: {conv_info.get('log1_converged', False)}")
+        report.append(f"  Log 2 Converged: {conv_info.get('log2_converged', False)}")
+        
+        perf_comp = comparison_result.get('performance_comparison', {})
+        report.append(f"  Log 1 Duration: {perf_comp.get('log1_duration', 'N/A')}")
+        report.append(f"  Log 2 Duration: {perf_comp.get('log2_duration', 'N/A')}")
+        report.append(f"  Faster Log: {perf_comp.get('faster_log', 'N/A')}")
+        
+        return "\n".join(report)
