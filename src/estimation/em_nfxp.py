@@ -8,7 +8,7 @@ import time
 import os
 from functools import wraps
 
-from src.model.likelihood import calculate_log_likelihood
+from src.model.likelihood import solve_bellman_for_params, calculate_likelihood_from_v
 from src.estimation.migration_behavior_analysis import identify_migration_behavior_types, create_behavior_based_initial_params
 
 # --- Logging and Timing Setup ---
@@ -84,7 +84,8 @@ def e_step(
     force_type_separation: bool = True, n_jobs: int = 3
 ) -> Tuple[np.ndarray, np.ndarray]:
     logger = logging.getLogger()
-    N = observed_data["individual_id"].nunique()
+    unique_individuals, individual_indices = np.unique(observed_data['individual_id'], return_inverse=True)
+    N = len(unique_individuals)
     K = len(pi_k) if n_types is None else n_types
     log_likelihood_matrix = np.zeros((N, K))
     logger.info(f"  Computing log-likelihoods for {N} individuals across {K} types (parallel={n_jobs>1})...")
@@ -96,19 +97,29 @@ def e_step(
             if f'gamma_1_type_{k}' in params: type_specific_params['gamma_1'] = params[f'gamma_1_type_{k}']
             if f'alpha_home_type_{k}' in params: type_specific_params['alpha_home'] = params[f'alpha_home_type_{k}']
             if f'lambda_type_{k}' in params: type_specific_params['lambda'] = params[f'lambda_type_{k}']
-            log_lik_obs = -calculate_log_likelihood(
-                params=type_specific_params, observed_data=observed_data, state_space=state_space,
-                agent_type=int(k), beta=beta, transition_matrices=transition_matrices,
-                regions_df=regions_df, distance_matrix=distance_matrix,
-                adjacency_matrix=adjacency_matrix, verbose=False
+
+            # Solve Bellman equation once for this type
+            converged_v = solve_bellman_for_params(
+                params=type_specific_params, state_space=state_space, agent_type=int(k),
+                beta=beta, transition_matrices=transition_matrices, regions_df=regions_df,
+                distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix,
+                initial_v=None, verbose=False
             )
-            log_lik_obs = np.nan_to_num(log_lik_obs, nan=-1e10, posinf=-1e10, neginf=-1e10)
-            observed_data_copy = observed_data.copy()
-            observed_data_copy['log_lik_obs'] = log_lik_obs
-            individual_log_lik = observed_data_copy.groupby("individual_id")['log_lik_obs'].sum()
-            return k, individual_log_lik.values
+
+            # Calculate likelihood using the converged value function
+            log_lik_obs_vector = calculate_likelihood_from_v(
+                converged_v=converged_v, params=type_specific_params, observed_data=observed_data,
+                state_space=state_space, agent_type=int(k), beta=beta,
+                transition_matrices=transition_matrices, regions_df=regions_df,
+                distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix
+            )
+            log_lik_obs_vector = np.nan_to_num(log_lik_obs_vector, nan=-1e10, posinf=-1e10, neginf=-1e10)
+
+            # Use fast numpy aggregation instead of slow pandas groupby
+            individual_log_lik = np.bincount(individual_indices, weights=log_lik_obs_vector)
+            return k, individual_log_lik
         except Exception as e:
-            logger.error(f"  Error computing likelihood for type {k}: {e}")
+            logger.error(f"  Error computing likelihood for type {k}: {e}", exc_info=True)
             return k, np.full(N, -1e10)
 
     if n_jobs > 1:
@@ -147,19 +158,23 @@ def m_step(
     posterior_probs: np.ndarray, initial_params: Dict[str, Any], observed_data: pd.DataFrame,
     state_space: pd.DataFrame, transition_matrices: Dict[str, np.ndarray], beta: float,
     regions_df: pd.DataFrame, distance_matrix: np.ndarray, adjacency_matrix: np.ndarray,
-    n_types: int = None
-) -> Tuple[Dict[str, Any], np.ndarray]:
+    n_types: int = None, hot_start_state: Dict[int, np.ndarray] = None
+) -> Tuple[Dict[str, Any], np.ndarray, Dict[int, np.ndarray]]:
     logger = logging.getLogger()
     K = posterior_probs.shape[1] if n_types is None else n_types
-    
+
+    # Initialize hot-start state if not provided
+    if hot_start_state is None:
+        hot_start_state = {}
+
     logger.info(f"\n  Type weight diagnostics:")
     for k in range(K):
         weight_sum = np.sum(posterior_probs[:, k])
         weight_mean = np.mean(posterior_probs[:, k])
         logger.info(f"    Type {k}: sum={weight_sum:10.4f}, mean={weight_mean:.6f}")
 
-    # Caching dictionary for Bellman solutions
-    bellman_cache = {}
+    # --- PERFORMANCE FIX: Pre-calculate observation-to-individual mapping ---
+    unique_individuals, individual_indices = np.unique(observed_data['individual_id'], return_inverse=True)
 
     def objective_function(param_values: np.ndarray, param_names: List[str]) -> float:
         if not hasattr(objective_function, 'call_count'):
@@ -172,33 +187,41 @@ def m_step(
             for k in range(K):
                 weights = posterior_probs[:, k]
                 if np.sum(weights) < 1e-10: continue
-                
+
                 type_specific_params = params_k.copy()
                 if f'gamma_0_type_{k}' in params_k: type_specific_params['gamma_0'] = params_k[f'gamma_0_type_{k}']
                 if f'gamma_1_type_{k}' in params_k: type_specific_params['gamma_1'] = params_k[f'gamma_1_type_{k}']
                 if f'alpha_home_type_{k}' in params_k: type_specific_params['alpha_home'] = params_k[f'alpha_home_type_{k}']
                 if f'lambda_type_{k}' in params_k: type_specific_params['lambda'] = params_k[f'lambda_type_{k}']
-                
-                # Use a tuple of parameter values as the cache key
-                param_tuple = tuple(sorted(type_specific_params.items()))
 
-                log_lik_k_obs = -calculate_log_likelihood(
-                    params=type_specific_params, observed_data=observed_data, state_space=state_space,
-                    agent_type=int(k), beta=beta, transition_matrices=transition_matrices,
-                    regions_df=regions_df, distance_matrix=distance_matrix,
-                    adjacency_matrix=adjacency_matrix, verbose=(objective_function.call_count == 1),
-                    cache=bellman_cache, cache_key=param_tuple
+                # Hot-start: Use previous value function as initial guess
+                initial_v = hot_start_state.get(k, None)
+
+                # Solve Bellman equation with hot-start
+                converged_v = solve_bellman_for_params(
+                    params=type_specific_params, state_space=state_space, agent_type=int(k),
+                    beta=beta, transition_matrices=transition_matrices, regions_df=regions_df,
+                    distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix,
+                    initial_v=initial_v, verbose=(objective_function.call_count == 1)
                 )
-                
-                log_lik_k_obs = np.nan_to_num(log_lik_k_obs, nan=-1e10, posinf=-1e10, neginf=-1e10)
-                observed_data_copy = observed_data.copy()
-                observed_data_copy['log_lik_k_obs'] = log_lik_k_obs
-                individual_log_lik = observed_data_copy.groupby("individual_id")['log_lik_k_obs'].sum()
+
+                # Update hot-start state with converged value function
+                hot_start_state[k] = converged_v
+
+                # Calculate likelihood using the converged value function
+                log_lik_k_obs_vector = calculate_likelihood_from_v(
+                    converged_v=converged_v, params=type_specific_params, observed_data=observed_data,
+                    state_space=state_space, agent_type=int(k), beta=beta,
+                    transition_matrices=transition_matrices, regions_df=regions_df,
+                    distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix
+                )
+                log_lik_k_obs_vector = np.nan_to_num(log_lik_k_obs_vector, nan=-1e10, posinf=-1e10, neginf=-1e10)
+
+                # --- PERFORMANCE FIX: Use fast NumPy aggregation ---
+                individual_log_lik = np.bincount(individual_indices, weights=log_lik_k_obs_vector)
                 total_weighted_log_lik += np.sum(weights * individual_log_lik)
-            
-            type_probs = posterior_probs.mean(axis=0)
-            entropy_reg = -0.1 * np.sum(type_probs * np.log(type_probs + 1e-10))
-            return -(total_weighted_log_lik + entropy_reg)
+
+            return -total_weighted_log_lik
         except Exception as e:
             logger.error(f"  Error in objective function: {e}", exc_info=True)
             return 1e10
@@ -225,9 +248,9 @@ def m_step(
     MIN_PROB = 0.05
     updated_pi_k = np.maximum(updated_pi_k, MIN_PROB)
     updated_pi_k = updated_pi_k / np.sum(updated_pi_k)
-    
+
     logger.info(f"  M-step completed. Type probabilities: {updated_pi_k}")
-    return updated_params, updated_pi_k
+    return updated_params, updated_pi_k, hot_start_state
 
 @timing_decorator
 def run_em_algorithm(
@@ -267,7 +290,10 @@ def run_em_algorithm(
             "alpha_education": 0.1, "alpha_public_services": 0.1, "n_choices": n_choices
         }
         pi_k = np.full(n_types, 1 / n_types)
-    
+
+    # Initialize hot-start state dictionary
+    hot_start_state = {}
+
     old_log_likelihood = -np.inf
     for i in range(max_iterations):
         logger.info(f"\n--- EM Iteration {i+1}/{max_iterations} ---")
@@ -279,9 +305,10 @@ def run_em_algorithm(
         )
         
         logger.info("Running M-step...")
-        initial_params, pi_k = m_step(
+        initial_params, pi_k, hot_start_state = m_step(
             posterior_probs, initial_params, observed_data, state_space, transition_matrices,
-            beta, regions_df, distance_matrix, adjacency_matrix, n_types=n_types
+            beta, regions_df, distance_matrix, adjacency_matrix, n_types=n_types,
+            hot_start_state=hot_start_state
         )
         
         new_log_likelihood = _calculate_mixture_log_likelihood(log_likelihood_matrix, pi_k)
