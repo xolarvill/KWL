@@ -212,36 +212,42 @@ def identify_migration_behavior_types(observed_data: pd.DataFrame, n_types: int 
     return type_assignments, type_probs_matrix
 
 
-def create_behavior_based_initial_params(n_types: int = 3) -> Dict[str, Any]:
+def create_behavior_based_initial_params(n_types: int = 3, config=None) -> Dict[str, Any]:
     """
     基于行为模式创建初始参数
-    
+
     Args:
         n_types: 类型数量
-        
+        config: ModelConfig实例，如果提供则使用配置中的值
+
     Returns:
         Dict[str, Any]: 初始参数字典
     """
+    if config is not None:
+        # 使用ModelConfig提供的初始值
+        return config.get_initial_params(use_type_specific=True)
+
+    # Fallback: 使用硬编码默认值（保持向后兼容）
     initial_params = {
-        "alpha_w": 1.0, 
-        "lambda": 2.0, 
+        "alpha_w": 1.0,
+        "lambda": 2.0,
         "alpha_home": 1.0,
-        "rho_base_tier_1": 1.0, 
-        "rho_edu": 0.1, 
-        "rho_health": 0.1, 
+        "rho_base_tier_1": 1.0,
+        "rho_edu": 0.1,
+        "rho_health": 0.1,
         "rho_house": 0.1,
-        "gamma_1": -0.1, 
+        "gamma_1": -0.1,
         "gamma_2": 0.2,
-        "gamma_3": -0.4, 
-        "gamma_4": 0.01, 
+        "gamma_3": -0.4,
+        "gamma_4": 0.01,
         "gamma_5": -0.05,
-        "alpha_climate": 0.1, 
-        "alpha_health": 0.1, 
-        "alpha_education": 0.1, 
+        "alpha_climate": 0.1,
+        "alpha_health": 0.1,
+        "alpha_education": 0.1,
         "alpha_public_services": 0.1,
         "n_choices": 31
     }
-    
+
     # 为每种类型设置不同类型特定参数
     for t in range(n_types):
         # 根据典型行为模式设置参数
@@ -260,7 +266,7 @@ def create_behavior_based_initial_params(n_types: int = 3) -> Dict[str, Any]:
             initial_params[f'gamma_1_type_{t}'] = -1.5  # 中等距离敏感性
             initial_params[f'alpha_home_type_{t}'] = 0.8  # 中等家乡溢价
             initial_params[f'lambda_type_{t}'] = 1.8  # 中等损失厌恶
-    
+
     return initial_params
 
 

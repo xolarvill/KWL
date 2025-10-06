@@ -18,7 +18,7 @@ if project_root not in sys.path:
 from src.data_handler.data_loader import DataLoader
 from src.estimation.em_nfxp import run_em_algorithm
 from src.config.model_config import ModelConfig
-from src.estimation.inference import compute_information_criteria, estimate_standard_errors
+from src.estimation.inference import compute_information_criteria, estimate_mixture_model_standard_errors
 from src.model.likelihood import calculate_log_likelihood
 from src.utils.outreg2 import output_estimation_results, output_model_fit_results
 
@@ -66,45 +66,32 @@ def run_estimation_workflow(sample_size: int = None):
 
     # --- 4. 统计推断 ---
     print("计算参数标准误和显著性...")
-    # 注意：标准误的计算非常耗时，特别是对于混合模型。
-    # 这里的实现是一个简化的示例，实际研究中需要更严谨的方法（如Louis' Method）。
-    # 我们将对每个类型的主要参数进行计算。
+    # 使用针对混合模型优化的标准误估计方法
     std_errors, t_stats, p_values = {}, {}, {}
     try:
-        # 简化处理：我们只为第一个类型（type 0）计算标准误作为代表
-        type_0_params = {k: v for k, v in estimated_params.items() if f'type_1' not in k and f'type_2' not in k}
-        
-        se, ts, pv = estimate_standard_errors(
-            log_likelihood_func=calculate_log_likelihood,
-            params=type_0_params,
+        std_errors, t_stats, p_values = estimate_mixture_model_standard_errors(
+            estimated_params=estimated_params,
             observed_data=df_individual,
             state_space=state_space,
             transition_matrices=transition_matrices,
-            agent_type=0,
             beta=estimation_params['beta'],
             regions_df=df_region,
             distance_matrix=distance_matrix,
-            adjacency_matrix=adjacency_matrix
+            adjacency_matrix=adjacency_matrix,
+            n_types=estimation_params['n_types'],
+            method="type_0_only"  # 可选："shared_only"（更快）或"type_0_only"（更完整）
         )
-        std_errors.update(se)
-        t_stats.update(ts)
-        p_values.update(pv)
-        print("代表性的标准误计算完成。")
+        print("参数标准误计算完成。")
 
     except Exception as e:
         print(f"标准误计算过程中发生错误: {e}")
+        import traceback
+        traceback.print_exc()
         # Fallback to placeholder if calculation fails
         param_keys = [k for k in estimated_params.keys() if k != 'n_choices']
         std_errors = {k: 0.1 for k in param_keys}
         t_stats = {k: 0.0 for k in param_keys}
         p_values = {k: 1.0 for k in param_keys}
-
-    # 为其他类型参数填充占位符
-    for k in estimated_params:
-        if k not in std_errors and k != 'n_choices':
-            std_errors[k] = 'N/A'
-            t_stats[k] = 'N/A'
-            p_values[k] = 'N/A'
 
     n_observations = len(df_individual)
     n_params = len(estimated_params) - 1

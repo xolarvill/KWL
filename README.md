@@ -150,7 +150,7 @@ agent_type不是"个体"，而是"类型"
 - agent_type=2  # Type 2的所有个体共享的价值函数
 
 Bellman方程求解的是状态空间级别的，每次求解产生一个价值函数向量 $V^k(s)$：
-$$V^k(s) = \max_{j \in \mathcal{J}} \left u^k(s,j) + \beta \sum_{s'} P(s'|s,j) V^k(s') \right$$
+$$V^k(s) = \max_{j \in \mathcal{J}} \left \{ u^k(s,j) + \beta \sum_{s'} P(s'|s,j) V^k(s') \right \}$$
 
 其中：
 - $k$ = agent_type（类型0, 1, 2）

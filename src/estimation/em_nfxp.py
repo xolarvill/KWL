@@ -255,21 +255,27 @@ def run_em_algorithm(
     beta: float, n_types: int, regions_df: pd.DataFrame, distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray, max_iterations: int = 100, tolerance: float = 1e-5,
     n_choices: int = 31, use_migration_behavior_init: bool = True,
+    initial_params: Dict[str, Any] = None, initial_pi_k: np.ndarray = None
 ) -> Dict[str, Any]:
     logger = setup_logging()
-    
-    if use_migration_behavior_init:
+
+    # 如果提供了自定义初始值，直接使用
+    if initial_params is not None:
+        logger.info("Using provided initial parameters...")
+        EM_initial_params = initial_params
+        pi_k = initial_pi_k if initial_pi_k is not None else np.full(n_types, 1 / n_types)
+    elif use_migration_behavior_init:
         logger.info("Initializing with migration behavior analysis...")
         try:
             _, initial_posterior_probs = identify_migration_behavior_types(observed_data, n_types)
-            initial_params = create_behavior_based_initial_params(n_types)
+            EM_initial_params = create_behavior_based_initial_params(n_types)
             pi_k = initial_posterior_probs.mean(axis=0)
             pi_k = np.maximum(pi_k, 1e-6)
             pi_k = pi_k / np.sum(pi_k)
         except Exception as e:
             logger.error(f"Error in migration behavior initialization: {e}", exc_info=True)
             logger.warning("Falling back to uniform initialization...")
-            initial_params = {
+            EM_initial_params = {
                 "alpha_w": 1.0, "lambda": 2.0, "alpha_home": 1.0, "rho_base_tier_1": 1.0,
                 "rho_edu": 0.1, "rho_health": 0.1, "rho_house": 0.1, "gamma_0_type_0": 1.0,
                 "gamma_0_type_1": 1.5, "gamma_1": -0.1, "gamma_2": 0.2, "gamma_3": -0.4,
@@ -279,7 +285,7 @@ def run_em_algorithm(
             pi_k = np.full(n_types, 1 / n_types)
     else:
         logger.info("Using standard uniform initialization...")
-        initial_params = {
+        EM_initial_params = {
             "alpha_w": 1.0, "lambda": 2.0, "alpha_home": 1.0, "rho_base_tier_1": 1.0,
             "rho_edu": 0.1, "rho_health": 0.1, "rho_house": 0.1, "gamma_0_type_0": 1.0,
             "gamma_0_type_1": 1.5, "gamma_1": -0.1, "gamma_2": 0.2, "gamma_3": -0.4,
@@ -302,13 +308,13 @@ def run_em_algorithm(
 
         logger.info("Running E-step...")
         posterior_probs, log_likelihood_matrix = e_step(
-            initial_params, pi_k, observed_data, state_space, transition_matrices, beta,
+            EM_initial_params, pi_k, observed_data, state_space, transition_matrices, beta,
             regions_df, distance_matrix, adjacency_matrix, n_types=n_types
         )
 
         logger.info("Running M-step...")
-        initial_params, pi_k, hot_start_state = m_step(
-            posterior_probs, initial_params, observed_data, state_space, transition_matrices,
+        EM_initial_params, pi_k, hot_start_state = m_step(
+            posterior_probs, EM_initial_params, observed_data, state_space, transition_matrices,
             beta, regions_df, distance_matrix, adjacency_matrix, n_types=n_types,
             hot_start_state=hot_start_state
         )
@@ -327,7 +333,7 @@ def run_em_algorithm(
             logger.warning("EM algorithm reached max iterations without converging.")
 
     return {
-        "structural_params": initial_params, "type_probabilities": pi_k,
+        "structural_params": EM_initial_params, "type_probabilities": pi_k,
         "final_log_likelihood": new_log_likelihood, "n_iterations": i + 1,
         "posterior_probs": posterior_probs, "log_likelihood_matrix": log_likelihood_matrix
     }
