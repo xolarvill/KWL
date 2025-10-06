@@ -44,11 +44,25 @@ def calculate_flow_utility_vectorized(
     income_utility = np.where(wage_predicted >= wage_ref, gain_utility, loss_utility)
 
     # Amenities Utility
+    # Make sure we only use the first n_choices entries to match the number of destinations
+    n_regions_in_data = len(region_data["amenity_climate"])
+    if n_regions_in_data >= n_choices:
+        # Take only the first n_choices entries
+        region_climate = region_data["amenity_climate"][:n_choices]
+        region_health = region_data["amenity_health"][:n_choices] 
+        region_education = region_data["amenity_education"][:n_choices]
+        region_public_services = region_data["amenity_public_services"][:n_choices]
+        region_population = region_data["常住人口万"][:n_choices]
+    else:
+        # If we have fewer entries than choices, we need to handle this appropriately
+        # This should not happen in normal cases but add safety check
+        raise ValueError(f"Number of regions ({n_regions_in_data}) is less than number of choices ({n_choices})")
+    
     amenity_utility = (
-        params["alpha_climate"] * region_data["amenity_climate"][np.newaxis, :]
-        + params["alpha_health"] * region_data["amenity_health"][np.newaxis, :]
-        + params["alpha_education"] * region_data["amenity_education"][np.newaxis, :]
-        + params["alpha_public_services"] * region_data["amenity_public_services"][np.newaxis, :]
+        params["alpha_climate"] * region_climate[np.newaxis, :]
+        + params["alpha_health"] * region_health[np.newaxis, :]
+        + params["alpha_education"] * region_education[np.newaxis, :]
+        + params["alpha_public_services"] * region_public_services[np.newaxis, :]
     )
     
     # Home Premium (assuming hometown is not state-dependent for now)
@@ -74,7 +88,7 @@ def calculate_flow_utility_vectorized(
     age_cost = params["gamma_4"] * age
     
     # Simplified population effect
-    log_dest_population = np.log(np.maximum(region_data["常住人口万"][np.newaxis, :], 1.0))
+    log_dest_population = np.log(np.maximum(region_population[np.newaxis, :], 1.0))
     population_discount = params["gamma_5"] * log_dest_population
     
     migration_cost = is_moving * (
