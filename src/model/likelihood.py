@@ -101,3 +101,54 @@ def calculate_likelihood_from_v(
 
     likelihoods = ccps[state_indices, choice_indices]
     return np.log(likelihoods)
+
+def calculate_log_likelihood(
+    params: Dict[str, Any],
+    observed_data: pd.DataFrame,
+    state_space: pd.DataFrame,
+    agent_type: int,
+    beta: float,
+    transition_matrices: Dict[str, np.ndarray],
+    regions_df: pd.DataFrame = None,
+    distance_matrix: np.ndarray = None,
+    adjacency_matrix: np.ndarray = None,
+    verbose: bool = True,
+) -> np.ndarray:
+    """
+    Backward-compatible wrapper function that combines solve_bellman_for_params
+    and calculate_likelihood_from_v for compatibility with existing code.
+
+    This function maintains the original API while using the new decoupled functions internally.
+
+    Returns:
+        np.ndarray: A vector of log-likelihoods for each observation.
+    """
+    # Step 1: Solve Bellman equation
+    converged_v = solve_bellman_for_params(
+        params=params,
+        state_space=state_space,
+        agent_type=agent_type,
+        beta=beta,
+        transition_matrices=transition_matrices,
+        regions_df=regions_df,
+        distance_matrix=distance_matrix,
+        adjacency_matrix=adjacency_matrix,
+        initial_v=None,
+        verbose=verbose,
+    )
+
+    # Step 2: Calculate likelihood from converged value function
+    log_lik_vector = calculate_likelihood_from_v(
+        converged_v=converged_v,
+        params=params,
+        observed_data=observed_data,
+        state_space=state_space,
+        agent_type=agent_type,
+        beta=beta,
+        transition_matrices=transition_matrices,
+        regions_df=regions_df,
+        distance_matrix=distance_matrix,
+        adjacency_matrix=adjacency_matrix,
+    )
+
+    return log_lik_vector
