@@ -371,9 +371,9 @@ def estimate_mixture_model_standard_errors(
                         p_values[original_name] = pv[original_name]
                 else:
                     # 其他类型的参数使用占位符
-                    std_errors[original_name] = 'N/A'
-                    t_stats[original_name] = 'N/A'
-                    p_values[original_name] = 'N/A'
+                    std_errors[original_name] = np.nan
+                    t_stats[original_name] = np.nan
+                    p_values[original_name] = np.nan
 
             print("Type 0 标准误计算完成。")
             return std_errors, t_stats, p_values
@@ -450,8 +450,15 @@ def bootstrap_standard_errors(
     np.random.seed(seed)
 
     if verbose:
-        print(f"\n开始 Bootstrap 标准误估计 ({n_bootstrap} 次重复)...")
-        print(f"原始样本大小: {len(observed_data.groupby('individual_id'))} 个个体")
+        print(f"\n开始 Bootstrap 标准误估计 ({n_bootstrap} 次重复)...", flush=True)
+        print(f"原始样本大小: {len(observed_data.groupby('individual_id'))} 个个体", flush=True)
+        print(f"EM配置: max_iterations={max_em_iterations}, tolerance={em_tolerance}", flush=True)
+
+        # 显示原始估计的前5个参数
+        param_sample = [k for k in estimated_params.keys() if k != 'n_choices'][:5]
+        print(f"\n原始估计的参数值（前5个）:", flush=True)
+        for pname in param_sample:
+            print(f"  {pname}: {estimated_params[pname]:.6f}", flush=True)
 
     # 提取个体ID
     individual_ids = observed_data['individual_id'].unique()
@@ -496,11 +503,21 @@ def bootstrap_standard_errors(
             Dict[str, float]: 该次bootstrap估计的参数值
         """
         try:
+            # 使用print而非logger，这样输出会立即显示到控制台
+            print(f"\n{'='*60}", flush=True)
+            print(f"Bootstrap 迭代 {b+1}/{n_bootstrap}", flush=True)
+            print(f"{'='*60}", flush=True)
+
             # 生成bootstrap样本
             bootstrap_data = generate_bootstrap_sample(b)
+            n_individuals = len(bootstrap_data['individual_id'].unique())
+            n_obs = len(bootstrap_data)
+            print(f"Bootstrap样本生成完成: {n_individuals}个体, {n_obs}条观测", flush=True)
 
             # 运行EM算法（使用原始参数作为初始值以加快收敛）
             from src.estimation.em_nfxp import run_em_algorithm
+            
+            print(f"开始EM估计（最大{max_em_iterations}轮迭代）...", flush=True)
 
             results = run_em_algorithm(
                 observed_data=bootstrap_data,
@@ -515,20 +532,37 @@ def bootstrap_standard_errors(
                 tolerance=em_tolerance,
                 n_choices=estimated_params['n_choices'],
                 use_migration_behavior_init=False,
-                initial_params=estimated_params.copy(),  # 使用原始估计作为初始值
+                initial_params=estimated_params.copy(),  # **使用原始、干净的参数**
                 initial_pi_k=type_probabilities.copy()
             )
 
             bootstrap_params = results["structural_params"]
 
-            if verbose and b % 10 == 0:
-                print(f"  Bootstrap {b+1}/{n_bootstrap} 完成")
+            # **关键修复**: 检查参数是否真的被更新了
+            # 如果参数和初始值几乎一样，说明这一轮EM没有收敛，结果无效
+            initial_p_values = np.array(list(estimated_params.values()))
+            final_p_values = np.array(list(bootstrap_params.values()))
+            param_change = np.sum(np.abs(initial_p_values - final_p_values))
+
+            if param_change < 1e-5:
+                print(f"\n警告: Bootstrap 迭代 {b+1} 未能有效收敛 (参数变化极小)，丢弃此次结果。", flush=True)
+                return None
+
+            # 打印前5个参数的估计值
+            param_sample = list(bootstrap_params.keys())[:5]
+            print(f"\n估计完成！示例参数值:", flush=True)
+            for param_name in param_sample:
+                if param_name != 'n_choices':
+                    orig_val = estimated_params.get(param_name, 'N/A')
+                    boot_val = bootstrap_params.get(param_name, 'N/A')
+                    print(f"  {param_name}: {orig_val:.4f} → {boot_val:.4f}", flush=True)
 
             return bootstrap_params
 
         except Exception as e:
-            if verbose:
-                logger.warning(f"Bootstrap iteration {b} failed: {e}")
+            print(f"\n警告: Bootstrap iteration {b+1} failed: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
             return None
 
     # 并行或串行运行bootstrap
@@ -548,8 +582,22 @@ def bootstrap_standard_errors(
     if n_successful == 0:
         raise RuntimeError("所有Bootstrap迭代都失败了")
 
-    if verbose:
-        print(f"\n成功完成 {n_successful}/{n_bootstrap} 次Bootstrap迭代")
+    print(f"\n成功完成 {n_successful}/{n_bootstrap} 次Bootstrap迭代", flush=True)
+
+    # 诊断：比较第一个bootstrap结果和原始估计
+    if n_successful > 0:
+        print("\n" + "="*60, flush=True)
+        print("第一个Bootstrap样本的估计结果对比:", flush=True)
+        print("="*60, flush=True)
+        first_boot = bootstrap_results[0]
+        param_sample = [k for k in estimated_params.keys() if k != 'n_choices'][:10]
+        for pname in param_sample:
+            orig = estimated_params.get(pname, np.nan)
+            boot = first_boot.get(pname, np.nan)
+            diff = boot - orig
+            pct_diff = (diff / orig * 100) if orig != 0 else 0
+            print(f"{pname:30s}: {orig:10.6f} → {boot:10.6f} (diff: {diff:+10.6f}, {pct_diff:+6.2f}%)", flush=True)
+        print("="*60 + "\n", flush=True)
 
     # 计算标准误和置信区间
     param_names = [k for k in estimated_params.keys() if k != 'n_choices']
@@ -558,6 +606,26 @@ def bootstrap_standard_errors(
     for i, result in enumerate(bootstrap_results):
         for j, param_name in enumerate(param_names):
             bootstrap_matrix[i, j] = result.get(param_name, np.nan)
+
+    # 诊断：检查参数是否有变化
+    print("\n" + "="*60, flush=True)
+    print("Bootstrap参数变异性诊断", flush=True)
+    print("="*60, flush=True)
+    print(f"成功的bootstrap样本数: {n_successful}/{n_bootstrap}", flush=True)
+    print(f"参数数量: {len(param_names)}", flush=True)
+    print("\n前10个参数的变异性:", flush=True)
+    for j, param_name in enumerate(param_names[:10]):  # 检查前10个参数
+        values = bootstrap_matrix[:, j]
+        valid_values = values[~np.isnan(values)]
+        if len(valid_values) > 0:
+            param_mean = np.mean(valid_values)
+            param_std = np.std(valid_values, ddof=1)
+            param_min = np.min(valid_values)
+            param_max = np.max(valid_values)
+            param_range = param_max - param_min
+            orig_val = estimated_params.get(param_name, np.nan)
+            print(f"{param_name:30s}: orig={orig_val:8.4f}, mean={param_mean:8.4f}, std={param_std:8.6f}, range={param_range:8.6f}", flush=True)
+    print("="*60 + "\n", flush=True)
 
     # 计算标准误（标准差）
     std_errors = {}

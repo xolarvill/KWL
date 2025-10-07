@@ -113,6 +113,10 @@ def test_bootstrap_inference(sample_size: int = 50, n_bootstrap: int = 5):
 
     # 运行EM估计
     print("\n运行EM估计...")
+    # **最终修复**: 确保初始运行也使用来自ModelConfig的正确参数
+    initial_params = config.get_initial_params()
+    initial_pi_k = config.get_initial_type_probabilities()
+
     estimation_params = {
         "observed_data": df_individual,
         "regions_df": df_region,
@@ -120,12 +124,13 @@ def test_bootstrap_inference(sample_size: int = 50, n_bootstrap: int = 5):
         "transition_matrices": transition_matrices,
         "distance_matrix": distance_matrix,
         "adjacency_matrix": adjacency_matrix,
-        "beta": 0.95,
-        "n_types": 3,
-        "max_iterations": 3,  # 快速测试
-        "tolerance": 1e-3,
-        "n_choices": len(df_region['provcd'].unique()),
-        "use_migration_behavior_init": True
+        "beta": config.discount_factor,
+        "n_types": config.em_n_types,
+        "max_iterations": 20,
+        "tolerance": 1e-4,
+        "n_choices": config.n_choices,
+        "initial_params": initial_params,
+        "initial_pi_k": initial_pi_k
     }
     results = run_em_algorithm(**estimation_params)
     estimated_params = results["structural_params"]
@@ -149,8 +154,8 @@ def test_bootstrap_inference(sample_size: int = 50, n_bootstrap: int = 5):
         adjacency_matrix=adjacency_matrix,
         n_types=3,
         n_bootstrap=n_bootstrap,
-        max_em_iterations=2,  # 快速测试
-        em_tolerance=1e-2,
+        max_em_iterations=20, 
+        em_tolerance=1e-4, 
         seed=42,
         n_jobs=1,  # 串行以便调试
         verbose=True

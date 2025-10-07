@@ -47,13 +47,16 @@ def timing_decorator(func):
 # --- Helper functions for parameter handling ---
 
 def _pack_params(params: Dict[str, Any]) -> Tuple[np.ndarray, List[str]]:
-    param_names = sorted([k for k in params.keys() if k != 'n_choices'])
+    # **关键修复**: 显式排除 gamma_0_type_0，因为它已被归一化为0
+    param_names = sorted([k for k in params.keys() if k not in ['n_choices', 'gamma_0_type_0']])
     param_values = np.array([params[name] for name in param_names])
     return param_values, param_names
 
 def _unpack_params(param_values: np.ndarray, param_names: List[str], n_choices: int) -> Dict[str, Any]:
     params_dict = dict(zip(param_names, param_values))
     params_dict['n_choices'] = n_choices
+    # **关键修复**: 将被归一化的参数重新加回字典
+    params_dict['gamma_0_type_0'] = 0.0
     return params_dict
 
 # --- Log-Likelihood Calculation ---
@@ -194,16 +197,17 @@ def m_step(
                 if f'alpha_home_type_{k}' in params_k: type_specific_params['alpha_home'] = params_k[f'alpha_home_type_{k}']
                 if f'lambda_type_{k}' in params_k: type_specific_params['lambda'] = params_k[f'lambda_type_{k}']
 
-                # Solve Bellman equation (cache will handle hot-starting automatically)
+                # a guess from the previous EM iteration's M-step.
+                # CRITICAL: Set initial_v=None to ensure optimizer gets a clean gradient.
+                # Using hot_start_state here makes the function surface appear flat to the optimizer.
                 converged_v = solve_bellman_for_params(
                     params=type_specific_params, state_space=state_space, agent_type=int(k),
                     beta=beta, transition_matrices=transition_matrices, regions_df=regions_df,
                     distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix,
-                    initial_v=None, verbose=(objective_function.call_count == 1), use_cache=True
+                    initial_v=None, verbose=False, use_cache=False
                 )
 
-                # Update hot-start state with converged value function
-                hot_start_state[k] = converged_v
+                # DO NOT update hot_start_state here, as it contaminates gradient calculation
 
                 # Calculate likelihood using the converged value function
                 log_lik_k_obs_vector = calculate_likelihood_from_v(
@@ -218,28 +222,75 @@ def m_step(
                 individual_log_lik = np.bincount(individual_indices, weights=log_lik_k_obs_vector)
                 total_weighted_log_lik += np.sum(weights * individual_log_lik)
 
-            return -total_weighted_log_lik
+            neg_ll = -total_weighted_log_lik
+            if objective_function.call_count <= 3:
+                logger.info(f"    Objective function call #{objective_function.call_count}: neg_log_lik = {neg_ll:.4f}")
+            return neg_ll
         except Exception as e:
             logger.error(f"  Error in objective function: {e}", exc_info=True)
             return 1e10
 
     initial_param_values, param_names = _pack_params(initial_params)
     logger.info(f"\n  Starting L-BFGS-B optimization...")
+    logger.info(f"  Optimizing {len(param_names)} parameters.")
+    
+    # 为日志记录一个初始目标函数值
+    initial_neg_ll = objective_function(initial_param_values, param_names)
+    logger.info(f"  Initial objective value (neg_log_lik): {initial_neg_ll:.4f}")
+    objective_function.call_count = 0 # 重置计数器
 
     try:
         result = minimize(
             objective_function, initial_param_values, args=(param_names,), method='L-BFGS-B',
-            options={'disp': False, 'maxiter': 15, 'gtol': 1e-3, 'ftol': 1e-3}
+            options={'disp': False, 'maxiter': 50, 'gtol': 1e-5, 'ftol': 1e-5, 'eps': 1e-6} # 更严格的设置, 调整梯度步长
         )
-        if result.success:
+        
+        final_neg_ll = result.fun
+        logger.info(f"  L-BFGS-B result: success={result.success}, nit={result.nit}, nfev={result.nfev}, message='{result.message.decode('utf-8') if isinstance(result.message, bytes) else result.message}'")
+        logger.info(f"  Objective value change: {initial_neg_ll:.4f} -> {final_neg_ll:.4f} (Δ {- (initial_neg_ll - final_neg_ll):.4f})")
+
+        if result.success or result.nit > 0:
             updated_params = _unpack_params(result.x, param_names, initial_params['n_choices'])
-            logger.info(f"  ✓ M-step optimization successful in {result.nit} iterations.")
+
+            # 显示前5个参数的变化
+            param_changes = []
+            for pname in param_names[:5]:
+                old_val = initial_params.get(pname, 0)
+                new_val = updated_params.get(pname, 0)
+                change = new_val - old_val
+                param_changes.append(f"{pname}: {old_val:.4f}→{new_val:.4f} (Δ{change:+.4f})")
+            logger.info(f"  Parameter changes (first 5): {'; '.join(param_changes)}")
+
+            if result.success:
+                logger.info(f"  ✓ M-step optimization successful in {result.nit} iterations.")
+            else:
+                logger.warning(f"  ⚠ M-step optimization stopped after {result.nit} iterations but parameters were updated.")
         else:
-            logger.warning(f"  ⚠ M-step optimization stopped early: {result.message}")
-            updated_params = _unpack_params(result.x, param_names, initial_params['n_choices'])
+            logger.warning(f"  ⚠ M-step optimization failed to make progress: {result.message}")
+            updated_params = initial_params # 如果完全没进展，则不更新参数
+            
     except Exception as e:
         logger.error(f"  ✗ Error in M-step optimization: {e}", exc_info=True)
         updated_params = initial_params
+
+    # After finding the best parameters, calculate the final V functions
+    # to pass as a hot start to the NEXT EM iteration.
+    new_hot_start_state = {}
+    for k in range(K):
+        type_specific_params = updated_params.copy()
+        if f'gamma_0_type_{k}' in updated_params: type_specific_params['gamma_0'] = updated_params[f'gamma_0_type_{k}']
+        if f'gamma_1_type_{k}' in updated_params: type_specific_params['gamma_1'] = updated_params[f'gamma_1_type_{k}']
+        if f'alpha_home_type_{k}' in updated_params: type_specific_params['alpha_home'] = updated_params[f'alpha_home_type_{k}']
+        if f'lambda_type_{k}' in updated_params: type_specific_params['lambda'] = updated_params[f'lambda_type_{k}']
+        
+        converged_v = solve_bellman_for_params(
+            params=type_specific_params, state_space=state_space, agent_type=int(k),
+            beta=beta, transition_matrices=transition_matrices, regions_df=regions_df,
+            distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix,
+            initial_v=hot_start_state.get(k, None), # Use the old hot_start as a guess
+            use_cache=False
+        )
+        new_hot_start_state[k] = converged_v
 
     updated_pi_k = posterior_probs.mean(axis=0)
     MIN_PROB = 0.05
@@ -247,7 +298,7 @@ def m_step(
     updated_pi_k = updated_pi_k / np.sum(updated_pi_k)
 
     logger.info(f"  M-step completed. Type probabilities: {updated_pi_k}")
-    return updated_params, updated_pi_k, hot_start_state
+    return updated_params, updated_pi_k, new_hot_start_state
 
 @timing_decorator
 def run_em_algorithm(
@@ -296,6 +347,32 @@ def run_em_algorithm(
 
     # Initialize hot-start state dictionary
     hot_start_state = {}
+
+    # **关键修复**: 对初始参数进行一次性微小扰动，以“激活”优化器
+    # 确保即使从一个看似最优的点开始，优化也能启动
+    if initial_params:
+        EM_initial_params = {}
+        for name, value in initial_params.items():
+            if isinstance(value, (int, float)) and name not in ['n_choices', 'gamma_0_type_0']:
+                noise_std = max(abs(value) * 0.01, 1e-4) # 1% noise
+                noise = np.random.normal(0, noise_std)
+                EM_initial_params[name] = value + noise
+            else:
+                EM_initial_params[name] = value
+        logger.info("Perturbed initial parameters to activate optimizer.")
+    else:
+        # Fallback to behavior-based init if no initial params are given
+        # (This path is not used by the current scripts but is good practice)
+        logger.info("Initializing with migration behavior analysis...")
+        try:
+            _, initial_posterior_probs = identify_migration_behavior_types(observed_data, n_types)
+            EM_initial_params = create_behavior_based_initial_params(n_types)
+            pi_k = initial_posterior_probs.mean(axis=0)
+        except Exception as e:
+            logger.error(f"Error in migration behavior initialization: {e}", exc_info=True)
+            # A simple fallback if everything else fails
+            from src.config.model_config import ModelConfig
+            EM_initial_params = ModelConfig().get_initial_params()
 
     old_log_likelihood = -np.inf
     for i in range(max_iterations):

@@ -62,7 +62,7 @@ def output_estimation_results(
 
 def _get_significance_stars(p_value: float) -> str:
     """根据p值确定显著性星号"""
-    if pd.isna(p_value):
+    if isinstance(p_value, str) or pd.isna(p_value): # 添加类型检查
         return ""
     elif p_value < 0.01:
         return "***"

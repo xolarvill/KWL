@@ -230,13 +230,10 @@ def create_behavior_based_initial_params(n_types: int = 3, config=None) -> Dict[
     # Fallback: 使用硬编码默认值（保持向后兼容）
     initial_params = {
         "alpha_w": 1.0,
-        "lambda": 2.0,
-        "alpha_home": 1.0,
         "rho_base_tier_1": 1.0,
         "rho_edu": 0.1,
         "rho_health": 0.1,
         "rho_house": 0.1,
-        "gamma_1": -0.1,
         "gamma_2": 0.2,
         "gamma_3": -0.4,
         "gamma_4": 0.01,
@@ -247,6 +244,9 @@ def create_behavior_based_initial_params(n_types: int = 3, config=None) -> Dict[
         "alpha_public_services": 0.1,
         "n_choices": 31
     }
+
+    # 注意：不包含alpha_home, lambda, gamma_0, gamma_1的共享版本
+    # 因为这些参数都是type-specific的
 
     # 为每种类型设置不同类型特定参数
     for t in range(n_types):

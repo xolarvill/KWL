@@ -16,9 +16,13 @@ _BELLMAN_CACHE: Dict[Tuple, np.ndarray] = {}
 def _make_cache_key(params: Dict[str, Any], agent_type: int) -> Tuple:
     """
     Creates a hashable cache key from parameters and agent type.
+
+    Uses rounded parameter values to avoid cache misses from numerical noise
+    during optimization (e.g., L-BFGS-B's finite difference gradient calculation).
     """
     # Only include structural parameters, exclude n_choices
-    param_items = [(k, v) for k, v in sorted(params.items()) if k != 'n_choices']
+    # Round to 6 decimal places to avoid excessive cache misses from tiny perturbations
+    param_items = [(k, round(v, 6)) for k, v in sorted(params.items()) if k != 'n_choices']
     return (agent_type, tuple(param_items))
 
 def clear_bellman_cache():

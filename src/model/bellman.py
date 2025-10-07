@@ -64,7 +64,7 @@ def solve_bellman_equation(
     adjacency_matrix: np.ndarray,
     initial_v: np.ndarray = None, # <-- Added for hot-starts
     tolerance: float = 1e-4,
-    max_iterations: int = 50,
+    max_iterations: int = 200,  # 增加到200次以提高收敛概率
     verbose: bool = True,
 ) -> Tuple[np.ndarray, int]:
     """

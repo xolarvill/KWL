@@ -177,7 +177,7 @@ class ModelConfig:
             Dict[str, Any]: 参数字典
         """
         params = {
-            # 共享参数
+            # 共享参数（所有类型共用）
             "alpha_w": self.alpha_w,
             "rho_base_tier_1": self.rho_base_tier_1,
             "rho_edu": self.rho_edu,
@@ -187,26 +187,32 @@ class ModelConfig:
             "alpha_education": self.alpha_education,
             "alpha_health": self.alpha_health,
             "alpha_public_services": self.alpha_public_services,
-            "gamma_1": self.gamma_1,
             "gamma_2": self.gamma_2,
             "gamma_3": self.gamma_3,
             "gamma_4": self.gamma_4,
             "gamma_5": self.gamma_5,
             "n_choices": self.n_choices
         }
+        # 注意：gamma_1不包含在共享参数中，因为有gamma_1_type_{t}
 
         if use_type_specific:
             # 类型特定参数
-            for t in range(self.em_n_types):
+            # **参数归一化**: 将 type 0 作为基准组，其固定迁移成本 gamma_0 为0
+            params[f"gamma_0_type_0"] = 0.0
+
+            for t in range(1, self.em_n_types): # 从 1 开始循环，跳过基准组
                 params[f"gamma_0_type_{t}"] = getattr(self, f"gamma_0_type_{t}")
+
+            for t in range(self.em_n_types):
                 params[f"gamma_1_type_{t}"] = getattr(self, f"gamma_1_type_{t}", self.gamma_1)
                 params[f"alpha_home_type_{t}"] = getattr(self, f"alpha_home_type_{t}")
                 params[f"lambda_type_{t}"] = getattr(self, f"lambda_type_{t}")
         else:
-            # 使用默认的alpha_home和lambda
+            # 非混合模型：使用默认的alpha_home和lambda
             params["alpha_home"] = self.alpha_home
             params["lambda"] = self.lambda_default
             params["gamma_0"] = self.gamma_0_type_0  # 使用type_0作为默认
+            params["gamma_1"] = self.gamma_1
 
         return params
 
