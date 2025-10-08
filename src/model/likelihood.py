@@ -9,6 +9,7 @@ from typing import Dict, Any, Callable, Tuple, Optional
 
 from src.model.bellman import solve_bellman_equation
 from src.model.utility import calculate_flow_utility_vectorized
+from src.model.wage_equation import calculate_wage_likelihood
 
 # Global cache for Bellman solutions
 _BELLMAN_CACHE: Dict[Tuple, np.ndarray] = {}
@@ -98,10 +99,23 @@ def calculate_likelihood_from_v(
     regions_df: pd.DataFrame,
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
+    wage_predicted: Optional[np.ndarray] = None,
+    include_wage_likelihood: bool = True
 ) -> np.ndarray:
     """
     Calculates the log-likelihood for each observation given a converged value function.
-    
+
+    根据论文公式(1162-1165行)，联合似然 = 选择概率 × 工资密度:
+        p(j_t, w_t | x_t) = P(j_t | x_t) × Ψ(w_t | j_t, x_t)
+
+    新增参数:
+    --------
+    wage_predicted : np.ndarray, optional
+        预测工资数组 (shape: n_obs,)。如果提供且include_wage_likelihood=True,
+        将计算工资似然并加到总似然中
+    include_wage_likelihood : bool, default=True
+        是否包含工资似然。设为False可向后兼容（仅选择似然）
+
     Returns:
         np.ndarray: A vector of log-likelihoods for each observation.
     """
@@ -140,13 +154,43 @@ def calculate_likelihood_from_v(
 
     state_indices = observed_data['state_index'].values
     choice_indices = observed_data['choice_index'].values
-    
+
     if np.any(state_indices >= ccps.shape[0]) or np.any(choice_indices >= ccps.shape[1]):
         logger.error("Error: Invalid state or choice index detected.")
         return np.full(len(observed_data), -1e10)
 
-    likelihoods = ccps[state_indices, choice_indices]
-    return np.log(likelihoods)
+    # 1. 计算选择概率的对数似然
+    choice_probs = ccps[state_indices, choice_indices]
+    log_choice_likelihood = np.log(choice_probs)
+
+    # 2. 计算工资似然（如果提供了工资数据）
+    if include_wage_likelihood and wage_predicted is not None and 'income' in observed_data.columns:
+        # 提取观测工资
+        wage_observed = observed_data['income'].values
+
+        # 获取暂态冲击的标准差参数
+        sigma_epsilon = params.get('sigma_epsilon', 0.5)  # 默认值，应该被估计
+
+        # 计算工资对数似然密度 (论文746-750行)
+        log_wage_likelihood = calculate_wage_likelihood(
+            w_observed=wage_observed,
+            w_predicted=wage_predicted,
+            sigma_epsilon=sigma_epsilon
+        )
+
+        # 联合似然 = 选择似然 + 工资似然 (在对数空间中相加)
+        total_log_likelihood = log_choice_likelihood + log_wage_likelihood
+
+        # 记录诊断信息
+        if np.random.rand() < 0.001:  # 偶尔记录，避免日志过多
+            logger.debug(f"Mean log_choice_lik: {np.mean(log_choice_likelihood):.4f}, "
+                        f"Mean log_wage_lik: {np.mean(log_wage_likelihood):.4f}")
+
+    else:
+        # 向后兼容：仅使用选择似然
+        total_log_likelihood = log_choice_likelihood
+
+    return total_log_likelihood
 
 def calculate_log_likelihood(
     params: Dict[str, Any],
