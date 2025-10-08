@@ -2,7 +2,7 @@
 统一管理模型的所有配置参数和初始值
 """
 from enum import StrEnum
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from dataclasses import dataclass, field
 import numpy as np
 
@@ -163,6 +163,36 @@ class ModelConfig:
     pi_type_2: float = 0.34  # Type 2的先验概率（加起来=1）
 
     # ========================
+    # 五（续）、离散支撑点配置（论文984-1016行）
+    # ========================
+
+    ## 支撑点数量
+    n_eta_support: int = 7  # 个体固定效应η_i的支撑点数量
+    n_nu_support: int = 5   # 个体-地区收入匹配ν_ij的支撑点数量
+    n_xi_support: int = 5   # 个体-地区偏好匹配ξ_ij的支撑点数量
+    n_sigma_support: int = 4  # 工资波动性σ_ε的支撑点数量
+
+    ## 支撑点取值范围
+    eta_range: Tuple[float, float] = (-2.0, 2.0)  # η_i范围
+    nu_range: Tuple[float, float] = (-1.5, 1.5)   # ν_ij范围
+    xi_range: Tuple[float, float] = (-1.0, 1.0)   # ξ_ij范围
+    sigma_range: Tuple[float, float] = (0.3, 1.5)  # σ_ε范围
+
+    ## ω枚举控制
+    max_omega_per_individual: int = 1000  # 每个个体的最大ω组合数（超过则用蒙特卡洛）
+    use_simplified_omega: bool = True     # 是否使用简化策略（只在访问过的地区实例化ν和ξ）
+
+    ## 互联网效应参数（论文737-742行）
+    delta_0: float = 0.5  # 方差基准参数
+    delta_1: float = 0.1  # 互联网效应参数（预期>0，即互联网降低不确定性）
+
+    ## 参照工资类型（用于前景理论）
+    reference_wage_type: str = 'lagged'  # 'lagged', 'group_mean', 或 'fixed'
+
+    ## 工资似然开关
+    include_wage_likelihood: bool = True  # 是否在似然函数中包含工资密度
+
+    # ========================
     # 六、辅助方法
     # ========================
 
@@ -253,6 +283,26 @@ class ModelConfig:
             "em_tolerance": self.bootstrap_em_tol,
             "seed": self.bootstrap_seed,
             "n_jobs": self.bootstrap_n_jobs
+        }
+
+    def get_discrete_support_config(self) -> Dict[str, Any]:
+        """
+        获取离散支撑点配置
+
+        Returns:
+            Dict[str, Any]: 离散支撑点配置字典
+        """
+        return {
+            "n_eta_support": self.n_eta_support,
+            "n_nu_support": self.n_nu_support,
+            "n_xi_support": self.n_xi_support,
+            "n_sigma_support": self.n_sigma_support,
+            "eta_range": self.eta_range,
+            "nu_range": self.nu_range,
+            "xi_range": self.xi_range,
+            "sigma_range": self.sigma_range,
+            "max_omega_per_individual": self.max_omega_per_individual,
+            "use_simplified_omega": self.use_simplified_omega
         }
 
     def update_param(self, param_name: str, value: Any) -> None:

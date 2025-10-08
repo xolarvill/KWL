@@ -112,70 +112,55 @@ class DataLoader:
 
         return linguistic_matrix.to_numpy()
 
-    def create_estimation_dataset_and_state_space(self, simplified_state: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, np.ndarray]]:
-        """
-        加载并准备所有数据，创建状态空间，并为观测值添加状态索引。
-        """
-        print("开始创建估计数据集和状态空间...")
-
-        self.config.individual_data_path = os.path.join(self.config.processed_data_dir, 'clds_preprocessed_with_wages.csv')
+    def create_estimation_dataset_and_state_space(self, simplified_state: bool = False):
         df_individual = self.load_individual_data()
-        
-        self.config.regional_data_path = os.path.join(self.config.processed_data_dir, 'geo_amenities.csv')
         df_region = self.load_regional_data()
 
-        if not simplified_state:
-            raise NotImplementedError("完整状态空间尚未实现。")
+        # 将省级代码映射到0-30的索引
+        prov_codes = sorted(df_region['provcd'].unique())
+        prov_to_idx = {code: i for i, code in enumerate(prov_codes)}
 
-        ages = np.arange(self.config.age_min, self.config.age_max + 1)
-        locations = sorted(df_region['provcd'].unique())
-        location_map = {loc: i for i, loc in enumerate(locations)}
-        
-        state_space = pd.DataFrame(
-            [(age, loc) for age in ages for loc in locations],
-            columns=['age', 'prev_provcd']
-        )
-        state_space['state_index'] = state_space.index
-        
-        # --- FIX: Add the required index column for vectorization ---
-        state_space['prev_provcd_idx'] = state_space['prev_provcd'].map(location_map)
-        print(f"创建了简化的状态空间，包含 {len(state_space)} 个状态，并添加了 'prev_provcd_idx' 列。")
+        df_individual['provcd_idx'] = df_individual['provcd'].map(prov_to_idx)
+        df_individual['prev_provcd_idx'] = df_individual['prev_provcd'].map(prov_to_idx)
+        # **新增**: 加载户籍和家乡的索引
+        df_individual['hukou_prov_idx'] = df_individual['hukou_prov_code'].map(prov_to_idx)
+        df_individual['hometown_prov_idx'] = df_individual['hometown_prov_code'].map(prov_to_idx)
 
-        df_individual = pd.merge(
-            df_individual,
-            state_space,
-            left_on=['age_t', 'prev_provcd'],
-            right_on=['age', 'prev_provcd'],
-            how='left'
-        )
+        # 创建状态空间
+        if simplified_state:
+            # 状态空间现在需要包含户籍和家乡信息
+            state_space_cols = ['age', 'prev_provcd_idx', 'hukou_prov_idx', 'hometown_prov_idx']
+            state_space = df_individual[state_space_cols].drop_duplicates().reset_index(drop=True)
+        else:
+            # 完整的状态空间（如果需要）
+            # ... (可以扩展)
+            pass
         
-        df_individual['choice_index'] = df_individual['provcd_t'].map(location_map)
+        # 创建转移矩阵 (这里简化为与年龄无关)
+        transition_matrices = self._create_simplified_transition_matrices(state_space)
 
+        # 准备输出字典
+        state_data = {
+            'age': state_space['age'].values,
+            'prev_provcd_idx': state_space['prev_provcd_idx'].values,
+            'hukou_prov_idx': state_space['hukou_prov_idx'].values,
+            'hometown_prov_idx': state_space['hometown_prov_idx'].values
+        }
+
+        # 创建简化的转移矩阵（单位矩阵，假设状态转移由选择决定）
         n_states = len(state_space)
-        transition_matrices = {}
-        state_map = state_space.set_index(['age', 'prev_provcd'])['state_index']
+        transition_matrices = {i: np.eye(n_states) for i in range(len(prov_codes))}
 
-        for j_idx, j_loc in enumerate(locations):
-            P_j = np.zeros((n_states, n_states))
-            for s_idx, row in state_space.iterrows():
-                current_age, current_loc = row['age'], row['prev_provcd']
-                next_age, next_loc = current_age + 1, j_loc
-                if (next_age, next_loc) in state_map.index:
-                    s_next_idx = state_map.loc[(next_age, next_loc)]
-                    P_j[s_idx, s_next_idx] = 1.0
-            transition_matrices[j_idx] = P_j
-        print(f"构建了 {len(transition_matrices)} 个状态转移矩阵。")
-        
-        if df_individual['state_index'].isnull().any():
-            unmatched_states = df_individual.loc[df_individual['state_index'].isnull(), ['age_t', 'prev_provcd']].drop_duplicates()
-            print(f"警告: {df_individual['state_index'].isnull().sum()} 条观测未能匹配到状态。未匹配的状态组合:\n{unmatched_states}")
-            print("正在丢弃这些观测。")
-            df_individual.dropna(subset=['state_index', 'choice_index'], inplace=True)
-            df_individual['state_index'] = df_individual['state_index'].astype(int)
-            df_individual['choice_index'] = df_individual['choice_index'].astype(int)
+        return df_individual, state_space, transition_matrices, df_region
 
-        print("数据集、状态空间和转移矩阵创建完成。")
-        return df_individual, df_region, state_space, transition_matrices
+    def _create_simplified_transition_matrices(self, state_space: pd.DataFrame) -> Dict[int, np.ndarray]:
+        """
+        创建简化的转移矩阵（占位实现）
+        """
+        n_states = len(state_space)
+        n_choices = 31  # 31个省份
+        transition_matrices = {i: np.eye(n_states) for i in range(n_choices)}
+        return transition_matrices
 
 
 if __name__ == '__main__':
