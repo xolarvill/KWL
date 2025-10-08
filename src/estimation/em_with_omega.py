@@ -1,0 +1,237 @@
+"""
+扩展的EM算法E-step和M-step
+
+集成离散支撑点，计算p(τ, ω|D)后验概率
+"""
+
+import numpy as np
+import pandas as pd
+from typing import Dict, Any, Tuple, List
+import logging
+
+from src.model.discrete_support import (
+    DiscreteSupportGenerator,
+    SimplifiedOmegaEnumerator,
+    extract_omega_values_for_state
+)
+from src.model.likelihood import solve_bellman_for_params, calculate_likelihood_from_v
+from src.model.wage_equation import calculate_predicted_wage, calculate_reference_wage
+
+
+def e_step_with_omega(
+    params: Dict[str, Any],
+    pi_k: np.ndarray,
+    observed_data: pd.DataFrame,
+    state_space: pd.DataFrame,
+    transition_matrices: Dict[str, np.ndarray],
+    beta: float,
+    regions_df: pd.DataFrame,
+    distance_matrix: np.ndarray,
+    adjacency_matrix: np.ndarray,
+    support_generator: DiscreteSupportGenerator,
+    n_types: int,
+    max_omega_per_individual: int = 1000,
+    use_simplified_omega: bool = True
+) -> Tuple[Dict[Any, np.ndarray], np.ndarray]:
+    """
+    扩展的E-step：计算p(τ, ω_i | D_i)后验概率
+
+    根据论文公式(1120-1123行):
+        p(τ, ω_i | D_i) ∝ π_τ · P(ω_i) · L(D_i | τ, ω_i, Θ)
+
+    参数:
+    ----
+    params : Dict[str, Any]
+        当前参数估计值
+    pi_k : np.ndarray
+        类型概率 (K,)
+    observed_data : pd.DataFrame
+        观测数据
+    state_space : pd.DataFrame
+        状态空间
+    support_generator : DiscreteSupportGenerator
+        支撑点生成器
+    n_types : int
+        类型数量K
+    max_omega_per_individual : int
+        每个个体的最大ω组合数
+    use_simplified_omega : bool
+        是否使用简化策略（只在访问过的地区实例化ν和ξ）
+
+    返回:
+    ----
+    individual_posteriors : Dict[individual_id, np.ndarray]
+        每个个体的后验概率矩阵 (n_omega_i * K,)
+        其中每行对应一个(ω, τ)组合
+    log_likelihood_matrix : np.ndarray
+        用于计算总似然的对数似然矩阵 (N, K)
+    """
+    logger = logging.getLogger()
+    unique_individuals = observed_data['IID'].unique()
+    N = len(unique_individuals)
+    K = n_types
+
+    logger.info(f"  [E-step with ω] Processing {N} individuals across {K} types...")
+
+    # 初始化结果容器
+    individual_posteriors = {}
+    log_likelihood_matrix = np.zeros((N, K))
+
+    enumerator = SimplifiedOmegaEnumerator(support_generator) if use_simplified_omega else None
+
+    for i_idx, individual_id in enumerate(unique_individuals):
+        if (i_idx + 1) % 100 == 0:
+            logger.info(f"    Processing individual {i_idx+1}/{N}")
+
+        # 1. 提取该个体的数据
+        individual_data = observed_data[observed_data['IID'] == individual_id]
+
+        # 2. 为该个体枚举ω组合
+        if use_simplified_omega:
+            omega_list, omega_probs = enumerator.enumerate_omega_for_individual(
+                individual_data,
+                max_combinations=max_omega_per_individual
+            )
+        else:
+            # 完全枚举（可能非常大）
+            logger.warning("Full omega enumeration not yet implemented, using simplified")
+            omega_list, omega_probs = enumerator.enumerate_omega_for_individual(
+                individual_data,
+                max_combinations=max_omega_per_individual
+            )
+
+        n_omega = len(omega_list)
+
+        # 3. 计算每个(τ, ω)组合的似然
+        # 结构: posterior_matrix[omega_idx, type_idx]
+        log_lik_matrix = np.zeros((n_omega, K))
+
+        for omega_idx, omega in enumerate(omega_list):
+            # 提取ω值
+            eta_i = omega['eta']
+            sigma_epsilon = omega['sigma']
+
+            for k in range(K):
+                try:
+                    # 构建type-specific参数
+                    type_params = params.copy()
+                    if f'gamma_0_type_{k}' in params:
+                        type_params['gamma_0'] = params[f'gamma_0_type_{k}']
+                    if f'gamma_1_type_{k}' in params:
+                        type_params['gamma_1'] = params[f'gamma_1_type_{k}']
+                    if f'alpha_home_type_{k}' in params:
+                        type_params['alpha_home'] = params[f'alpha_home_type_{k}']
+                    if f'lambda_type_{k}' in params:
+                        type_params['lambda'] = params[f'lambda_type_{k}']
+
+                    type_params['sigma_epsilon'] = sigma_epsilon
+
+                    # 求解Bellman方程（此处可能需要传入ω相关值到效用函数）
+                    # 简化实现：先不传ω到Bellman求解中
+                    converged_v = solve_bellman_for_params(
+                        params=type_params,
+                        state_space=state_space,
+                        agent_type=int(k),
+                        beta=beta,
+                        transition_matrices=transition_matrices,
+                        regions_df=regions_df,
+                        distance_matrix=distance_matrix,
+                        adjacency_matrix=adjacency_matrix,
+                        initial_v=None,
+                        verbose=False,
+                        use_cache=True
+                    )
+
+                    # 计算似然（包含工资似然）
+                    # TODO: 需要计算wage_predicted，这里简化为不包含工资似然
+                    log_lik_obs = calculate_likelihood_from_v(
+                        converged_v=converged_v,
+                        params=type_params,
+                        observed_data=individual_data,
+                        state_space=state_space,
+                        agent_type=int(k),
+                        beta=beta,
+                        transition_matrices=transition_matrices,
+                        regions_df=regions_df,
+                        distance_matrix=distance_matrix,
+                        adjacency_matrix=adjacency_matrix,
+                        wage_predicted=None,  # TODO: 计算工资预测值
+                        include_wage_likelihood=False  # 暂时关闭工资似然
+                    )
+
+                    # 汇总该个体的对数似然
+                    individual_log_lik = np.sum(log_lik_obs)
+                    log_lik_matrix[omega_idx, k] = individual_log_lik
+
+                except Exception as e:
+                    logger.error(f"Error computing likelihood for individual {individual_id}, "
+                               f"omega_idx={omega_idx}, type={k}: {e}")
+                    log_lik_matrix[omega_idx, k] = -1e10
+
+        # 4. 计算后验概率 p(τ, ω | D_i)
+        # log p(τ, ω | D) = log π_τ + log P(ω) + log L(D | τ, ω)
+        log_pi_k = np.log(np.maximum(pi_k, 1e-10))
+        log_omega_probs = np.log(np.maximum(omega_probs, 1e-10))
+
+        # Broadcasting: (n_omega, K)
+        log_joint = (
+            log_omega_probs[:, np.newaxis] +  # (n_omega, 1)
+            log_pi_k[np.newaxis, :] +          # (1, K)
+            log_lik_matrix                      # (n_omega, K)
+        )
+
+        # 归一化
+        max_log_joint = np.max(log_joint)
+        joint_probs = np.exp(log_joint - max_log_joint)
+        joint_probs = joint_probs / np.sum(joint_probs)
+
+        # 存储
+        individual_posteriors[individual_id] = joint_probs
+
+        # 5. 边缘化ω以获得p(τ|D_i)用于更新π_k
+        marginal_type_posterior = np.sum(joint_probs, axis=0)
+        log_likelihood_matrix[i_idx, :] = marginal_type_posterior
+
+    logger.info(f"  [E-step with ω] Completed.")
+
+    return individual_posteriors, log_likelihood_matrix
+
+
+def aggregate_omega_posteriors_for_parameter_update(
+    individual_posteriors: Dict[Any, np.ndarray],
+    observed_data: pd.DataFrame,
+    support_generator: DiscreteSupportGenerator
+) -> Dict[str, np.ndarray]:
+    """
+    汇总ω后验分布，用于参数更新
+
+    从individual_posteriors中提取有用的统计量，
+    例如E[η_i | D_i], E[σ_ε | D_i]等
+
+    参数:
+    ----
+    individual_posteriors : Dict
+        每个个体的后验概率
+    observed_data : pd.DataFrame
+        观测数据
+    support_generator : DiscreteSupportGenerator
+        支撑点生成器
+
+    返回:
+    ----
+    Dict with aggregated statistics
+    """
+    logger = logging.getLogger()
+    logger.info("  Aggregating omega posterior statistics...")
+
+    # TODO: 实现后验期望值计算
+    # 例如: E[η_i | D_i] = Σ_ω η(ω) · p(ω | D_i)
+
+    aggregated_stats = {
+        'eta_posterior_mean': [],
+        'sigma_posterior_mean': []
+    }
+
+    logger.info("  Omega aggregation completed.")
+
+    return aggregated_stats
