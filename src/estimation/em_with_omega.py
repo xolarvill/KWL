@@ -235,3 +235,214 @@ def aggregate_omega_posteriors_for_parameter_update(
     logger.info("  Omega aggregation completed.")
 
     return aggregated_stats
+
+
+def m_step_with_omega(
+    individual_posteriors: Dict[Any, np.ndarray],
+    initial_params: Dict[str, Any],
+    observed_data: pd.DataFrame,
+    state_space: pd.DataFrame,
+    transition_matrices: Dict[str, np.ndarray],
+    beta: float,
+    regions_df: pd.DataFrame,
+    distance_matrix: np.ndarray,
+    adjacency_matrix: np.ndarray,
+    support_generator: DiscreteSupportGenerator,
+    n_types: int,
+    max_omega_per_individual: int = 1000,
+    lbfgsb_maxiter: int = 15
+) -> Tuple[Dict[str, Any], np.ndarray]:
+    """
+    扩展的M-step：对ω进行加权求和来更新参数
+
+    根据论文公式(1132-1138行):
+        Θ^(k+1) = argmax_Θ Σ_i Σ_τ Σ_ω p(τ,ω|D_i,Θ^(k)) · ln L(D_i|τ,ω,Θ)
+
+    参数:
+    ----
+    individual_posteriors : Dict[individual_id, np.ndarray]
+        E-step计算出的后验概率，每个个体是一个(n_omega, K)矩阵
+    initial_params : Dict[str, Any]
+        当前参数值
+    ... (其他参数同e_step_with_omega)
+    lbfgsb_maxiter : int
+        L-BFGS-B最大迭代次数
+
+    返回:
+    ----
+    updated_params : Dict[str, Any]
+        更新后的参数
+    updated_pi_k : np.ndarray
+        更新后的类型概率
+    """
+    logger = logging.getLogger()
+    logger.info(f"\n  [M-step with ω] Starting parameter optimization...")
+
+    from scipy.optimize import minimize
+    from src.estimation.em_nfxp import _pack_params, _unpack_params
+
+    unique_individuals = list(individual_posteriors.keys())
+    N = len(unique_individuals)
+    K = n_types
+
+    # 创建个体ID到索引的映射
+    individual_to_idx = {ind_id: idx for idx, ind_id in enumerate(unique_individuals)}
+
+    # 为每个个体预先枚举ω（与E-step保持一致）
+    enumerator = SimplifiedOmegaEnumerator(support_generator)
+    individual_omega_lists = {}
+
+    logger.info("  Pre-enumerating omega for all individuals...")
+    for individual_id in unique_individuals:
+        individual_data = observed_data[observed_data['IID'] == individual_id]
+        omega_list, omega_probs = enumerator.enumerate_omega_for_individual(
+            individual_data,
+            max_combinations=max_omega_per_individual
+        )
+        individual_omega_lists[individual_id] = omega_list
+
+    def objective_function(param_values: np.ndarray, param_names: List[str]) -> float:
+        """
+        M-step目标函数：负的期望对数似然
+
+        Q(Θ) = Σ_i Σ_τ Σ_ω p(τ,ω|D_i) · ln L(D_i|τ,ω,Θ)
+        """
+        if not hasattr(objective_function, 'call_count'):
+            objective_function.call_count = 0
+        objective_function.call_count += 1
+
+        params = _unpack_params(param_values, param_names, initial_params['n_choices'])
+
+        total_weighted_log_lik = 0.0
+
+        try:
+            # 遍历所有个体
+            for i_idx, individual_id in enumerate(unique_individuals):
+                individual_data = observed_data[observed_data['IID'] == individual_id]
+                posterior_matrix = individual_posteriors[individual_id]  # (n_omega, K)
+                omega_list = individual_omega_lists[individual_id]
+
+                # 对该个体的所有(ω, τ)组合求加权似然
+                for omega_idx, omega in enumerate(omega_list):
+                    eta_i = omega['eta']
+                    sigma_epsilon = omega['sigma']
+
+                    for k in range(K):
+                        # 获取后验权重
+                        weight = posterior_matrix[omega_idx, k]
+                        if weight < 1e-10:
+                            continue
+
+                        # 构建type-specific参数
+                        type_params = params.copy()
+                        if f'gamma_0_type_{k}' in params:
+                            type_params['gamma_0'] = params[f'gamma_0_type_{k}']
+                        if f'gamma_1_type_{k}' in params:
+                            type_params['gamma_1'] = params[f'gamma_1_type_{k}']
+                        if f'alpha_home_type_{k}' in params:
+                            type_params['alpha_home'] = params[f'alpha_home_type_{k}']
+                        if f'lambda_type_{k}' in params:
+                            type_params['lambda'] = params[f'lambda_type_{k}']
+
+                        type_params['sigma_epsilon'] = sigma_epsilon
+
+                        # 求解Bellman方程
+                        converged_v = solve_bellman_for_params(
+                            params=type_params,
+                            state_space=state_space,
+                            agent_type=int(k),
+                            beta=beta,
+                            transition_matrices=transition_matrices,
+                            regions_df=regions_df,
+                            distance_matrix=distance_matrix,
+                            adjacency_matrix=adjacency_matrix,
+                            initial_v=None,
+                            verbose=False,
+                            use_cache=False  # M-step中关闭缓存以确保梯度正确
+                        )
+
+                        # 计算似然
+                        log_lik_obs = calculate_likelihood_from_v(
+                            converged_v=converged_v,
+                            params=type_params,
+                            observed_data=individual_data,
+                            state_space=state_space,
+                            agent_type=int(k),
+                            beta=beta,
+                            transition_matrices=transition_matrices,
+                            regions_df=regions_df,
+                            distance_matrix=distance_matrix,
+                            adjacency_matrix=adjacency_matrix,
+                            wage_predicted=None,
+                            include_wage_likelihood=False
+                        )
+
+                        # 加权求和
+                        individual_log_lik = np.sum(log_lik_obs)
+                        total_weighted_log_lik += weight * individual_log_lik
+
+            neg_ll = -total_weighted_log_lik
+
+            if objective_function.call_count <= 3 or objective_function.call_count % 5 == 0:
+                logger.info(f"    M-step eval #{objective_function.call_count}: neg_log_lik = {neg_ll:.4f}")
+
+            return neg_ll
+
+        except Exception as e:
+            logger.error(f"  Error in M-step objective function: {e}", exc_info=True)
+            return 1e10
+
+    # 打包参数并优化
+    initial_param_values, param_names = _pack_params(initial_params)
+    logger.info(f"  Optimizing {len(param_names)} parameters with L-BFGS-B...")
+
+    initial_neg_ll = objective_function(initial_param_values, param_names)
+    logger.info(f"  Initial objective value: {initial_neg_ll:.4f}")
+    objective_function.call_count = 0
+
+    try:
+        result = minimize(
+            objective_function,
+            initial_param_values,
+            args=(param_names,),
+            method='L-BFGS-B',
+            options={
+                'disp': False,
+                'maxiter': lbfgsb_maxiter,
+                'gtol': 1e-3,
+                'ftol': 1e-3,
+                'eps': 1e-6
+            }
+        )
+
+        final_neg_ll = result.fun
+        logger.info(f"  L-BFGS-B result: success={result.success}, nit={result.nit}")
+        logger.info(f"  Objective change: {initial_neg_ll:.4f} -> {final_neg_ll:.4f} "
+                   f"(Δ {initial_neg_ll - final_neg_ll:.4f})")
+
+        if result.success or result.nit > 0:
+            updated_params = _unpack_params(result.x, param_names, initial_params['n_choices'])
+        else:
+            logger.warning(f"  M-step optimization did not converge, using initial params")
+            updated_params = initial_params
+
+    except Exception as e:
+        logger.error(f"  Error in M-step optimization: {e}", exc_info=True)
+        updated_params = initial_params
+
+    # 更新类型概率 π_k
+    # π_k^(k+1) = (1/N) Σ_i Σ_ω p(τ, ω | D_i)
+    updated_pi_k = np.zeros(K)
+    for individual_id in unique_individuals:
+        posterior_matrix = individual_posteriors[individual_id]  # (n_omega, K)
+        # 边缘化ω
+        marginal_type_prob = np.sum(posterior_matrix, axis=0)  # (K,)
+        updated_pi_k += marginal_type_prob
+
+    updated_pi_k = updated_pi_k / N
+    updated_pi_k = np.maximum(updated_pi_k, 0.01)  # 最小概率
+    updated_pi_k = updated_pi_k / np.sum(updated_pi_k)
+
+    logger.info(f"  M-step completed. Updated type probabilities: {updated_pi_k}")
+
+    return updated_params, updated_pi_k
