@@ -93,10 +93,27 @@ def calculate_flow_utility_vectorized(
     is_hometown = (dest_loc_indices == hometown_loc_indices)
     home_premium = params.get(f"alpha_home_type_{agent_type}", params.get("alpha_home", 0.0)) * is_hometown
 
-    # 2.4 Hukou Penalty: rho_0*I(j!=hukou) + rho_1*I(j!=hukou)*Edu + ...
+    # 2.4 Hukou Penalty: 三档城市分类机制（论文685-690行）
+    # ρ_jt = ρ_0,tier(j) + ρ_edu·Edu_jt + ρ_health·Health_jt + ρ_house·House_jt
     is_hukou_mismatch = (dest_loc_indices != hukou_loc_indices)
+
+    # 获取城市分档（如果数据中有city_tier列）
+    if 'city_tier' in region_data:
+        city_tiers = region_data['city_tier'][:n_choices][np.newaxis, :]
+        # 为每档城市设置不同的基础惩罚值
+        rho_base = np.where(
+            city_tiers == 1, params.get("rho_base_tier_1", 1.0),
+            np.where(
+                city_tiers == 2, params.get("rho_base_tier_2", 0.5),
+                params.get("rho_base_tier_3", 0.2)  # tier 3或其他
+            )
+        )
+    else:
+        # 如果没有城市分档数据，使用单一基础值
+        rho_base = params.get("rho_base_tier_1", 1.0)
+
     hukou_penalty = is_hukou_mismatch * (
-        params["rho_base_tier_1"]  # Using rho_base_tier_1 as rho_0
+        rho_base
         + params["rho_edu"] * region_data["amenity_education"][:n_choices][np.newaxis, :]
         + params["rho_health"] * region_data["amenity_health"][:n_choices][np.newaxis, :]
         + params["rho_house"] * region_data["amenity_house_price"][:n_choices][np.newaxis, :]

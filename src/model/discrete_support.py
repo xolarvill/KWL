@@ -120,6 +120,76 @@ class DiscreteSupportGenerator:
             }
         }
 
+    def get_region_specific_nu_support(
+        self,
+        region_data: pd.DataFrame,
+        delta_0: float,
+        delta_1: float,
+        internet_column: str = '移动电话普及率'
+    ) -> Dict[str, np.ndarray]:
+        """
+        生成地区特定的ν支撑点（带互联网调节）
+
+        根据论文公式(736-742行):
+            σ²_ν,jt = exp(δ_0 - δ_1 · Internet_jt)
+            ν_ij ~ N(0, σ²_ν,jt)
+
+        参数:
+        ----
+        region_data : pd.DataFrame
+            地区数据，必须包含列: provcd, {internet_column}
+        delta_0 : float
+            方差基准参数
+        delta_1 : float
+            互联网效应参数 (δ_1 > 0 表示互联网降低不确定性)
+        internet_column : str
+            互联网普及率的列名
+
+        返回:
+        ----
+        Dict[str, np.ndarray]
+            键为地区代码(provcd)，值为该地区的ν支撑点数组
+        """
+        logger = logging.getLogger()
+
+        # 检查互联网列是否存在
+        if internet_column not in region_data.columns:
+            logger.warning(f"地区数据中未找到'{internet_column}'列，使用默认nu_support")
+            # 返回所有地区使用相同的支撑点
+            unique_provcds = region_data['provcd'].unique()
+            return {provcd: self.nu_support for provcd in unique_provcds}
+
+        # 计算每个地区的方差
+        region_variance = {}
+        for provcd in region_data['provcd'].unique():
+            region_subset = region_data[region_data['provcd'] == provcd]
+
+            # 使用该地区的平均互联网普及率（如果有多年数据）
+            internet_rate = region_subset[internet_column].mean()
+
+            # 处理缺失值
+            if np.isnan(internet_rate):
+                logger.warning(f"地区{provcd}的互联网数据缺失，使用默认方差")
+                variance = np.exp(delta_0)  # 默认方差（互联网=0时）
+            else:
+                # 计算该地区的σ²_ν,jt
+                variance = np.exp(delta_0 - delta_1 * internet_rate)
+
+            region_variance[provcd] = variance
+
+        # 为每个地区生成调节后的支撑点
+        region_specific_supports = {}
+        for provcd, variance in region_variance.items():
+            # 缩放支撑点：原始支撑点假设σ²=1，现在根据实际方差缩放
+            sigma_jt = np.sqrt(variance)
+            scaled_support = self.nu_support * sigma_jt
+            region_specific_supports[provcd] = scaled_support
+
+        logger.info(f"生成了{len(region_specific_supports)}个地区的特定ν支撑点")
+        logger.debug(f"方差范围: [{min(region_variance.values()):.4f}, {max(region_variance.values()):.4f}]")
+
+        return region_specific_supports
+
 
 class SimplifiedOmegaEnumerator:
     """

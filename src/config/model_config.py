@@ -110,8 +110,10 @@ class ModelConfig:
     ## 收入效用
     alpha_w: float = 1.0  # 收入的边际效用
 
-    ## 户籍惩罚参数
-    rho_base_tier_1: float = 1.0  # 第一档地区的户籍惩罚基础值
+    ## 户籍惩罚参数（三档城市分类）
+    rho_base_tier_1: float = 1.0  # 一线城市（北上广深等）的户籍惩罚基础值
+    rho_base_tier_2: float = 0.5  # 二线城市的户籍惩罚基础值
+    rho_base_tier_3: float = 0.2  # 三线及以下城市的户籍惩罚基础值
     rho_edu: float = 0.1  # 户籍×教育交互项
     rho_health: float = 0.1  # 户籍×医疗交互项
     rho_house: float = 0.1  # 户籍×住房交互项
@@ -210,6 +212,8 @@ class ModelConfig:
             # 共享参数（所有类型共用）
             "alpha_w": self.alpha_w,
             "rho_base_tier_1": self.rho_base_tier_1,
+            "rho_base_tier_2": self.rho_base_tier_2,
+            "rho_base_tier_3": self.rho_base_tier_3,
             "rho_edu": self.rho_edu,
             "rho_health": self.rho_health,
             "rho_house": self.rho_house,
