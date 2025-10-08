@@ -242,7 +242,7 @@ def m_step(
     try:
         result = minimize(
             objective_function, initial_param_values, args=(param_names,), method='L-BFGS-B',
-            options={'disp': False, 'maxiter': 50, 'gtol': 1e-5, 'ftol': 1e-5, 'eps': 1e-6} # 更严格的设置, 调整梯度步长
+            options={'disp': False, 'maxiter': 200, 'gtol': 1e-5, 'ftol': 1e-5, 'eps': 1e-6} # 增加迭代次数
         )
         
         final_neg_ll = result.fun

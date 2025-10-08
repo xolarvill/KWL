@@ -15,21 +15,28 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from src.data_handler.data_loader import DataLoader
-from src.estimation.em_nfxp import run_em_algorithm
-from src.config.model_config import ModelConfig
-from src.estimation.inference import compute_information_criteria, bootstrap_standard_errors
+from src.estimation.inference import (
+    compute_information_criteria, 
+    bootstrap_standard_errors, 
+    estimate_mixture_model_standard_errors
+)
 from src.model.likelihood import calculate_log_likelihood
 from src.utils.outreg2 import output_estimation_results, output_model_fit_results
 
 
-def run_estimation_workflow(sample_size: int = None, n_bootstrap: int = 0, bootstrap_jobs: int = 1):
+def run_estimation_workflow(
+    sample_size: int = None, 
+    use_bootstrap: bool = False,
+    n_bootstrap: int = 100, 
+    bootstrap_jobs: int = 1
+):
     """
     封装了模型估计、推断和输出的完整工作流
     
     Args:
         sample_size (int, optional): 如果提供，则只使用前N个个体进行调试.
-        n_bootstrap (int): Bootstrap的重复次数. 如果为0，则跳过标准误计算.
+        use_bootstrap (bool): 是否使用Bootstrap计算标准误.
+        n_bootstrap (int): Bootstrap的重复次数.
         bootstrap_jobs (int): Bootstrap并行任务数.
     """
     # --- 1. 配置 ---
@@ -55,7 +62,26 @@ def run_estimation_workflow(sample_size: int = None, n_bootstrap: int = 0, boots
     print("\n开始模型估计...")
     # 从ModelConfig获取初始参数
     initial_params = config.get_initial_params()
-    initial_pi_k = config.get_initial_type_probabilities()
+    
+    # **智能启动**: 根据数据动态生成pi_k初始值
+    # 1. 识别稳定者（stayers）和迁移者（movers）
+    df_individual['moved'] = df_individual['provcd_t'] != df_individual['prev_provcd']
+    stayer_ids = df_individual.groupby('individual_id')['moved'].sum() == 0
+    stayer_proportion = stayer_ids.mean()
+    mover_proportion = 1 - stayer_proportion
+    print(f"数据分析: 稳定者比例 = {stayer_proportion:.2%}, 迁移者比例 = {mover_proportion:.2%}")
+
+    # 2. 创建数据驱动的初始类型概率
+    # 假设Type 1是稳定型，Type 0和2是两种迁移型
+    data_driven_pi_k = np.array([
+        mover_proportion / 2,  # 机会型
+        stayer_proportion,     # 稳定型
+        mover_proportion / 2   # 适应型
+    ])
+    # 确保概率和为1且不为0
+    data_driven_pi_k = np.maximum(data_driven_pi_k, 1e-6)
+    data_driven_pi_k /= data_driven_pi_k.sum()
+    print(f"使用数据驱动的初始类型概率: {data_driven_pi_k}")
 
     estimation_params = {
         "observed_data": df_individual, "regions_df": df_region, "state_space": state_space,
@@ -63,8 +89,8 @@ def run_estimation_workflow(sample_size: int = None, n_bootstrap: int = 0, boots
         "adjacency_matrix": adjacency_matrix, "beta": config.discount_factor, "n_types": config.em_n_types,
         "max_iterations": config.em_max_iterations, "tolerance": config.em_tolerance, 
         "n_choices": config.n_choices,
-        "initial_params": initial_params,  # 传递初始参数
-        "initial_pi_k": initial_pi_k       # 传递初始类型概率
+        "initial_params": initial_params,
+        "initial_pi_k": data_driven_pi_k  # **使用数据驱动的初始概率**
     }
     results = run_em_algorithm(**estimation_params)
     print("\n估计完成。")
@@ -76,7 +102,7 @@ def run_estimation_workflow(sample_size: int = None, n_bootstrap: int = 0, boots
     type_probabilities = results["type_probabilities"]
 
     # --- 4. 统计推断 ---
-    if n_bootstrap > 0:
+    if use_bootstrap:
         print(f"\n计算参数标准误（Bootstrap方法，{n_bootstrap}次重复）...")
         std_errors, _, t_stats, p_values = bootstrap_standard_errors(
             estimated_params=estimated_params,
@@ -100,14 +126,30 @@ def run_estimation_workflow(sample_size: int = None, n_bootstrap: int = 0, boots
         )
         print("Bootstrap 标准误计算完成。")
     else:
-        print("\n跳过标准误计算（n_bootstrap=0）")
-        param_keys = [k for k in estimated_params.keys() if k != 'n_choices']
-        std_errors = {k: np.nan for k in param_keys}
-        t_stats = {k: np.nan for k in param_keys}
-        p_values = {k: np.nan for k in param_keys}
+        print("\n计算参数标准误（数值Hessian方法）...")
+        try:
+            std_errors, t_stats, p_values = estimate_mixture_model_standard_errors(
+                estimated_params=estimated_params,
+                observed_data=df_individual,
+                state_space=state_space,
+                transition_matrices=transition_matrices,
+                beta=config.discount_factor,
+                regions_df=df_region,
+                distance_matrix=distance_matrix,
+                adjacency_matrix=adjacency_matrix,
+                n_types=config.em_n_types,
+                method="type_0_only"
+            )
+            print("数值Hessian 标准误计算完成。")
+        except Exception as e:
+            print(f"Hessian方法计算标准误失败: {e}")
+            param_keys = [k for k in estimated_params.keys() if k != 'n_choices']
+            std_errors = {k: np.nan for k in param_keys}
+            t_stats = {k: np.nan for k in param_keys}
+            p_values = {k: np.nan for k in param_keys}
 
     n_observations = len(df_individual)
-    n_params = len(estimated_params) - 1
+    n_params = len([k for k in estimated_params.keys() if k not in ['n_choices', 'gamma_0_type_0']])
     info_criteria = compute_information_criteria(final_log_likelihood, n_params, n_observations)
 
     # --- 5. 模型拟合检验 (简化) ---
@@ -133,7 +175,8 @@ def main():
     parser = argparse.ArgumentParser(description="运行结构模型估计")
     parser.add_argument('--profile', action='store_true', help='启用性能分析')
     parser.add_argument('--debug-sample-size', type=int, default=None, help='使用指定数量的样本进行调试运行')
-    parser.add_argument('--n-bootstrap', type=int, default=100, help='Bootstrap重复次数，0表示跳过')
+    parser.add_argument('--use-bootstrap', action='store_true', help='使用Bootstrap计算标准误（慢，但更稳健）')
+    parser.add_argument('--n-bootstrap', type=int, default=100, help='Bootstrap重复次数')
     parser.add_argument('--bootstrap-jobs', type=int, default=-1, help='Bootstrap并行任务数，-1表示使用所有CPU核心')
     args = parser.parse_args()
 
@@ -143,6 +186,7 @@ def main():
         profiler.enable()
         run_estimation_workflow(
             sample_size=args.debug_sample_size,
+            use_bootstrap=args.use_bootstrap,
             n_bootstrap=args.n_bootstrap,
             bootstrap_jobs=args.bootstrap_jobs
         )
@@ -153,6 +197,7 @@ def main():
     else:
         run_estimation_workflow(
             sample_size=args.debug_sample_size,
+            use_bootstrap=args.use_bootstrap,
             n_bootstrap=args.n_bootstrap,
             bootstrap_jobs=args.bootstrap_jobs
         )
