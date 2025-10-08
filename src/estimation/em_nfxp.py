@@ -95,11 +95,10 @@ def e_step(
 
     def compute_type_likelihood(k):
         try:
+            # 构建type-specific参数（现在只有gamma_0）
             type_specific_params = params.copy()
-            if f'gamma_0_type_{k}' in params: type_specific_params['gamma_0'] = params[f'gamma_0_type_{k}']
-            if f'gamma_1_type_{k}' in params: type_specific_params['gamma_1'] = params[f'gamma_1_type_{k}']
-            if f'alpha_home_type_{k}' in params: type_specific_params['alpha_home'] = params[f'alpha_home_type_{k}']
-            if f'lambda_type_{k}' in params: type_specific_params['lambda'] = params[f'lambda_type_{k}']
+            if f'gamma_0_type_{k}' in params:
+                type_specific_params['gamma_0'] = params[f'gamma_0_type_{k}']
 
             # Solve Bellman equation once for this type (use cache)
             converged_v = solve_bellman_for_params(
@@ -192,10 +191,8 @@ def m_step(
                 if np.sum(weights) < 1e-10: continue
 
                 type_specific_params = params_k.copy()
-                if f'gamma_0_type_{k}' in params_k: type_specific_params['gamma_0'] = params_k[f'gamma_0_type_{k}']
-                if f'gamma_1_type_{k}' in params_k: type_specific_params['gamma_1'] = params_k[f'gamma_1_type_{k}']
-                if f'alpha_home_type_{k}' in params_k: type_specific_params['alpha_home'] = params_k[f'alpha_home_type_{k}']
-                if f'lambda_type_{k}' in params_k: type_specific_params['lambda'] = params_k[f'lambda_type_{k}']
+                if f'gamma_0_type_{k}' in params_k:
+                    type_specific_params['gamma_0'] = params_k[f'gamma_0_type_{k}']
 
                 # a guess from the previous EM iteration's M-step.
                 # CRITICAL: Set initial_v=None to ensure optimizer gets a clean gradient.
@@ -278,10 +275,8 @@ def m_step(
     new_hot_start_state = {}
     for k in range(K):
         type_specific_params = updated_params.copy()
-        if f'gamma_0_type_{k}' in updated_params: type_specific_params['gamma_0'] = updated_params[f'gamma_0_type_{k}']
-        if f'gamma_1_type_{k}' in updated_params: type_specific_params['gamma_1'] = updated_params[f'gamma_1_type_{k}']
-        if f'alpha_home_type_{k}' in updated_params: type_specific_params['alpha_home'] = updated_params[f'alpha_home_type_{k}']
-        if f'lambda_type_{k}' in updated_params: type_specific_params['lambda'] = updated_params[f'lambda_type_{k}']
+        if f'gamma_0_type_{k}' in updated_params:
+            type_specific_params['gamma_0'] = updated_params[f'gamma_0_type_{k}']
         
         converged_v = solve_bellman_for_params(
             params=type_specific_params, state_space=state_space, agent_type=int(k),

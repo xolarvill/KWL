@@ -54,8 +54,8 @@ def calculate_flow_utility_vectorized(
         w_pred_flat = wage_predicted.flatten()
         w_ref_flat = wage_reference.flatten()
 
-        # 获取损失厌恶系数（type-specific）
-        lambda_param = params.get(f"lambda_type_{agent_type}", params.get("lambda", 2.0))
+        # 获取损失厌恶系数（现在是共享参数）
+        lambda_param = params.get("lambda", 2.0)
         alpha_w = params.get("alpha_w", 1.0)
 
         # 计算前景理论效用
@@ -94,7 +94,7 @@ def calculate_flow_utility_vectorized(
     
     # 2.3 Home Premium: alpha_home * I(j == hometown)
     is_hometown = (dest_loc_indices == hometown_loc_indices)
-    home_premium = params.get(f"alpha_home_type_{agent_type}", params.get("alpha_home", 0.0)) * is_hometown
+    home_premium = params.get("alpha_home", 0.0) * is_hometown
 
     # 2.4 Hukou Penalty: 三档城市分类机制（论文685-690行）
     # ρ_jt = ρ_0,tier(j) + ρ_edu·Edu_jt + ρ_health·Health_jt + ρ_house·House_jt
@@ -145,7 +145,7 @@ def calculate_flow_utility_vectorized(
     is_return_migration = (dest_loc_indices == hometown_loc_indices) & is_moving
 
     fixed_cost = params.get(f"gamma_0_type_{agent_type}", 0.0)
-    distance_cost = params.get(f"gamma_1_type_{agent_type}", params.get("gamma_1", 0.0)) * log_distance
+    distance_cost = params.get("gamma_1", 0.0) * log_distance
     adjacency_discount = params["gamma_2"] * is_adjacent
     return_migration_cost = params["gamma_3"] * is_return_migration
     age_cost = params["gamma_4"] * age

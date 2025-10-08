@@ -42,6 +42,22 @@ from src.model.likelihood import calculate_log_likelihood
 
 def generate_gamma_grid(n_types: int = 3, granularity: str = 'sparse') -> list:
     """
+    Type特定参数(gamma_0)诊断工具
+
+    ⚠️ 注意：此脚本是可选的诊断工具，正常情况下不需要运行
+
+    使用场景：
+    1. 当EM算法出现type退化时
+    2. 当需要评估不同gamma_0组合的相对效果时
+    3. 当处理新的数据集，不确定合适的gamma_0范围时
+
+    推荐workflow：
+    - 首先使用ModelConfig默认值或migration_behavior_analysis智能初始化
+    - 只在出现问题时使用此脚本进行诊断
+
+    Usage:
+        uv run python scripts/search_type_params.py --stage 1  # 快速诊断（~20分钟）
+  
     生成gamma_0参数网格
 
     Args:
@@ -255,10 +271,6 @@ def evaluate_single_combination(
         "alpha_w": 1.0, "lambda": 2.0, "alpha_home": 1.0,
         "rho_base_tier_1": 1.0, "rho_edu": 0.1, "rho_health": 0.1, "rho_house": 0.1,
         **{f"gamma_0_type_{i}": gamma_combination[i] for i in range(n_types)},
-        # 添加其他类型特定参数
-        **{f"gamma_1_type_{i}": -0.1 for i in range(n_types)},  # 示例参数
-        **{f"alpha_home_type_{i}": 1.0 for i in range(n_types)}, # 示例参数
-        **{f"lambda_type_{i}": 2.0 for i in range(n_types)},    # 示例参数
         "gamma_1": -0.1, "gamma_2": 0.2, "gamma_3": -0.4,
         "gamma_4": 0.01, "gamma_5": -0.05,
         "alpha_climate": 0.1, "alpha_health": 0.1,

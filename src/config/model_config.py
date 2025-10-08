@@ -141,25 +141,16 @@ class ModelConfig:
     # 这些参数在不同类型间有差异
 
     ## Type 0: 机会型（Opportunistic）
-    # 特征：迁移频繁，距离远，对收入机会敏感
-    gamma_0_type_0: float = 0.1  # 低固定迁移成本
-    gamma_1_type_0: float = -0.5  # 低距离敏感性
-    alpha_home_type_0: float = 0.1  # 低家乡溢价
-    lambda_type_0: float = 2.5  # 高损失厌恶
+    # 特征：迁移频繁，低固定迁移成本
+    gamma_0_type_0: float = 0.1  # 低固定迁移成本（type-specific）
 
     ## Type 1: 稳定型（Stable）
-    # 特征：迁移很少，偏好熟悉环境
-    gamma_0_type_1: float = 5.0  # 高固定迁移成本
-    gamma_1_type_1: float = -3.0  # 高距离敏感性
-    alpha_home_type_1: float = 2.0  # 高家乡溢价
-    lambda_type_1: float = 1.2  # 低损失厌恶
+    # 特征：迁移很少，高固定迁移成本
+    gamma_0_type_1: float = 5.0  # 高固定迁移成本（type-specific）
 
     ## Type 2: 适应型（Adaptive）
-    # 特征：中等迁移频率，平衡收入和家乡偏好
-    gamma_0_type_2: float = 1.5  # 中等固定迁移成本
-    gamma_1_type_2: float = -1.5  # 中等距离敏感性
-    alpha_home_type_2: float = 0.8  # 中等家乡溢价
-    lambda_type_2: float = 1.8  # 中等损失厌恶
+    # 特征：中等迁移频率
+    gamma_0_type_2: float = 1.5  # 中等固定迁移成本（type-specific）
 
     # 5.3 类型概率初始值
     pi_type_0: float = 0.33  # Type 0的先验概率
@@ -228,32 +219,27 @@ class ModelConfig:
             "alpha_health": self.alpha_health,
             "alpha_public_services": self.alpha_public_services,
             "alpha_hazard": self.alpha_hazard,
+            "gamma_1": self.gamma_1,
             "gamma_2": self.gamma_2,
             "gamma_3": self.gamma_3,
             "gamma_4": self.gamma_4,
             "gamma_5": self.gamma_5,
+            "alpha_home": self.alpha_home,
+            "lambda": self.lambda_default,
             "n_choices": self.n_choices
         }
-        # 注意：gamma_1不包含在共享参数中，因为有gamma_1_type_{t}
+        # 注意：gamma_1现在是共享参数
 
         if use_type_specific:
-            # 类型特定参数
+            # 类型特定参数：只保留gamma_0作为type-specific
             # **参数归一化**: 将 type 0 作为基准组，其固定迁移成本 gamma_0 为0
             params[f"gamma_0_type_0"] = 0.0
 
             for t in range(1, self.em_n_types): # 从 1 开始循环，跳过基准组
                 params[f"gamma_0_type_{t}"] = getattr(self, f"gamma_0_type_{t}")
-
-            for t in range(self.em_n_types):
-                params[f"gamma_1_type_{t}"] = getattr(self, f"gamma_1_type_{t}", self.gamma_1)
-                params[f"alpha_home_type_{t}"] = getattr(self, f"alpha_home_type_{t}")
-                params[f"lambda_type_{t}"] = getattr(self, f"lambda_type_{t}")
         else:
-            # 非混合模型：使用默认的alpha_home和lambda
-            params["alpha_home"] = self.alpha_home
-            params["lambda"] = self.lambda_default
+            # 非混合模型：使用默认参数
             params["gamma_0"] = self.gamma_0_type_0  # 使用type_0作为默认
-            params["gamma_1"] = self.gamma_1
 
         return params
 
@@ -373,9 +359,12 @@ if __name__ == '__main__':
     print(f"\n4. 类型特定参数:")
     for t in range(config.em_n_types):
         print(f"   Type {t}:")
-        print(f"      gamma_0: {params[f'gamma_0_type_{t}']}")
-        print(f"      alpha_home: {params[f'alpha_home_type_{t}']}")
-        print(f"      lambda: {params[f'lambda_type_{t}']}")
+        print(f"      gamma_0: {params.get(f'gamma_0_type_{t}', 'N/A')}")
+
+    print(f"\n   共享参数:")
+    print(f"      alpha_home: {params['alpha_home']}")
+    print(f"      lambda: {params['lambda']}")
+    print(f"      gamma_1: {params['gamma_1']}")
 
     print(f"\n5. Bootstrap配置:")
     bootstrap_conf = config.get_bootstrap_config()

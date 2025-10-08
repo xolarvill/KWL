@@ -245,27 +245,17 @@ def create_behavior_based_initial_params(n_types: int = 3, config=None) -> Dict[
         "n_choices": 31
     }
 
-    # 注意：不包含alpha_home, lambda, gamma_0, gamma_1的共享版本
-    # 因为这些参数都是type-specific的
+    # 注意：现在gamma_1, alpha_home, lambda都是共享参数，不再是type-specific
 
-    # 为每种类型设置不同类型特定参数
+    # 为每种类型设置gamma_0参数（现在只有gamma_0是type-specific）
     for t in range(n_types):
         # 根据典型行为模式设置参数
-        if t == 0:  # 机会型：迁移频繁，距离远
+        if t == 0:  # 机会型：迁移频繁
             initial_params[f'gamma_0_type_{t}'] = 0.1  # 低迁移成本
-            initial_params[f'gamma_1_type_{t}'] = -0.5  # 低距离敏感性
-            initial_params[f'alpha_home_type_{t}'] = 0.1  # 低家乡溢价
-            initial_params[f'lambda_type_{t}'] = 2.5  # 高损失厌恶
         elif t == 1:  # 稳定型：迁移很少
             initial_params[f'gamma_0_type_{t}'] = 5.0  # 高迁移成本
-            initial_params[f'gamma_1_type_{t}'] = -3.0  # 高距离敏感性
-            initial_params[f'alpha_home_type_{t}'] = 2.0  # 高家乡溢价
-            initial_params[f'lambda_type_{t}'] = 1.2  # 低损失厌恶
         else:  # 适应型：中等行为
             initial_params[f'gamma_0_type_{t}'] = 1.5  # 中等迁移成本
-            initial_params[f'gamma_1_type_{t}'] = -1.5  # 中等距离敏感性
-            initial_params[f'alpha_home_type_{t}'] = 0.8  # 中等家乡溢价
-            initial_params[f'lambda_type_{t}'] = 1.8  # 中等损失厌恶
 
     return initial_params
 

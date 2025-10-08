@@ -132,15 +132,10 @@ def e_step_with_omega(
             for k in range(K):
                 try:
                     # 构建type-specific参数
+                    # 注意：现在只有gamma_0是type-specific，其他参数已经是共享的
                     type_params = params.copy()
                     if f'gamma_0_type_{k}' in params:
                         type_params['gamma_0'] = params[f'gamma_0_type_{k}']
-                    if f'gamma_1_type_{k}' in params:
-                        type_params['gamma_1'] = params[f'gamma_1_type_{k}']
-                    if f'alpha_home_type_{k}' in params:
-                        type_params['alpha_home'] = params[f'alpha_home_type_{k}']
-                    if f'lambda_type_{k}' in params:
-                        type_params['lambda'] = params[f'lambda_type_{k}']
 
                     type_params['sigma_epsilon'] = sigma_epsilon
 
@@ -352,15 +347,10 @@ def m_step_with_omega(
                             continue
 
                         # 构建type-specific参数
+                        # 注意：现在只有gamma_0是type-specific
                         type_params = params.copy()
                         if f'gamma_0_type_{k}' in params:
                             type_params['gamma_0'] = params[f'gamma_0_type_{k}']
-                        if f'gamma_1_type_{k}' in params:
-                            type_params['gamma_1'] = params[f'gamma_1_type_{k}']
-                        if f'alpha_home_type_{k}' in params:
-                            type_params['alpha_home'] = params[f'alpha_home_type_{k}']
-                        if f'lambda_type_{k}' in params:
-                            type_params['lambda'] = params[f'lambda_type_{k}']
 
                         type_params['sigma_epsilon'] = sigma_epsilon
 
