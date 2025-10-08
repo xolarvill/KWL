@@ -162,6 +162,15 @@ class DataLoader:
         return linguistic_matrix.to_numpy()
 
     def create_estimation_dataset_and_state_space(self, simplified_state: bool = False):
+        """
+        创建估计数据集和状态空间
+
+        Returns:
+            df_individual: 包含state_index和choice_index列的个体数据
+            state_space: 状态空间DataFrame，包含state_index列
+            transition_matrices: 转移矩阵字典
+            df_region: 地区数据
+        """
         df_individual = self.load_individual_data()
         df_region = self.load_regional_data()
 
@@ -182,11 +191,45 @@ class DataLoader:
             state_space_cols = ['age_t', 'prev_provcd_idx', 'hukou_prov_idx', 'hometown_prov_idx']
             state_space = df_individual[state_space_cols].drop_duplicates().reset_index(drop=True)
             # 重命名age_t为age以保持与Bellman求解器的兼容性
-            state_space = state_space.rename(columns={'age_t': 'age'})
+            state_space = state_space.rename(columns={
+                'age_t': 'age',
+                'prev_provcd_idx': 'prev_provcd_idx',
+                'hukou_prov_idx': 'hukou_prov_idx',
+                'hometown_prov_idx': 'hometown_prov_idx'
+            })
+            # 添加state_index列
+            state_space['state_index'] = state_space.index
         else:
             # 完整的状态空间（如果需要）
             # ... (可以扩展)
             pass
+
+        # 将df_individual与state_space合并以添加state_index
+        # 合并键: age_t, prev_provcd_idx, hukou_prov_idx, hometown_prov_idx
+        df_individual = pd.merge(
+            df_individual,
+            state_space[['age', 'prev_provcd_idx', 'hukou_prov_idx', 'hometown_prov_idx', 'state_index']],
+            left_on=['age_t', 'prev_provcd_idx', 'hukou_prov_idx', 'hometown_prov_idx'],
+            right_on=['age', 'prev_provcd_idx', 'hukou_prov_idx', 'hometown_prov_idx'],
+            how='left'
+        )
+
+        # 删除合并产生的重复的'age'列
+        if 'age' in df_individual.columns:
+            df_individual = df_individual.drop(columns=['age'])
+
+        # 检查是否有未匹配的观测
+        unmatched_count = df_individual['state_index'].isnull().sum()
+        if unmatched_count > 0:
+            print(f"警告: {unmatched_count} 条观测无法匹配到状态空间，将被过滤")
+            df_individual = df_individual.dropna(subset=['state_index'])
+
+        # 添加choice_index列（当期选择的省份索引）
+        df_individual['choice_index'] = df_individual['provcd_idx']
+
+        # 确保state_index和choice_index是整数类型
+        df_individual['state_index'] = df_individual['state_index'].astype(int)
+        df_individual['choice_index'] = df_individual['choice_index'].astype(int)
 
         # 创建转移矩阵 (这里简化为与年龄无关)
         transition_matrices = self._create_simplified_transition_matrices(state_space)
@@ -196,6 +239,8 @@ class DataLoader:
         # 创建简化的转移矩阵（单位矩阵，假设状态转移由选择决定）
         n_states = len(state_space)
         transition_matrices = {i: np.eye(n_states) for i in range(len(prov_codes))}
+
+        print(f"数据准备完成: {len(df_individual)} 条观测, {len(state_space)} 个状态")
 
         return df_individual, state_space, transition_matrices, df_region
 

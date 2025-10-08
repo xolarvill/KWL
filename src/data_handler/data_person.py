@@ -34,14 +34,19 @@ def preprocess_individual_data(file_path: str) -> pd.DataFrame:
         # 加载省份名称列表和省份代码列表
         prov_name_ranked_path = os.path.join(os.path.dirname(file_path), 'prov_name_ranked.json')
         prov_code_ranked_path = os.path.join(os.path.dirname(file_path), 'prov_code_ranked.json')
-        
+
         with open(prov_name_ranked_path, 'r', encoding='utf-8') as f:
             prov_names = json.load(f)
         with open(prov_code_ranked_path, 'r', encoding='utf-8') as f:
             prov_codes = json.load(f)
-            
+
         # 创建省份名称到行政区划代码的映射
         prov_name_to_admin_code = {name: code for name, code in zip(prov_names, prov_codes)}
+
+        # 将无效的缺失值编码替换为NaN（在映射之前）
+        invalid_values = ['0', '90000', '澳门', '香港']
+        for col in ['provcd_t', 'hukou_prov', 'hometown']:
+            df[col] = df[col].replace(invalid_values, pd.NA)
 
         # 将省份名称转换为数字编码
         df['provcd_t'] = df['provcd_t'].map(prov_name_to_admin_code)
@@ -55,18 +60,23 @@ def preprocess_individual_data(file_path: str) -> pd.DataFrame:
     df['is_at_hukou'] = df['is_at_hukou'].map({'是': 1, '否': 0})
 
     # 确保映射成功，处理可能存在的NaN（未匹配的省份名称）
+    initial_len_before_filter = len(df)
     if df['provcd_t'].isnull().any():
-        unmatched_provcd_t = df.loc[df['provcd_t'].isnull(), 'provcd_t'].unique()
-        print(f"警告: 'provcd_t' 列中存在未匹配的省份名称: {unmatched_provcd_t}")
-        df.dropna(subset=['provcd_t'], inplace=True) # 重新启用dropna
+        nan_count = df['provcd_t'].isnull().sum()
+        print(f"过滤 'provcd_t' 列中的 {nan_count} 条无效/缺失记录")
+        df.dropna(subset=['provcd_t'], inplace=True)
     if df['hukou_prov'].isnull().any():
-        unmatched_hukou_prov = df.loc[df['hukou_prov'].isnull(), 'hukou_prov'].unique()
-        print(f"警告: 'hukou_prov' 列中存在未匹配的省份名称: {unmatched_hukou_prov}")
-        df.dropna(subset=['hukou_prov'], inplace=True) # 重新启用dropna
+        nan_count = df['hukou_prov'].isnull().sum()
+        print(f"过滤 'hukou_prov' 列中的 {nan_count} 条无效/缺失记录")
+        df.dropna(subset=['hukou_prov'], inplace=True)
     if df['hometown'].isnull().any():
-        unmatched_hometown = df.loc[df['hometown'].isnull(), 'hometown'].unique()
-        print(f"警告: 'hometown' 列中存在未匹配的省份名称: {unmatched_hometown}")
-        df.dropna(subset=['hometown'], inplace=True) # 重新启用dropna
+        nan_count = df['hometown'].isnull().sum()
+        print(f"过滤 'hometown' 列中的 {nan_count} 条无效/缺失记录")
+        df.dropna(subset=['hometown'], inplace=True)
+
+    filtered_count = initial_len_before_filter - len(df)
+    if filtered_count > 0:
+        print(f"共过滤掉 {filtered_count} 条含无效省份值的观测。当前剩余 {len(df)} 条观测。")
 
     # 过滤掉年龄超出配置范围的个体
     # 需要先加载 ModelConfig
