@@ -42,7 +42,9 @@ def train_wage_model(config: ModelConfig):
     region_cols_to_merge = [
         'provcd', 'year', '常住人口万', '人均可支配收入（元） ',
         '地区基本经济面', '房价（元每平方）', 'amenity_climate',
-        'amenity_health', 'amenity_education', 'amenity_public_services'
+        'amenity_health', 'amenity_education', 'amenity_public_services',
+        '移动电话普及率',  # 新增：互联网普及率
+        '户籍获取难度'      # 新增：户籍获取难度（3档）
     ]
     df_region_for_merge = df_region[region_cols_to_merge].copy()
     df_region_for_merge.rename(columns={
@@ -52,6 +54,8 @@ def train_wage_model(config: ModelConfig):
         '人均可支配收入（元） ': 'disp_income_t',
         '地区基本经济面': 'econ_base_t',
         '房价（元每平方）': 'housing_price_t',
+        '移动电话普及率': 'internet_rate_t',
+        '户籍获取难度': 'hukou_difficulty_t'
     }, inplace=True)
 
     # Debugging: Check merge keys before merge
@@ -97,7 +101,7 @@ def train_wage_model(config: ModelConfig):
     FEATURES = [
         'age_t',
         # 'education', # Removed as it's not in clds.csv
-        'gender', 
+        'gender',
         'provcd_t',
         'prev_provcd',
         'is_at_hukou', # New feature
@@ -109,6 +113,8 @@ def train_wage_model(config: ModelConfig):
         'amenity_health', # New regional feature
         'amenity_education', # New regional feature
         'amenity_public_services', # New regional feature
+        'internet_rate_t',  # 新增：互联网普及率
+        'hukou_difficulty_t'  # 新增：户籍获取难度
     ]
     # Add age_t squared
     df_merged['age_t_sq'] = df_merged['age_t']**2

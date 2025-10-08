@@ -82,9 +82,10 @@ def main():
 
     # 选择要保留的列（原始标识符 + 新的综合指标 + 其他重要变量）
     columns_to_keep = [
-        'provcd', 'prov_name', 'year', 'identifier', 'area', 
+        'provcd', 'prov_name', 'year', 'identifier', 'area',
         '常住人口万', '人均可支配收入（元） ', '自然灾害受灾人口万',
         '房价（元每平方）', '房价收入比', '移动电话普及率', '地区基本经济面', '代表性方言',
+        '户籍获取难度',  # 新增：三档城市分类（3=一线，2=二线，1=三线）
         'amenity_climate', 'amenity_health', 'amenity_education', 'amenity_public_services'
     ]
     

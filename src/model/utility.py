@@ -97,15 +97,26 @@ def calculate_flow_utility_vectorized(
     # ρ_jt = ρ_0,tier(j) + ρ_edu·Edu_jt + ρ_health·Health_jt + ρ_house·House_jt
     is_hukou_mismatch = (dest_loc_indices != hukou_loc_indices)
 
-    # 获取城市分档（如果数据中有city_tier列）
-    if 'city_tier' in region_data:
+    # 获取城市分档（优先使用geo.xlsx中的"户籍获取难度"列）
+    if '户籍获取难度' in region_data:
+        # 户籍获取难度：3=最难（一线城市），2=中等（二线），1=容易（三线）
+        hukou_difficulty = region_data['户籍获取难度'][:n_choices][np.newaxis, :]
+        # 难度越大，惩罚越大
+        rho_base = np.where(
+            hukou_difficulty == 3, params.get("rho_base_tier_1", 1.0),  # 一线城市
+            np.where(
+                hukou_difficulty == 2, params.get("rho_base_tier_2", 0.5),  # 二线城市
+                params.get("rho_base_tier_3", 0.2)  # 三线城市
+            )
+        )
+    elif 'city_tier' in region_data:
+        # 向后兼容：如果有city_tier列也可使用
         city_tiers = region_data['city_tier'][:n_choices][np.newaxis, :]
-        # 为每档城市设置不同的基础惩罚值
         rho_base = np.where(
             city_tiers == 1, params.get("rho_base_tier_1", 1.0),
             np.where(
                 city_tiers == 2, params.get("rho_base_tier_2", 0.5),
-                params.get("rho_base_tier_3", 0.2)  # tier 3或其他
+                params.get("rho_base_tier_3", 0.2)
             )
         )
     else:
