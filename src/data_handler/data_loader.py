@@ -46,15 +46,64 @@ class DataLoader:
         return df_individual
         
     def load_regional_data(self) -> pd.DataFrame:
-        """加载并预处理地区特征数据。"""
-        path = self.config.regional_data_path
-        self._validate_path(path, "地区特征数据(csv)")
-        
+        """
+        加载并合并地区特征数据。
+
+        合并两个数据源：
+        1. geo.xlsx - 原始数据（人口、收入、房价等）
+        2. geo_amenities.csv - PCA综合amenity指标
+
+        Returns:
+            合并后的DataFrame，包含原始数据和amenity指标
+        """
+        # 1. 加载原始地区数据
+        path_raw = self.config.regional_data_path
+        self._validate_path(path_raw, "原始地区数据")
+
         try:
-            df_region = pd.read_csv(path)
+            if path_raw.endswith('.csv'):
+                df_raw = pd.read_csv(path_raw)
+            elif path_raw.endswith('.xlsx') or path_raw.endswith('.xls'):
+                df_raw = pd.read_excel(path_raw)
+            else:
+                raise ValueError(f"不支持的文件格式: {path_raw}。仅支持.csv或.xlsx格式")
         except Exception as e:
-            raise RuntimeError(f"读取或处理地区数据时出错 (路径: {path}): {str(e)}")
-            
+            raise RuntimeError(f"读取原始地区数据时出错 (路径: {path_raw}): {str(e)}")
+
+        # 2. 加载amenity综合指标数据
+        path_amenity = self.config.regional_amenity_path
+        self._validate_path(path_amenity, "amenity综合指标数据")
+
+        try:
+            df_amenity = pd.read_csv(path_amenity)
+        except Exception as e:
+            raise RuntimeError(f"读取amenity数据时出错 (路径: {path_amenity}): {str(e)}")
+
+        # 3. 合并两个数据源
+        # 使用provcd和year作为合并键
+        amenity_cols = ['provcd', 'year'] + [col for col in df_amenity.columns if 'amenity' in col]
+        df_amenity_subset = df_amenity[amenity_cols]
+
+        try:
+            df_region = pd.merge(
+                df_raw,
+                df_amenity_subset,
+                on=['provcd', 'year'],
+                how='left',
+                validate='1:1'
+            )
+        except Exception as e:
+            raise RuntimeError(f"合并原始数据和amenity数据时出错: {str(e)}")
+
+        # 4. 检查合并结果
+        amenity_columns = [col for col in df_region.columns if 'amenity' in col]
+        if not amenity_columns:
+            raise RuntimeError("警告：合并后的数据中没有找到amenity列！")
+
+        # 5. 创建房价收入比指标（如果不存在）
+        if '房价收入比' not in df_region.columns and '房价（元每平方）' in df_region.columns and '人均可支配收入（元） ' in df_region.columns:
+            df_region['房价收入比'] = df_region['房价（元每平方）'] / df_region['人均可支配收入（元） ']
+
         return df_region
         
     def load_adjacency_matrix(self) -> np.ndarray:
@@ -120,32 +169,29 @@ class DataLoader:
         prov_codes = sorted(df_region['provcd'].unique())
         prov_to_idx = {code: i for i, code in enumerate(prov_codes)}
 
-        df_individual['provcd_idx'] = df_individual['provcd'].map(prov_to_idx)
+        # 注意：preprocess_individual_data()将provcd重命名为provcd_t，IID重命名为individual_id
+        df_individual['provcd_idx'] = df_individual['provcd_t'].map(prov_to_idx)
         df_individual['prev_provcd_idx'] = df_individual['prev_provcd'].map(prov_to_idx)
         # **新增**: 加载户籍和家乡的索引
-        df_individual['hukou_prov_idx'] = df_individual['hukou_prov_code'].map(prov_to_idx)
-        df_individual['hometown_prov_idx'] = df_individual['hometown_prov_code'].map(prov_to_idx)
+        df_individual['hukou_prov_idx'] = df_individual['hukou_prov'].map(prov_to_idx)
+        df_individual['hometown_prov_idx'] = df_individual['hometown'].map(prov_to_idx)
 
         # 创建状态空间
         if simplified_state:
             # 状态空间现在需要包含户籍和家乡信息
-            state_space_cols = ['age', 'prev_provcd_idx', 'hukou_prov_idx', 'hometown_prov_idx']
+            state_space_cols = ['age_t', 'prev_provcd_idx', 'hukou_prov_idx', 'hometown_prov_idx']
             state_space = df_individual[state_space_cols].drop_duplicates().reset_index(drop=True)
+            # 重命名age_t为age以保持与Bellman求解器的兼容性
+            state_space = state_space.rename(columns={'age_t': 'age'})
         else:
             # 完整的状态空间（如果需要）
             # ... (可以扩展)
             pass
-        
+
         # 创建转移矩阵 (这里简化为与年龄无关)
         transition_matrices = self._create_simplified_transition_matrices(state_space)
 
-        # 准备输出字典
-        state_data = {
-            'age': state_space['age'].values,
-            'prev_provcd_idx': state_space['prev_provcd_idx'].values,
-            'hukou_prov_idx': state_space['hukou_prov_idx'].values,
-            'hometown_prov_idx': state_space['hometown_prov_idx'].values
-        }
+        # 准备输出字典（已废弃，state_space现在直接作为DataFrame使用）
 
         # 创建简化的转移矩阵（单位矩阵，假设状态转移由选择决定）
         n_states = len(state_space)

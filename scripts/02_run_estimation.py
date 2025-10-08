@@ -52,7 +52,7 @@ def run_estimation_workflow(
     data_loader = DataLoader(config)
     distance_matrix = data_loader.load_distance_matrix()
     adjacency_matrix = data_loader.load_adjacency_matrix()
-    df_individual, df_region, state_space, transition_matrices = \
+    df_individual, state_space, transition_matrices, df_region = \
         data_loader.create_estimation_dataset_and_state_space(simplified_state=True)
 
     if sample_size:

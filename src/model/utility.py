@@ -82,11 +82,14 @@ def calculate_flow_utility_vectorized(
         income_utility = params.get("alpha_w", 1.0) * np.log(np.maximum(wage_approx, 1e-6))
 
     # 2.2 Amenities Utility: Sum of alpha_k * A_jk
+    # 包含5个amenity维度：气候、医疗、教育、公共服务、自然灾害
     amenity_utility = (
         params["alpha_climate"] * region_data["amenity_climate"][:n_choices][np.newaxis, :]
         + params["alpha_health"] * region_data["amenity_health"][:n_choices][np.newaxis, :]
         + params["alpha_education"] * region_data["amenity_education"][:n_choices][np.newaxis, :]
         + params["alpha_public_services"] * region_data["amenity_public_services"][:n_choices][np.newaxis, :]
+        + params["alpha_hazard"] * region_data["amenity_hazard"][:n_choices][np.newaxis, :]
+        # 注: amenity_hazard已经是负值（灾害越多越负），所以alpha_hazard > 0表示灾害降低效用
     )
     
     # 2.3 Home Premium: alpha_home * I(j == hometown)
@@ -127,7 +130,8 @@ def calculate_flow_utility_vectorized(
         rho_base
         + params["rho_edu"] * region_data["amenity_education"][:n_choices][np.newaxis, :]
         + params["rho_health"] * region_data["amenity_health"][:n_choices][np.newaxis, :]
-        + params["rho_house"] * region_data["amenity_house_price"][:n_choices][np.newaxis, :]
+        + params["rho_house"] * region_data["房价收入比"][:n_choices][np.newaxis, :]
+        # 注：使用房价收入比而非绝对房价，反映相对负担能力
     )
 
     # 2.5 Migration Cost: C_ijt = I(j != i) * (gamma_0 + ...)

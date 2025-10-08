@@ -68,7 +68,7 @@ def e_step_with_omega(
         用于计算总似然的对数似然矩阵 (N, K)
     """
     logger = logging.getLogger()
-    unique_individuals = observed_data['IID'].unique()
+    unique_individuals = observed_data['individual_id'].unique()
     N = len(unique_individuals)
     K = n_types
 
@@ -83,7 +83,7 @@ def e_step_with_omega(
     # **性能优化**: 并行枚举ω
     def enumerate_omega_for_individual_wrapper(individual_id):
         """并行ω枚举的包装函数"""
-        individual_data = observed_data[observed_data['IID'] == individual_id]
+        individual_data = observed_data[observed_data['individual_id'] == individual_id]
         if use_simplified_omega:
             omega_list, omega_probs = enumerator.enumerate_omega_for_individual(
                 individual_data,
@@ -115,7 +115,7 @@ def e_step_with_omega(
             logger.info(f"    Processing individual {i_idx+1}/{N}")
 
         # 1. 提取该个体的数据和ω
-        individual_data = observed_data[observed_data['IID'] == individual_id]
+        individual_data = observed_data[observed_data['individual_id'] == individual_id]
         omega_list, omega_probs = individual_omega_dict[individual_id]
 
         n_omega = len(omega_list)
@@ -312,7 +312,7 @@ def m_step_with_omega(
 
     logger.info("  Pre-enumerating omega for all individuals...")
     for individual_id in unique_individuals:
-        individual_data = observed_data[observed_data['IID'] == individual_id]
+        individual_data = observed_data[observed_data['individual_id'] == individual_id]
         omega_list, omega_probs = enumerator.enumerate_omega_for_individual(
             individual_data,
             max_combinations=max_omega_per_individual
@@ -336,7 +336,7 @@ def m_step_with_omega(
         try:
             # 遍历所有个体
             for i_idx, individual_id in enumerate(unique_individuals):
-                individual_data = observed_data[observed_data['IID'] == individual_id]
+                individual_data = observed_data[observed_data['individual_id'] == individual_id]
                 posterior_matrix = individual_posteriors[individual_id]  # (n_omega, K)
                 omega_list = individual_omega_lists[individual_id]
 

@@ -45,7 +45,8 @@ class ModelConfig:
 
     processed_data_dir: str = 'data/processed'
     individual_data_path: str = 'data/processed/clds.csv'
-    regional_data_path: str = 'data/processed/geo.xlsx'
+    regional_data_path: str = 'data/processed/geo.xlsx'  # 原始地区数据
+    regional_amenity_path: str = 'data/processed/geo_amenities.csv'  # PCA综合amenity指标
     prov_code_ranked_path: str = 'data/processed/prov_code_ranked.json'
     prov_name_ranked_path: str = 'data/processed/prov_name_ranked.json'
     adjacency_matrix_path: str = 'data/processed/adjacent_matrix.xlsx'
@@ -123,6 +124,7 @@ class ModelConfig:
     alpha_education: float = 0.1  # 教育舒适度
     alpha_health: float = 0.1  # 医疗舒适度
     alpha_public_services: float = 0.1  # 公共服务舒适度
+    alpha_hazard: float = 0.1  # 自然灾害（负面amenity，alpha_hazard > 0意味着灾害越多效用越低）
 
     ## 迁移成本参数（共享部分）
     gamma_1: float = -0.1  # 距离对迁移成本的影响（注：gamma_0是type-specific）
@@ -225,6 +227,7 @@ class ModelConfig:
             "alpha_education": self.alpha_education,
             "alpha_health": self.alpha_health,
             "alpha_public_services": self.alpha_public_services,
+            "alpha_hazard": self.alpha_hazard,
             "gamma_2": self.gamma_2,
             "gamma_3": self.gamma_3,
             "gamma_4": self.gamma_4,

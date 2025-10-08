@@ -237,7 +237,7 @@ class SimplifiedOmegaEnumerator:
             每个组合的先验概率
         """
         # 1. 识别该个体访问过的地区
-        visited_regions = individual_data['provcd'].unique()
+        visited_regions = individual_data['provcd_t'].unique()
         n_visited = len(visited_regions)
 
         # 2. 计算总组合数

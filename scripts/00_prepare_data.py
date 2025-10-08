@@ -80,13 +80,33 @@ def main():
     df = create_composite_indicator(df, education_vars, 'amenity_education')
     df = create_composite_indicator(df, public_services_vars, 'amenity_public_services')
 
+    # 创建自然灾害amenity（负面指标，需要反向处理）
+    # 使用log变换处理右偏分布，然后取负数（灾害越多，amenity越低）
+    hazard_col = '自然灾害受灾人口万'
+    if hazard_col in df.columns:
+        # 处理缺失值
+        df[hazard_col].fillna(df[hazard_col].median(), inplace=True)
+        # log变换（加1避免log(0)）并标准化
+        hazard_log = np.log(df[hazard_col] + 1)
+        scaler = StandardScaler()
+        hazard_scaled = scaler.fit_transform(hazard_log.values.reshape(-1, 1)).flatten()
+        # 取负数：灾害越多，amenity_hazard越低
+        df['amenity_hazard'] = -hazard_scaled
+        print(f"创建了综合指标: 'amenity_hazard' (基于log变换的自然灾害数据)")
+        print(f"amenity_hazard统计: 均值={df['amenity_hazard'].mean():.4f}, 标准差={df['amenity_hazard'].std():.4f}")
+        print("-" * 30)
+    else:
+        print(f"警告: 列 '{hazard_col}' 未在数据中找到，跳过amenity_hazard创建")
+        df['amenity_hazard'] = 0.0  # 创建默认列避免后续错误
+
     # 选择要保留的列（原始标识符 + 新的综合指标 + 其他重要变量）
     columns_to_keep = [
         'provcd', 'prov_name', 'year', 'identifier', 'area',
         '常住人口万', '人均可支配收入（元） ', '自然灾害受灾人口万',
         '房价（元每平方）', '房价收入比', '移动电话普及率', '地区基本经济面', '代表性方言',
         '户籍获取难度',  # 新增：三档城市分类（3=一线，2=二线，1=三线）
-        'amenity_climate', 'amenity_health', 'amenity_education', 'amenity_public_services'
+        'amenity_climate', 'amenity_health', 'amenity_education', 'amenity_public_services',
+        'amenity_hazard'  # 新增：自然灾害amenity（负面指标）
     ]
     
     # 确保所有要保留的列都存在
