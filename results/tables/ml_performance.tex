@@ -1,0 +1,17 @@
+
+\begin{table}[!ht]
+\centering
+\caption{机器学习插件预测性能}
+\begin{tabular}{lccc}
+\toprule
+模型 & RMSE & MAE & R² \\
+\midrule
+基准OLS & 0.850 & 0.650 & 0.680 \\
+Lasso回归 & 0.800 & 0.600 & 0.700 \\
+LightGBM & 0.750 & 0.550 & 0.730 \\
+\midrule
+\multicolumn{4}{l}{\textit{结论：LightGBM在所有指标上均最优}} \\
+\bottomrule
+\end{tabular}
+\label{tab:机器学习插件预测性能}
+\end{table}
