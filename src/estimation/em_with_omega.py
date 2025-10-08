@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, Any, Tuple, List
 import logging
+from joblib import Parallel, delayed
 
 from src.model.discrete_support import (
     DiscreteSupportGenerator,
@@ -79,26 +80,43 @@ def e_step_with_omega(
 
     enumerator = SimplifiedOmegaEnumerator(support_generator) if use_simplified_omega else None
 
-    for i_idx, individual_id in enumerate(unique_individuals):
-        if (i_idx + 1) % 100 == 0:
-            logger.info(f"    Processing individual {i_idx+1}/{N}")
-
-        # 1. 提取该个体的数据
+    # **性能优化**: 并行枚举ω
+    def enumerate_omega_for_individual_wrapper(individual_id):
+        """并行ω枚举的包装函数"""
         individual_data = observed_data[observed_data['IID'] == individual_id]
-
-        # 2. 为该个体枚举ω组合
         if use_simplified_omega:
             omega_list, omega_probs = enumerator.enumerate_omega_for_individual(
                 individual_data,
                 max_combinations=max_omega_per_individual
             )
         else:
-            # 完全枚举（可能非常大）
             logger.warning("Full omega enumeration not yet implemented, using simplified")
             omega_list, omega_probs = enumerator.enumerate_omega_for_individual(
                 individual_data,
                 max_combinations=max_omega_per_individual
             )
+        return individual_id, omega_list, omega_probs
+
+    # 并行生成所有个体的ω
+    logger.info(f"  Enumerating ω for {N} individuals (parallel)...")
+    omega_results = Parallel(n_jobs=-1, verbose=0)(
+        delayed(enumerate_omega_for_individual_wrapper)(ind_id)
+        for ind_id in unique_individuals
+    )
+
+    # 将结果组织到字典中
+    individual_omega_dict = {
+        ind_id: (omega_list, omega_probs)
+        for ind_id, omega_list, omega_probs in omega_results
+    }
+
+    for i_idx, individual_id in enumerate(unique_individuals):
+        if (i_idx + 1) % 100 == 0:
+            logger.info(f"    Processing individual {i_idx+1}/{N}")
+
+        # 1. 提取该个体的数据和ω
+        individual_data = observed_data[observed_data['IID'] == individual_id]
+        omega_list, omega_probs = individual_omega_dict[individual_id]
 
         n_omega = len(omega_list)
 
@@ -446,3 +464,180 @@ def m_step_with_omega(
     logger.info(f"  M-step completed. Updated type probabilities: {updated_pi_k}")
 
     return updated_params, updated_pi_k
+
+
+def run_em_algorithm_with_omega(
+    observed_data: pd.DataFrame,
+    state_space: pd.DataFrame,
+    transition_matrices: Dict[str, np.ndarray],
+    beta: float,
+    n_types: int,
+    regions_df: pd.DataFrame,
+    distance_matrix: np.ndarray,
+    adjacency_matrix: np.ndarray,
+    support_generator: 'DiscreteSupportGenerator',
+    max_iterations: int = 100,
+    tolerance: float = 1e-4,
+    n_choices: int = 31,
+    initial_params: Dict[str, Any] = None,
+    initial_pi_k: np.ndarray = None,
+    max_omega_per_individual: int = 1000,
+    use_simplified_omega: bool = True,
+    lbfgsb_maxiter: int = 15
+) -> Dict[str, Any]:
+    """
+    EM-NFXP算法主循环（带离散支撑点ω）
+
+    这是run_em_algorithm()的扩展版本，集成了离散支撑点枚举。
+
+    参数:
+    ----
+    observed_data : pd.DataFrame
+        观测数据
+    state_space : pd.DataFrame
+        状态空间
+    transition_matrices : Dict[str, np.ndarray]
+        转移矩阵
+    beta : float
+        贴现因子
+    n_types : int
+        类型数量K
+    regions_df : pd.DataFrame
+        地区数据
+    distance_matrix : np.ndarray
+        距离矩阵
+    adjacency_matrix : np.ndarray
+        邻接矩阵
+    support_generator : DiscreteSupportGenerator
+        离散支撑点生成器
+    max_iterations : int
+        EM最大迭代次数
+    tolerance : float
+        收敛容忍度
+    n_choices : int
+        选择数量
+    initial_params : Dict[str, Any], optional
+        初始参数
+    initial_pi_k : np.ndarray, optional
+        初始类型概率
+    max_omega_per_individual : int
+        每个个体的最大ω组合数
+    use_simplified_omega : bool
+        是否使用简化ω策略
+    lbfgsb_maxiter : int
+        M-step中L-BFGS-B最大迭代次数
+
+    返回:
+    ----
+    Dict包含:
+        - 'structural_params': 估计的结构参数
+        - 'type_probabilities': 估计的类型概率
+        - 'final_log_likelihood': 最终对数似然
+        - 'converged': 是否收敛
+        - 'n_iterations': 迭代次数
+        - 'individual_posteriors': 个体后验概率
+    """
+    logger = logging.getLogger()
+    logger.info("\n" + "="*80)
+    logger.info("EM-NFXP Algorithm with Discrete Support Points (ω)")
+    logger.info("="*80)
+
+    # 初始化
+    if initial_params is None:
+        from src.config.model_config import ModelConfig
+        config = ModelConfig()
+        initial_params = config.get_initial_params(use_type_specific=True)
+        initial_params['n_choices'] = n_choices
+
+    if initial_pi_k is None:
+        initial_pi_k = np.full(n_types, 1.0 / n_types)
+
+    current_params = initial_params.copy()
+    current_pi_k = initial_pi_k.copy()
+
+    prev_log_likelihood = -np.inf
+    converged = False
+
+    # EM迭代
+    for iteration in range(max_iterations):
+        logger.info(f"\n{'='*80}")
+        logger.info(f"EM Iteration {iteration + 1}/{max_iterations}")
+        logger.info(f"{'='*80}")
+
+        # E-step
+        logger.info("\n[E-step with ω]")
+        individual_posteriors, log_likelihood_matrix = e_step_with_omega(
+            params=current_params,
+            pi_k=current_pi_k,
+            observed_data=observed_data,
+            state_space=state_space,
+            transition_matrices=transition_matrices,
+            beta=beta,
+            regions_df=regions_df,
+            distance_matrix=distance_matrix,
+            adjacency_matrix=adjacency_matrix,
+            support_generator=support_generator,
+            n_types=n_types,
+            max_omega_per_individual=max_omega_per_individual,
+            use_simplified_omega=use_simplified_omega
+        )
+
+        # 计算当前对数似然
+        current_log_likelihood = np.sum(np.log(np.sum(
+            log_likelihood_matrix * current_pi_k[np.newaxis, :],
+            axis=1
+        ) + 1e-300))
+
+        logger.info(f"\n  Current log-likelihood: {current_log_likelihood:.4f}")
+
+        # 检查收敛
+        if iteration > 0:
+            ll_change = current_log_likelihood - prev_log_likelihood
+            logger.info(f"  Log-likelihood change: {ll_change:.6f}")
+
+            if abs(ll_change) < tolerance:
+                logger.info(f"\n  ✓ Converged! (Δ log-likelihood < {tolerance})")
+                converged = True
+                break
+
+        prev_log_likelihood = current_log_likelihood
+
+        # M-step
+        logger.info("\n[M-step with ω]")
+        current_params, current_pi_k = m_step_with_omega(
+            individual_posteriors=individual_posteriors,
+            initial_params=current_params,
+            observed_data=observed_data,
+            state_space=state_space,
+            transition_matrices=transition_matrices,
+            beta=beta,
+            regions_df=regions_df,
+            distance_matrix=distance_matrix,
+            adjacency_matrix=adjacency_matrix,
+            support_generator=support_generator,
+            n_types=n_types,
+            max_omega_per_individual=max_omega_per_individual,
+            lbfgsb_maxiter=lbfgsb_maxiter
+        )
+
+    # 汇总结果
+    logger.info("\n" + "="*80)
+    if converged:
+        logger.info(f"✓ EM Algorithm Converged after {iteration + 1} iterations")
+    else:
+        logger.info(f"⚠ EM Algorithm reached max iterations ({max_iterations})")
+    logger.info(f"Final log-likelihood: {prev_log_likelihood:.4f}")
+    logger.info(f"Final type probabilities: {current_pi_k}")
+    logger.info("="*80)
+
+    results = {
+        'structural_params': current_params,
+        'type_probabilities': current_pi_k,
+        'final_log_likelihood': prev_log_likelihood,
+        'converged': converged,
+        'n_iterations': iteration + 1,
+        'individual_posteriors': individual_posteriors,
+        'posterior_probs': log_likelihood_matrix  # 为兼容性保留
+    }
+
+    return results

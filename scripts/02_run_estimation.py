@@ -16,12 +16,17 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from src.estimation.inference import (
-    compute_information_criteria, 
-    bootstrap_standard_errors, 
+    compute_information_criteria,
+    bootstrap_standard_errors,
     estimate_mixture_model_standard_errors
 )
+from src.estimation.em_nfxp import run_em_algorithm
+from src.estimation.em_with_omega import run_em_algorithm_with_omega
+from src.model.discrete_support import DiscreteSupportGenerator
 from src.model.likelihood import calculate_log_likelihood
 from src.utils.outreg2 import output_estimation_results, output_model_fit_results
+from src.config.model_config import ModelConfig
+from src.data_handler.data_loader import DataLoader
 
 
 def run_estimation_workflow(
@@ -61,8 +66,8 @@ def run_estimation_workflow(
     # --- 3. Model Estimation ---
     print("\n开始模型估计...")
     # 从ModelConfig获取初始参数
-    initial_params = config.get_initial_params()
-    
+    initial_params = config.get_initial_params(use_type_specific=True)
+
     # **智能启动**: 根据数据动态生成pi_k初始值
     # 1. 识别稳定者（stayers）和迁移者（movers）
     df_individual['moved'] = df_individual['provcd_t'] != df_individual['prev_provcd']
@@ -83,16 +88,52 @@ def run_estimation_workflow(
     data_driven_pi_k /= data_driven_pi_k.sum()
     print(f"使用数据驱动的初始类型概率: {data_driven_pi_k}")
 
+    # 3. 准备共同参数
     estimation_params = {
-        "observed_data": df_individual, "regions_df": df_region, "state_space": state_space,
-        "transition_matrices": transition_matrices, "distance_matrix": distance_matrix,
-        "adjacency_matrix": adjacency_matrix, "beta": config.discount_factor, "n_types": config.em_n_types,
-        "max_iterations": config.em_max_iterations, "tolerance": config.em_tolerance, 
+        "observed_data": df_individual,
+        "regions_df": df_region,
+        "state_space": state_space,
+        "transition_matrices": transition_matrices,
+        "distance_matrix": distance_matrix,
+        "adjacency_matrix": adjacency_matrix,
+        "beta": config.discount_factor,
+        "n_types": config.em_n_types,
+        "max_iterations": config.em_max_iterations,
+        "tolerance": config.em_tolerance,
         "n_choices": config.n_choices,
         "initial_params": initial_params,
-        "initial_pi_k": data_driven_pi_k  # **使用数据驱动的初始概率**
+        "initial_pi_k": data_driven_pi_k
     }
-    results = run_em_algorithm(**estimation_params)
+
+    # 4. 根据配置选择EM算法
+    if config.use_discrete_support:
+        print("\n使用EM-with-ω算法（带离散支撑点）...")
+        # 创建支撑点生成器
+        support_config = config.get_discrete_support_config()
+        support_gen = DiscreteSupportGenerator(
+            n_eta_support=support_config['n_eta_support'],
+            n_nu_support=support_config['n_nu_support'],
+            n_xi_support=support_config['n_xi_support'],
+            n_sigma_support=support_config['n_sigma_support'],
+            eta_range=support_config['eta_range'],
+            nu_range=support_config['nu_range'],
+            xi_range=support_config['xi_range'],
+            sigma_range=support_config['sigma_range']
+        )
+
+        # 添加离散支撑点特定参数
+        estimation_params.update({
+            "support_generator": support_gen,
+            "max_omega_per_individual": config.max_omega_per_individual,
+            "use_simplified_omega": config.use_simplified_omega,
+            "lbfgsb_maxiter": config.lbfgsb_maxiter
+        })
+
+        results = run_em_algorithm_with_omega(**estimation_params)
+    else:
+        print("\n使用原始EM算法（不使用离散支撑点）...")
+        results = run_em_algorithm(**estimation_params)
+
     print("\n估计完成。")
     
     estimated_params = results["structural_params"]

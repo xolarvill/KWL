@@ -194,6 +194,10 @@ class ModelConfig:
     ## 工资似然开关
     include_wage_likelihood: bool = True  # 是否在似然函数中包含工资密度
 
+    ## EM算法控制开关
+    use_discrete_support: bool = True  # 是否使用离散支撑点ω（P0.2功能）
+    # 设为False可回退到原始EM算法（不使用支撑点枚举）
+
     # ========================
     # 六、辅助方法
     # ========================
