@@ -27,6 +27,8 @@ data/geo/adjacent/
 test/
 progress/
 
+!docs/**/*.md
+
 # General
 .DS_Store
 .AppleDouble
