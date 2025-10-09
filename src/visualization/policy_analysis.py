@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Tuple
 import os
-from src.visualization.results_plot import plot_policy_dynamic_impact, plot_counterfactual_analysis
+from src.visualization.results_plot import plot_policy_dynamic_impact, plot_counterfactual_analysis, save_figure_multiple_formats
 
 # 设置现代化、简洁的绘图样式
 plt.rcParams['font.sans-serif'] = ['Arial', 'Helvetica', 'SimHei', 'Arial Unicode MS', 'DejaVu Sans']
@@ -92,8 +92,7 @@ def plot_policy_comparison_efficiency(
     plt.tight_layout()
 
     if output_path:
-        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
-        print(f"政策组合效率比较图已保存到: {output_path}")
+        save_figure_multiple_formats(fig, output_path)
 
     return fig
 
@@ -152,8 +151,7 @@ def plot_policy_heterogeneous_effects(
     plt.tight_layout()
 
     if output_path:
-        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
-        print(f"政策异质性效应图已保存到: {output_path}")
+        save_figure_multiple_formats(fig, output_path)
 
     return fig
 
@@ -237,7 +235,6 @@ def plot_unintended_consequences(
     fig.tight_layout()
 
     if output_path:
-        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
-        print(f"政策意外后果图已保存到: {output_path}")
+        save_figure_multiple_formats(fig, output_path)
 
     return fig

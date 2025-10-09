@@ -318,16 +318,322 @@ class ExampleResultGenerator:
         rmse = [0.85, 0.80, 0.75] # 调整RMSE，使其差异更合理
         mae = [0.65, 0.60, 0.55] # 调整MAE，使其差异更合理
         r2 = [0.68, 0.70, 0.73] # 调整R²，使其差异更合理
-        
+
         df = pd.DataFrame({
             'Model': models,
             'RMSE': rmse,
             'MAE': mae,
             'R²': r2
         })
-        
+
         # LightGBM在所有指标上都最优
         return df
+
+    def generate_latent_type_migration_patterns(self) -> Dict[str, pd.DataFrame]:
+        """
+        生成不同潜在类别的迁移模式数据（图5.x1）
+
+        Returns:
+            包含三种类型迁移模式的字典
+        """
+        np.random.seed(42)
+
+        # 中国主要省份列表
+        provinces = ['北京', '上海', '广东', '浙江', '江苏', '四川', '河南', '山东', '湖北', '湖南',
+                    '河北', '安徽', '陕西', '重庆', '福建', '辽宁', '黑龙江', '吉林', '甘肃', '新疆']
+
+        patterns = {}
+
+        # 定居型：几乎没有跨省迁移流
+        settled_flows = []
+        for origin in provinces:
+            for dest in provinces:
+                if origin != dest:
+                    # 极低的迁移流量，仅有少量本地周边迁移
+                    flow = np.random.exponential(0.5) if abs(provinces.index(origin) - provinces.index(dest)) <= 2 else 0.1
+                    settled_flows.append({'origin': origin, 'destination': dest, 'flow': flow})
+        patterns['定居型'] = pd.DataFrame(settled_flows)
+
+        # 经济型：主要迁移流指向经济发达地区
+        economic_flows = []
+        economic_hubs = ['北京', '上海', '广东', '浙江', '江苏']
+        for origin in provinces:
+            for dest in provinces:
+                if origin != dest:
+                    if dest in economic_hubs:
+                        # 强烈的向发达地区迁移倾向
+                        flow = np.random.exponential(8.0) * (1.5 if origin not in economic_hubs else 0.8)
+                    else:
+                        # 非发达地区吸引力低
+                        flow = np.random.exponential(0.8)
+                    economic_flows.append({'origin': origin, 'destination': dest, 'flow': flow})
+        patterns['经济型'] = pd.DataFrame(economic_flows)
+
+        # 闯荡型：迁移流向更多样化
+        explorer_flows = []
+        for origin in provinces:
+            for dest in provinces:
+                if origin != dest:
+                    # 更均匀的迁移分布，包括非主流目的地
+                    flow = np.random.exponential(4.0) * np.random.uniform(0.6, 1.4)
+                    explorer_flows.append({'origin': origin, 'destination': dest, 'flow': flow})
+        patterns['闯荡型'] = pd.DataFrame(explorer_flows)
+
+        return patterns
+
+    def generate_survival_curve_data(self) -> Dict[str, np.ndarray]:
+        """
+        生成学习与纠错的生存曲线数据（图5.x2）
+
+        Returns:
+            包含新迁移者和老住户生存曲线的字典
+        """
+        np.random.seed(42)
+
+        years = np.arange(0, 11)  # 0-10年
+
+        # 新迁移者：生存曲线下降更快（更高的再次迁移概率）
+        # 使用指数衰减模型
+        new_migrants_survival = np.exp(-0.15 * years) * 0.95
+        new_migrants_survival += np.random.normal(0, 0.02, len(years))
+        new_migrants_survival = np.clip(new_migrants_survival, 0, 1)
+
+        # 老住户：生存曲线下降缓慢（更低的迁移概率）
+        old_residents_survival = np.exp(-0.05 * years) * 0.98
+        old_residents_survival += np.random.normal(0, 0.015, len(years))
+        old_residents_survival = np.clip(old_residents_survival, 0, 1)
+
+        return {
+            'years': years,
+            'new_migrants': new_migrants_survival,
+            'old_residents': old_residents_survival
+        }
+
+    def generate_internet_information_cost_data(self) -> pd.DataFrame:
+        """
+        生成互联网与信息成本关系数据（图5.x3）
+
+        Returns:
+            包含互联网普及率和信息成本的DataFrame
+        """
+        np.random.seed(42)
+
+        # 互联网普及率从10%到95%
+        internet_penetration = np.linspace(0.1, 0.95, 50)
+
+        # 信息成本随互联网普及率降低（非线性关系）
+        # 使用对数衰减模型：初期下降快，后期趋于平缓
+        information_cost = 5000 * np.exp(-2.5 * internet_penetration) + 500
+        information_cost += np.random.normal(0, 100, len(internet_penetration))
+        information_cost = np.maximum(information_cost, 400)
+
+        return pd.DataFrame({
+            'internet_penetration': internet_penetration,
+            'information_cost': information_cost
+        })
+
+    def generate_information_counterfactual_data(self) -> Dict[str, Any]:
+        """
+        生成信息完全反事实分析数据（图5.x4）
+
+        Returns:
+            包含总迁移率和回流率的基准与反事实结果
+        """
+        np.random.seed(42)
+
+        # 基准情景（有信息摩擦）
+        baseline = {
+            'total_migration_rate': 0.286,
+            'return_migration_rate': 0.182,
+            'migration_volatility': 0.145  # 迁移决策的波动性
+        }
+
+        # 反事实情景（信息完全，sigma_nu=0）
+        counterfactual = {
+            'total_migration_rate': 0.342,  # 总迁移率上升（信息透明促进迁移）
+            'return_migration_rate': 0.089,  # 回流率大幅下降（减少"试错"）
+            'migration_volatility': 0.068   # 波动性下降
+        }
+
+        return {
+            'baseline': baseline,
+            'counterfactual': counterfactual,
+            'difference': {k: counterfactual[k] - baseline[k] for k in baseline.keys()}
+        }
+
+    def generate_hukou_housing_interaction_data(self) -> pd.DataFrame:
+        """
+        生成户籍-房价交互效应数据（图5.x5）
+
+        Returns:
+            包含房价收入比和户籍惩罚的DataFrame
+        """
+        np.random.seed(42)
+
+        # 房价收入比从5到30
+        price_income_ratio = np.linspace(5, 30, 50)
+
+        # 基础户籍惩罚（不考虑交互）
+        base_penalty = np.ones(len(price_income_ratio)) * 0.87
+        base_penalty += np.random.normal(0, 0.02, len(price_income_ratio))
+
+        # 总惩罚（考虑与房价的交互）
+        # 房价越高，户籍惩罚被放大
+        interaction_effect = 0.093 * (price_income_ratio / 10)
+        total_penalty = base_penalty + interaction_effect
+        total_penalty += np.random.normal(0, 0.03, len(price_income_ratio))
+
+        return pd.DataFrame({
+            'price_income_ratio': price_income_ratio,
+            'base_penalty': base_penalty,
+            'total_penalty': total_penalty
+        })
+
+    def generate_policy_heterogeneous_response_data(self) -> pd.DataFrame:
+        """
+        生成不同类型对政策的异质性响应数据（图6.x1）
+
+        Returns:
+            包含三种类型对迁移补贴政策响应的DataFrame
+        """
+        np.random.seed(42)
+
+        types = ['定居型', '经济型', '闯荡型']
+        proportions = [0.60, 0.30, 0.10]  # 人口占比
+
+        # 因政策新增的迁移人数（万人）
+        policy_response = [0.5, 8.2, 3.8]  # 定居型几乎不响应
+
+        # 政策成本效益比（每增加1个迁移者的财政成本，万元/人）
+        cost_per_migrant = [200, 15, 8]  # 定居型成本极高但效果差
+
+        return pd.DataFrame({
+            'type': types,
+            'proportion': proportions,
+            'new_migrants': policy_response,
+            'cost_efficiency': cost_per_migrant
+        })
+
+    def generate_west_development_comparison_data(self) -> Dict[str, pd.DataFrame]:
+        """
+        生成两种西部开发策略对比数据（图6.x2）
+
+        Returns:
+            包含两种政策效果的时间序列数据
+        """
+        np.random.seed(42)
+
+        years = np.arange(2025, 2036)  # 2025-2035
+
+        # 政策A：传统高额补贴
+        # 短期流入多，但长期留存率低
+        policy_a_inflow = np.array([8.5, 12.3, 10.2, 7.8, 6.5, 5.2, 4.8, 4.5, 4.3, 4.2, 4.1])
+        policy_a_retention = np.array([0.85, 0.72, 0.58, 0.48, 0.42, 0.39, 0.37, 0.36, 0.35, 0.35, 0.35])
+
+        # 政策B：信息驱动的精准匹配
+        # 短期流入较少，但长期留存率高
+        policy_b_inflow = np.array([5.2, 6.8, 7.9, 8.5, 8.9, 9.2, 9.4, 9.5, 9.6, 9.6, 9.7])
+        policy_b_retention = np.array([0.88, 0.86, 0.84, 0.83, 0.82, 0.81, 0.80, 0.80, 0.79, 0.79, 0.79])
+
+        # 净留存人口（累计）
+        policy_a_net = np.cumsum(policy_a_inflow * policy_a_retention)
+        policy_b_net = np.cumsum(policy_b_inflow * policy_b_retention)
+
+        return {
+            'years': years,
+            'policy_a': pd.DataFrame({
+                'year': years,
+                'inflow': policy_a_inflow,
+                'retention_rate': policy_a_retention,
+                'net_population': policy_a_net
+            }),
+            'policy_b': pd.DataFrame({
+                'year': years,
+                'inflow': policy_b_inflow,
+                'retention_rate': policy_b_retention,
+                'net_population': policy_b_net
+            })
+        }
+
+    def generate_reform_path_comparison_data(self) -> Dict[str, pd.DataFrame]:
+        """
+        生成单一改革vs一揽子改革对比数据（图6.x3）
+
+        Returns:
+            包含两种改革路径效果的时间序列数据
+        """
+        np.random.seed(42)
+
+        years = np.arange(2025, 2051)  # 2025-2050
+
+        # 劳动力空间错配指数（0-1，越低越好）
+        baseline_misallocation = 0.385
+
+        # 路径A：单一改革（仅放开户籍）
+        # 短期恶化（人口涌入但配套不足），长期改善有限
+        path_a = np.zeros(len(years))
+        for i, year in enumerate(years):
+            t = i
+            if t < 3:  # 前3年恶化
+                path_a[i] = baseline_misallocation + 0.025 * (3 - t) / 3
+            else:  # 之后缓慢改善
+                path_a[i] = baseline_misallocation - 0.08 * (1 - np.exp(-0.1 * (t - 3)))
+        path_a += np.random.normal(0, 0.008, len(years))
+
+        # 路径B：一揽子改革（户籍+土地+公共服务）
+        # 平稳且持续改善
+        path_b = np.zeros(len(years))
+        for i, year in enumerate(years):
+            t = i
+            path_b[i] = baseline_misallocation - 0.15 * (1 - np.exp(-0.12 * t))
+        path_b += np.random.normal(0, 0.006, len(years))
+
+        return {
+            'years': years,
+            'baseline': np.ones(len(years)) * baseline_misallocation,
+            'single_reform': path_a,
+            'comprehensive_reform': path_b
+        }
+
+    def generate_home_premium_tradeoff_data(self) -> Dict[str, pd.DataFrame]:
+        """
+        生成家乡溢价作为社会稳定器的权衡数据（图6.x4）
+
+        Returns:
+            包含两种世界效用分布的时间序列数据
+        """
+        np.random.seed(42)
+
+        years = np.arange(2025, 2051)  # 2025-2050
+
+        # 世界A：有户籍壁垒，也有家乡溢价
+        world_a_mean_utility = 0.68 + 0.05 * (1 - np.exp(-0.08 * np.arange(len(years))))
+        world_a_utility_variance = 0.145 - 0.02 * (1 - np.exp(-0.06 * np.arange(len(years))))
+
+        # 世界B：有户籍壁垒，但无家乡溢价
+        # 平均效用更高，但方差更大（社会风险增加）
+        world_b_mean_utility = 0.72 + 0.08 * (1 - np.exp(-0.1 * np.arange(len(years))))
+        world_b_utility_variance = 0.165 + 0.035 * (1 - np.exp(-0.08 * np.arange(len(years))))
+
+        # 添加噪声
+        world_a_mean_utility += np.random.normal(0, 0.01, len(years))
+        world_a_utility_variance += np.random.normal(0, 0.005, len(years))
+        world_b_mean_utility += np.random.normal(0, 0.01, len(years))
+        world_b_utility_variance += np.random.normal(0, 0.006, len(years))
+
+        return {
+            'years': years,
+            'world_a': pd.DataFrame({
+                'year': years,
+                'mean_utility': world_a_mean_utility,
+                'utility_variance': world_a_utility_variance
+            }),
+            'world_b': pd.DataFrame({
+                'year': years,
+                'mean_utility': world_b_mean_utility,
+                'utility_variance': world_b_utility_variance
+            })
+        }
 
 
 def save_example_tables(generator: ExampleResultGenerator, output_dir: str = "results/tables"):
@@ -593,24 +899,24 @@ def create_example_out_of_sample_plot(generator: ExampleResultGenerator, output_
     actual_2018 = np.maximum(actual_2018, 1e-6) # 确保非负且非零
     predicted_2018 = np.maximum(predicted_2018, 1e-6) # 确保非负且非零
     
-    plt.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(10, 8))
     plt.scatter(np.log(actual_2018), np.log(predicted_2018), alpha=0.6)
-    
+
     min_val = min(np.log(actual_2018).min(), np.log(predicted_2018).min())
     max_val = max(np.log(actual_2018).max(), np.log(predicted_2018).max())
     plt.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='45度线')
-    
+
     plt.xlabel('2018年实际迁移流量 (对数)')
     plt.ylabel('2018年预测迁移流量 (对数)')
 
     plt.legend()
     plt.grid(True, alpha=0.3)
-    
+
     output_path = os.path.join(output_dir, "out_of_sample_validation.png")
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    # 导入save_figure_multiple_formats函数
+    from src.visualization.results_plot import save_figure_multiple_formats
+    save_figure_multiple_formats(fig, output_path)
     plt.close()
-    
-    print(f"样本外预测检验图已保存到: {output_path}")
 
 
 def create_example_hu_line_plot(output_dir: str = "results/figures"):
@@ -686,10 +992,9 @@ def create_example_hu_line_plot(output_dir: str = "results/figures"):
     plt.tight_layout(pad=2.0)
 
     output_path = os.path.join(output_dir, "hu_line_emergence.png")
-    plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
+    from src.visualization.results_plot import save_figure_multiple_formats
+    save_figure_multiple_formats(fig, output_path)
     plt.close()
-
-    print(f"胡焕庸线人口分布图已保存到: {output_path}")
 
 
 def generate_all_examples():

@@ -27,6 +27,8 @@ data/geo/adjacent/
 test/
 progress/
 
+results/**/*.pdf
+results/**/*.svg
 !docs/**/*.md
 
 # General

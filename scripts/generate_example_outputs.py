@@ -19,7 +19,18 @@ from src.visualization.results_plot import (
     plot_policy_dynamic_impact,
     plot_feature_importance,
     plot_ml_performance,
-    plot_counterfactual_analysis
+    plot_counterfactual_analysis,
+    # 新增图表函数（第五章）
+    plot_latent_type_migration_patterns,
+    plot_survival_curve,
+    plot_internet_information_cost,
+    plot_information_counterfactual,
+    plot_hukou_housing_interaction,
+    # 新增图表函数（第六章）
+    plot_policy_heterogeneous_response,
+    plot_west_development_comparison,
+    plot_reform_path_comparison,
+    plot_home_premium_tradeoff
 )
 from src.visualization.policy_analysis import (
     plot_policy_comparison_efficiency,
@@ -114,9 +125,69 @@ def generate_example_outputs():
     # 额外图表
     create_example_out_of_sample_plot(generator, "results/figures")
     create_example_hu_line_plot("results/figures")
-    
-    # 3. 生成政策分析图
-    print("\n3. 生成政策分析图表...")
+
+    # 3. 生成第五章新增图表
+    print("\n3. 生成第五章新增图表...")
+
+    # 图5.x1: 不同潜在类别的迁移模式
+    plot_latent_type_migration_patterns(
+        output_path="results/figures/latent_type_migration_patterns.png",
+        use_example=True
+    )
+
+    # 图5.x2: 学习与纠错的生存曲线
+    plot_survival_curve(
+        output_path="results/figures/survival_curve.png",
+        use_example=True
+    )
+
+    # 图5.x3: 互联网与信息成本
+    plot_internet_information_cost(
+        output_path="results/figures/internet_information_cost.png",
+        use_example=True
+    )
+
+    # 图5.x4: 信息完全反事实分析
+    plot_information_counterfactual(
+        output_path="results/figures/information_counterfactual.png",
+        use_example=True
+    )
+
+    # 图5.x5: 户籍-房价交互效应
+    plot_hukou_housing_interaction(
+        output_path="results/figures/hukou_housing_interaction.png",
+        use_example=True
+    )
+
+    # 4. 生成第六章新增图表
+    print("\n4. 生成第六章新增图表...")
+
+    # 图6.x1: 一刀切政策的低效性
+    plot_policy_heterogeneous_response(
+        output_path="results/figures/policy_heterogeneous_response.png",
+        use_example=True
+    )
+
+    # 图6.x2: 两种西部开发策略对比
+    plot_west_development_comparison(
+        output_path="results/figures/west_development_comparison.png",
+        use_example=True
+    )
+
+    # 图6.x3: 单一改革vs一揽子改革
+    plot_reform_path_comparison(
+        output_path="results/figures/reform_path_comparison.png",
+        use_example=True
+    )
+
+    # 图6.x4: 家乡溢价的权衡
+    plot_home_premium_tradeoff(
+        output_path="results/figures/home_premium_tradeoff.png",
+        use_example=True
+    )
+
+    # 5. 生成政策分析图
+    print("\n5. 生成政策分析图表...")
     
     # 政策组合效率比较
     plot_policy_comparison_efficiency(
@@ -160,6 +231,17 @@ def generate_example_outputs():
     print("  - counterfactual_analysis.png (反事实分析结果图)")
     print("  - out_of_sample_validation.png (样本外预测检验图)")
     print("  - hu_line_emergence.png (胡焕庸线人口分布图)")
+    print("\n第五章新增图表 (results/figures/):")
+    print("  - latent_type_migration_patterns.png (不同潜在类别的迁移模式)")
+    print("  - survival_curve.png (学习与纠错的生存曲线)")
+    print("  - internet_information_cost.png (互联网作为信息基础设施的价值)")
+    print("  - information_counterfactual.png (信息完全反事实分析)")
+    print("  - hukou_housing_interaction.png (户籍-房价交互效应)")
+    print("\n第六章新增图表 (results/figures/):")
+    print("  - policy_heterogeneous_response.png (一刀切政策的低效性)")
+    print("  - west_development_comparison.png (两种西部开发策略对比)")
+    print("  - reform_path_comparison.png (单一改革vs一揽子改革)")
+    print("  - home_premium_tradeoff.png (家乡溢价作为社会稳定器)")
     print("\n政策分析图表 (results/policy_figures/):")
     print("  - policy_efficiency.png (政策组合效率比较)")
     print("  - policy_heterogeneous_effects.png (政策异质性效应)")
