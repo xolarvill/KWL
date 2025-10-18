@@ -1,11 +1,5 @@
 %!TEX program = Traditional Builder with XeLaTeX
-\documentclass[
-  a4paper,
-  zihao=-4,
-  fontset=mac,
-  AutoFakeBold,
-  AutoFakeSlant,
-  twoside]{ctexbook} 
+\documentclass[master, final]{zufe-thesis} 
 
 % math
 \usepackage{amsmath, amsthm, amssymb} % Math
@@ -13,343 +7,49 @@
 \usepackage{unicode-math} % Greek alphabets, 替换原先的MnSymbol. NOTE: 但unicode-math只能在xelatex或者lualatex中使用
 \usepackage{mathrsfs, amsfonts} % Math fonts
 
-% document
-\usepackage{geometry} % Formatting
-\usepackage{graphicx} % Required for inserting images
-\usepackage{titlesec} % 定制章节标题样式
-\usepackage{titletoc} % 定制目录格式
-\usepackage{fancyhdr} % 引入fancyhdr宏包来控制页眉页脚
-\usepackage{caption} % 定义caption
-\usepackage{etoolbox} % 脚注通篇连续编号
-\usepackage{listings} % 代码输入
-\usepackage{hologo} % LaTeX logo支持
-\usepackage{setspace} % 占位
+% 参考文献
+\addbibresource{Papers.bib}
 
-% citation
-\usepackage{hyperref} % 引用链接
-\usepackage[
-  backend=biber,
-  style=gb7714-2005,
-  citestyle=authoryear,
-  sorting=nyvt,
-  maxnames=1,
-  minnames=1,
-  maxbibnames=99,
-  doi=false,
-  gbpub=false]{biblatex}
+% 论文基本信息
+\thesisTitle{基于个人动态最优居住地选择序列视角考察2010-2018年中国的劳动力行为研究}
+\thesisTitleEN{A Study of Migratory Behaviors from 2010 to 2018 in China Based on Individual Optimal Residential Location Sequence Theory}
+\authorName{李晨逸}
+\studentID{230507031002}
+\mentorName{吴意云}
+\mentorTitle{教授}
+\majorName{西方经济学}
+\deptName{经济学院}
+\submitDate{2025年4月}
+\submitDateEN{April 2025}
 
-% table
-\usepackage{xcolor} % color
-\usepackage{booktabs} % 使用booktabs表格形式
-\usepackage{tabularx} % 在表格中制造换行
-\usepackage{array} % 行间距
-
-% font
-\usepackage{fontspec, xeCJK} % 控制字体
-\usepackage{anyfontsize} % 控制字体大小和行距
-
-% ---------------------- 设置页面边距 ---------------------- 
-\geometry{
-  a4paper,
-  top=3cm, 
-  bottom=2cm, 
-  left=3cm, 
-  right=3cm,
-  headheight=1.5cm, % Ample space for header
-  footskip=1.5cm,   % Ample space for footer
-}
-
-% ----------------------  标题与段落 ---------------------- 
-% 设置中文模板的日期格式和摘要名称
-\ctexset{
-  today=big, % 日期格式为大写
-  abstractname=简介 % 摘要名称设置为“简介”
-}
-
-% 设置chapter标题格式
-\titleformat{\chapter}[block]
-{\centering\zihao{3}\heiti} % 居中、三号、黑体
-{\thechapter}
-{1em}
-{}
-[\vspace{1ex}] % 段后空1行
-
-% 设置chapter标题的前后间距
-\titlespacing{\chapter}
-{0pt} % 左边距
-{1ex} % 段前空1行  
-{1ex} % 段后空1行
-
-% 重新定义section标题格式
-\titleformat{\section}[hang]  % hang表示标题采用悬挂式样式
-{\heiti\zihao{4}\raggedright}  % 黑体、四号、左对齐
-{\thesection}{1em}{}  % 编号与标题间距1em
-
-% 设置section标题的前后间距
-\titlespacing{\section}
-{0pt}  % 左边距
-{1ex}  % 段前空1行
-{1ex}  % 段后空1行
-
-% 重新定义subsection标题格式
-\titleformat{\subsection}[hang]  % hang表示标题采用悬挂式样式
-{\heiti\zihao{-4}\raggedright}  % 黑体、小四号、左对齐
-{\thesubsection}{1em}{}  % 编号与标题间距1em
-
-% 设置subsection标题的前后间距
-\titlespacing{\subsection}
-{0pt}  % 左边距
-{1ex}  % 段前空1行
-{1ex}  % 段后空1行
-
-% ----------------------  页眉、页码、脚注、锁进、行距 ---------------------- 
-% 脚注通篇连续编号
-\counterwithout{footnote}{chapter} 
-
-% 修改脚注行距
-\let\oldfootnote\footnote
-\renewcommand{\footnote}[1]{%
-  \oldfootnote{\setstretch{1.5}#1}% 设置脚注行距为 1.2 倍
-}
-
-% 添加首行缩进，两个字符
-\usepackage{indentfirst}
-\setlength{\parindent}{2em}
-
-% 设置行距
-\renewcommand{\baselinestretch}{1.0}
-\setlength{\parskip}{0pt}
-\linespread{1.5}  % 固定行距20磅约等于1.5倍行距
-
-% 设置页眉样式
-\pagestyle{fancy}
-\fancyhf{} % 清空默认页眉页脚
-\fancyhead[C]{\zihao{5} 浙江财经大学硕士毕业论文} % 设置字号与居中
-\fancyfoot[C]{\thepage} % 居中显示页码
-
-% ----------------------  设置字体 ---------------------- 
-% 从本地创建字体命令
-%\newfontfamily\mysongti[Path=./]{stsong.ttf}
-%\newfontfamily\mykaiti[Path=./]{stkaiti.ttf}
-%\newfontfamily\mykaitigb[Path=./]{kaiti_GB2312.ttf}
-%\newfontfamily\myheiti[Path=./]{simhei.ttf}
-%\newfontfamily\myxihei[Path=./]{stxihei.ttf}
-
-\setCJKmainfont{简宋} % 设置默认中文字体为宋体
-\setmainfont{Times New Roman} % 设置默认英文字体为Times New Roman
-%\newfontfamily\kaiti{Kai}
-\newfontfamily\kaitigb[Path=./]{楷体_GB2312.ttf}
-
-% ------------------------ caption样式 ------------------------------
-% 设置 caption 与 figure 之间的距离
-\setlength{\abovecaptionskip}{11pt}
-\setlength{\belowcaptionskip}{9pt}
-
-% 设置表格的 caption 与 table 之间的垂直距离
-\captionsetup[table]{skip=2pt}
-
-% 设置图片的 caption 格式
-\renewcommand{\thefigure}{\thechapter-\arabic{figure}}
-\captionsetup[figure]{font=small,labelsep=space}
-
-% 设置表格的 caption 格式
-\renewcommand{\thetable}{\thechapter-\arabic{table}}
-\captionsetup[table]{font=small,labelsep=space}
-
-% ----------------------  宏包设置 ---------------------- 
-% hyperref设置
-\hypersetup{
-  pdflang = zh-CN, % 设置PDF文档语言为简体中文
-  pdftitle = {浙江财经大学学位论文-李晨逸}, % PDF标题
-  pdfauthor = {Suicidal Bumblebee} % 作者
-}%
-
-% array调整表格行间距
-\renewcommand{\arraystretch}{1.5}
-
-% citation
-\ExecuteBibliographyOptions{sortlocale=zh__pinyin} % 设置排序语言环境为中文拼音
-\addbibresource{Papers.bib} % 添加文献bib文件
-\DeclareSourcemap{
-  \maps[datatype=bibtex]{
-    \map{
-      \step[fieldset=url, null] % 删除 url 字段
-    }
-    \map{
-      \step[fieldset=librarycatalog, null] % 删除 librarycatalog 字段
-    }
-}}
-
-% ---------------------- 基本信息 ----------------------
-
-% maketitle information
-\title{基于个人动态最优居住地选择视角的劳动力回流行为考察}
-\author{Suicidal Bumblebee}
-\date{Jan 2025}
-
-% 中文题目
-\newcommand{\thesisTitle}{基于个人动态最优居住地选择视角的劳动力回流行为考察}
-% 英文题目
-\newcommand{\thesisTitleEN}{A Study of Return Migration Behavior Based on Dynamic Optimal
-Residential Location Decisions}
-
-% cover information
-\newcommand{\deptName}{经济学院}
-\newcommand{\majorName}{西方经济学}
-\newcommand{\yourName}{李晨逸}
-\newcommand{\yourStudentID}{230507031002}
-\newcommand{\mentorName}{吴意云}
-\newcommand{\Today}{2025年4月}
-
-% underline
-\newcommand\dunderline[3][-1pt]{{%
-  \setbox0=\hbox{#3}
-  \ooalign{\copy0\cr\rule[\dimexpr#1-#2\relax]{\wd0}{#2}}}}
-
-% -------------------- ToC setting --------------------
-
-
-
-% -------------------- 文章内容 --------------------
 \begin{document}
 
-% ---------------------------------------- 封面 ----------------------------------------
-% 简易自动生成标题封面
-% \maketitle
-
-% 自定义标题封面
-\begin{titlepage}
-\vspace*{-20mm}
-
-\centering
-
-\includegraphics[width=3cm]{images/logo/schoolLogo.png}\\
-\includegraphics[width=5cm, height=1cm]{images/logo/schoolName.png}
-
-\vspace*{10mm}
-
-\begin{center}
-{
-\fontsize{26pt}{28pt}
-\spaceskip=0.12em
-\xspaceskip=0.12em
-\textbf{
-  %\songti
-  {
-    硕\hspace{5mm}士\hspace{5mm}研\hspace{5mm}究\hspace{5mm}生\hspace{5mm}毕\hspace{5mm}业\hspace{5mm}论\hspace{5mm}文
-    }
-  }
-}
-
-\vspace{20mm}
-
-{
-\fontsize{18pt}{20pt}
-\textmd{
-    \heiti{题目：}\thesisTitle
-  }
-}
-
-\vspace{5mm}
-\vspace{30mm}
-
-\flushleft
-
-
-\begin{spacing}{2}
-{
-  \hspace{27mm}
-  %\mysongti
-  \fontsize{16pt}{18pt}
-  \selectfont{学生姓名：\dunderline[-10pt]{1pt}{\makebox[78mm][c]{\yourName}}}
-}
-
-{ 
-  \hspace{27mm}
-  %\mysongti
-  \fontsize{16pt}{18pt}
-  \selectfont{学\hspace{11mm}号：\dunderline[-10pt]{1pt}{\makebox[78mm][c]{\yourStudentID}}}
-}
-
-{
-  \hspace{27mm}
-  %\mysongti
-  \fontsize{16pt}{18pt}
-  \selectfont{指导教师：\dunderline[-10pt]{1pt}{\makebox[78mm][c]{\mentorName}}}
-} 
-
-{
-  \hspace{27mm}
-  %\mysongti
-  \fontsize{16pt}{18pt}
-  \selectfont{所在学院：\dunderline[-10pt]{1pt}{\makebox[78mm][c]{\deptName}}}
-}
-
-{
-  \hspace{27mm}
-  %\mysongti
-  \fontsize{16pt}{18pt}
-  \selectfont{专业名称：\dunderline[-10pt]{1pt}{\makebox[78mm][c]{\majorName}}}
-}
-
-\end{spacing}
-\end{center}
-\end{titlepage}
+% ------------------------------------- 封面与前置 --------------------------------------
+\makethesiscover
+\makestatement
+\makechinesetitlepage
+\makeenglishtitlepage
 
 \frontmatter
 
-% ---------------------------------------- 原创性声明 ----------------------------------------
-%\input{special/1_originality}
+% -------------------------------------- 中文摘要 --------------------------------------
+\begin{abstract}
+随着经济的发展与社会工业化带来的社会关系剧变，劳动力迁移形成有规律的迁移模式是必然的。不同于我国研究中的传统城乡二元对立语境，本文基于理性预期构造了动态最优住址选择模型，基于CLDS数据对2010年至2018年间我国各省的人口流动进行实证检验，并得到的结论是（xxx、xxx、xxx）。本文的贡献在于（xxx、xxx、xxx）。
+\keywords{关键词1；关键词2}
+\end{abstract}
 
-% ---------------------------------------- 摘要 ----------------------------------------
-\chapter{摘要}
-
-\begin{center}
-    {
-    \zihao{3}基于个人动态最优居住地选择视角的劳动力回流行为考察
-    }
-\end{center}
-
-
-{\zihao{-4}
-{\heiti 摘要：}{\kaitigb 随着经济的发展与社会工业化带来的社会关系剧变，劳动力迁移形成有规律的迁移模式是必然的。不同于我国研究中的传统城乡二元对立语境，本文基于理性预期构造了动态最优住址选择模型，基于CLDS数据对2010年至2018年间我国各省的人口流动进行实证检验，并得到的结论是（xxx、xxx、xxx）。本文的贡献在于（xxx、xxx、xxx）。}
-
-{\heiti 关键词：}{\kaitigb 动态迁移决策模型、劳动力迁移、收入引致、迁移摩擦}
-}
-
-% ---------------------------------------- Abstract ----------------------------------------
-\chapter{Abstract}
-
-\begin{center}
-    {
-    \zihao{4}
-    \textbf{A Study of Return Migration Behavior Based on Dynamic Optimal Residential Location Decisions}
-    }
-\end{center}
-
-{\zihao{-4}
-\textbf{Abstract}: Here is the english version of abstract
-
-\textbf{keywords}: a，b，c
-}
-
-
-
-\frontmatter
-\renewcommand{\thepage}{\Roman{page}} % 将frontmatter页码改为大写罗马数字
+% -------------------------------------- 英文摘要 --------------------------------------
+\begin{abstracten}
+Here is the english version of abstract
+\keywordsen{a;b;c}
+\end{abstracten}
 
 % ---------------------------------------- 目录 ----------------------------------------
-% 目录自动生成
-%\input{special/2_contents}
-
-\newpage
 \tableofcontents
-\thispagestyle{empty}
 
 \mainmatter
 % ---------------------------------------- 绪论 ----------------------------------------
 \newpage
-% \setcounter{page}{1} % 页码从此处开始记录
 \chapter{引言}
 
 % 点明人口流动的不均匀
@@ -629,9 +329,9 @@ Residential Location Decisions}
 
 \begin{figure}[!ht]
 \centering
+\includegraphics[width=0.8\textwidth]{images/户口影响.drawio.pdf}
 \caption{户籍制度造成影响的途径}
 \label{fig:户籍制度造成影响的途径}
-\includegraphics[width=0.8\textwidth]{images/户口影响.drawio.pdf}
 \end{figure}
 
 为了处理模型中的跨期决策问题，同时保持计算上的可行性，本文遵循了动态离散选择文献中的一个标准做法，假设存在一个完美的资本市场，个体可以在固定利率下自由借贷。此外，我们假设个体的效用函数对于由收入带来的消费是线性的，即收入的边际效用 $\alpha_w$ 是一个常数。在此假设下，家庭的资产持有对一次性迁移决策的边际影响可被忽略，因此模型中未将资产作为显式状态变量。
@@ -640,6 +340,8 @@ Residential Location Decisions}
 
 \begin{table}[!ht]
 \centering
+\caption{居住地选择序列可能的形式}
+\label{tab:居住地选择序列可能的形式}
 \begin{tabular}{@{}ll@{}}
 \hline
 \multicolumn{1}{c}{\textbf{个体流动形式}} & \multicolumn{1}{c}{\textbf{居住地选择序列}}    \\ \midrule
@@ -647,8 +349,6 @@ Residential Location Decisions}
 \begin{tabular}[c]{@{}l@{}}\textbf{单向迁移}：如果 $j_p \neq j_q, \forall p\neq q$，那么\\ 个体就进行了迁移\end{tabular} & $\mathcal{J}=\{\dots, 1,2,3,4,5,\dots\}$ \\ 
 \textbf{回流迁移}：返回到先前居住过的地区                      & $\mathcal{J}=\{\dots, 1,2,2,1,1,\dots\}$ \\ \bottomrule
 \end{tabular}
-\caption{居住地选择序列可能的形式}
-\label{tab:居住地选择序列可能的形式}
 \end{table}
 
 
@@ -904,9 +604,9 @@ P(j_t = j \mid x_{it}; \theta) = \frac{\exp(v_{it}(x_{it}, j))}{\sum_{k \in \mat
 
 \begin{figure}[!ht]
 \centering
+\includegraphics[width=0.9\textwidth]{images/dynamicsequence2.drawio.pdf}
 \caption{动态离散选择模型下的劳动力迁移决策流程图}
 \label{fig:migration_flow_resized2}
-\includegraphics[width=0.9\textwidth]{images/dynamicsequence2.drawio.pdf}
 \end{figure}
 
 
@@ -1292,9 +992,9 @@ $LCA(u,v)=\arg \max_{w\in V} depth(w)$，
 本文使用的语言谱系树如图\ref{fig:linguistic_tree}所示。
 \begin{figure}[!ht]
 \centering
+\includegraphics[width=\textwidth]{images/linguisitc_tree.drawio.pdf}
 \caption{语言谱系树}
 \label{fig:linguistic_tree}
-\includegraphics[width=\textwidth]{images/linguisitc_tree.drawio.pdf}
 \end{figure}
 由于各省之间存在大量的方言，并且现实中缺乏各方言在各省市中的人口分布数据，本文根据《中国语言地图集》选取各省的代表性语言作为其方言指标。值得注意的是部分省份由于内部存在大量完全分割的语言，例如江苏就包括吴语与江淮官话，本文选取流入人口较多的苏州、无锡一带的吴语作为其代表性语言；又例如山东省内部存在胶辽官话、冀鲁官话、中原官话，本文以济南市的冀鲁官话作为其代表性语言。本文的具体设置如表格\ref{tab:方言分布表}所示。
 
@@ -2007,10 +1707,15 @@ Pareto 前沿：横轴“地区均衡（如人口集中度↓）”，纵轴“�
 以家庭为基本单位
 
 
+qita
+
+
 % ---------------------------------------- 附录 ----------------------------------------
-\newpage
+\backmatter
+
 \appendix
 
+\newpage
 \chapter{详细的语言谱系树}
 
 A TREE
@@ -2022,6 +1727,10 @@ A TREE
       ||
       
       ||
+
+\newpage
+\chapter{代码}
+
 
 \newpage
 %\bibliography{Papers}

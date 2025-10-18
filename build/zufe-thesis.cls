@@ -1,10 +1,10 @@
-%% zjufe-thesis.cls
+%% zufe-thesis.cls
 %% 浙江财经大学学位论文文档类
 %% 版本: 1.0
 %% 日期: 2025-01
 
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesClass{zjufe-thesis}[2025/01/16 v1.0 ZJUFE Thesis Template]
+\ProvidesClass{zufe-thesis}[2025/01/16 v1.0 ZJUFE Thesis Template]
 
 % ==================== 选项定义 ====================
 % 学位类型
@@ -77,6 +77,7 @@
 \RequirePackage{etoolbox}
 \RequirePackage{indentfirst}
 \RequirePackage{setspace}
+\RequirePackage{tikz}
 
 % ==================== 页面设置 ====================
 \geometry{
@@ -235,22 +236,31 @@
 
 % 图标题格式：宋体五号，编号与标题间空格分隔
 \captionsetup[figure]{
-  font=small,
-  labelsep=space,
-  skip=11pt,
-  position=bottom
+  font={small,rm},           % 五号字体，Times New Roman/宋体
+  labelsep=space,            % 图号与图名用空格隔开
+  skip=20pt,                 % 段后1行（20pt）
+  position=bottom,           % 图的正下方
+  justification=centering,   % 居中排列
+  aboveskip=0pt,            % 段前0行
+  belowskip=20pt            % 段后1行
 }
 
 % 表标题格式：宋体五号，编号与标题间空格分隔
 \captionsetup[table]{
-  font=small,
-  labelsep=space,
-  skip=2pt,
-  position=top
+  font={small,rm},           % 五号字体
+  labelsep=space,            % 表号与表名用空格隔开
+  position=top,              % 表的正上方
+  justification=centering,   % 居中排列
+  aboveskip=20pt,           % 段前1行
+  belowskip=0pt             % 段后0行
 }
 
-% 表格行间距
-\renewcommand{\arraystretch}{1.5}
+% 表格行间距：单倍行距
+\renewcommand{\arraystretch}{1.0}
+
+% 重定义booktabs三线表线宽
+\setlength{\heavyrulewidth}{1.5pt}  % 上下两根线1.5磅
+\setlength{\lightrulewidth}{0.75pt} % 表头下0.75磅
 
 % ==================== 数学公式格式 ====================
 % 公式编号格式：章-公式
@@ -267,9 +277,30 @@
 % ==================== 脚注格式 ====================
 % 脚注每页重新编号
 \RequirePackage[perpage]{footmisc}
+\RequirePackage{tikz}  % 用于绘制圆圈
 
 % 脚注字体：宋体五号
 \renewcommand{\footnotesize}{\zihao{5}}
+
+% 定义圆圈数字命令
+\newcommand{\circled}[1]{%
+  \tikz[baseline=(char.base)]{
+    \node[shape=circle,draw,inner sep=0.5pt,minimum size=1.2em] (char) {\small #1};
+  }%
+}
+
+% 脚注编号格式：上标带圆圈的数字
+\renewcommand{\thefootnote}{\protect\circled{\arabic{footnote}}}
+
+% 确保脚注标记为上标
+\renewcommand{\@makefnmark}{\hbox{\textsuperscript{\normalfont\@thefnmark}}}
+
+% 脚注正文中的标记不使用上标
+\renewcommand{\@makefntext}[1]{%
+  \parindent 2em%
+  \noindent
+  \makebox[0pt][r]{\@thefnmark\hspace{0.5em}}#1%
+}
 
 % ==================== 参考文献设置 ====================
 % biblatex设置（保留用户原有配置）
@@ -464,9 +495,9 @@
 }
 
 % 中文关键词
-\newcommand{\keywords}[1]{
-  \vspace{1cm}
-  \noindent{\zihao{-4}\heiti 关键词：}{\zihao{-4}\songti #1}
+\newcommand{\keywords}[1]{%
+  \par\vspace{\baselineskip}% ← 关键修改：空一行
+  \noindent{\zihao{-4}\heiti 关键词：}{\zihao{-4}\songti #1}%
 }
 
 % 英文摘要
@@ -492,9 +523,8 @@
 
 % 英文关键词（自动小写、分号分隔、末尾无标点）
 \newcommand{\keywordsen}[1]{%
-  \vspace{1cm}%
-  \noindent{\zihao{-4}\bfseries Keywords: }%
-  {\zihao{-4}\MakeLowercase{#1}}%
+  \par\vspace{\baselineskip}% ← 空一行，与中文一致
+  \noindent{\zihao{-4}\bfseries Keywords: }{\zihao{-4} #1}%
 }
 
 % ==================== 致谢环境 ====================
@@ -524,10 +554,36 @@
 % ==================== 附录相关 ====================
 % 重新定义附录
 \renewcommand{\appendix}{
+  \clearpage
   \setcounter{chapter}{0}
-  \setcounter{section}{0}
-  \renewcommand{\thechapter}{\Alph{chapter}}
-  \renewcommand{\thesection}{\Alph{chapter}.\arabic{section}}
+  \renewcommand{\thechapter}{\Alph{chapter}}     % A, B, C...
+  
+  % 重定义 ctex 的章节格式
+  \ctexset{
+    chapter={
+      name={附录,},
+      number=\Alph{chapter},
+    }
+  }
+  
+  % 修改编号格式以符合要求
+  \renewcommand{\thefigure}{\thechapter\arabic{figure}}      % 图A1
+  \renewcommand{\thetable}{\thechapter\arabic{table}}        % 表A1
+  \renewcommand{\theequation}{\thechapter\arabic{equation}}  % A1（无点）
+  
+  % 修改章标题格式（如果要严格按小四号宋体）
+  \titleformat{\chapter}[block]
+    {\centering\zihao{-4}\songti}    % 改为小四号宋体
+    {附录\thechapter}
+    {1em}
+    {}
+  
+  % 修改目录格式
+  \titlecontents{chapter}[0em]
+    {\zihao{-4}\songti}
+    {\thecontentslabel\quad}
+    {}
+    {\titlerule*[0.5pc]{.}\contentspage}
 }
 
 % 发表论文列表环境（盲审版省略）
