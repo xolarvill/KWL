@@ -1,12 +1,11 @@
 %!TEX program = Traditional Builder with XeLaTeX
-% 使ctexbook按单面打印模式排版
 \documentclass[
   a4paper,
   zihao=-4,
   fontset=mac,
   AutoFakeBold,
   AutoFakeSlant,
-  oneside]{ctexbook} 
+  twoside]{ctexbook} 
 
 % math
 \usepackage{amsmath, amsthm, amssymb} % Math
@@ -52,16 +51,13 @@
 % ---------------------- 设置页面边距 ---------------------- 
 \geometry{
   a4paper,
-  top=3.5cm, 
-  bottom=2.5cm, 
-  left=2.5cm, 
-  right=2.5cm,
-  headheight=2.5cm,
-  footskip=2cm,
-  bindingoffset=0cm
-  }
-\setlength{\oddsidemargin}{0pt} % 奇数页左边距偏移
-\setlength{\evensidemargin}{0pt} % 偶数页左边距偏移
+  top=3cm, 
+  bottom=2cm, 
+  left=3cm, 
+  right=3cm,
+  headheight=1.5cm, % Ample space for header
+  footskip=1.5cm,   % Ample space for footer
+}
 
 % ----------------------  标题与段落 ---------------------- 
 % 设置中文模板的日期格式和摘要名称
