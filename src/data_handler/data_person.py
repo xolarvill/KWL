@@ -90,6 +90,10 @@ def preprocess_individual_data(file_path: str) -> pd.DataFrame:
     # 确保数据按个体和时间正确排序
     df.sort_values(['individual_id', 'year_t'], inplace=True)
 
+    # 创建上一期的位置 (t-1) - 必须在调用 get_compact_state_info 之前
+    # 对于每个个体的第一条记录，prev_provcd 将是 NaN
+    df['prev_provcd'] = df.groupby('individual_id')['provcd_t'].shift(1)
+
     # --- 新增：为每个个体创建紧凑的状态空间信息 ---
     def get_compact_state_info(group):
         # 识别所有相关的位置：当前位置、上一期位置、户籍地、家乡
@@ -109,14 +113,11 @@ def preprocess_individual_data(file_path: str) -> pd.DataFrame:
         return group
 
     print("为每个个体生成紧凑状态空间信息...")
-    df = df.groupby('individual_id').apply(get_compact_state_info)
+    # 在应用此函数之前，'prev_provcd' 列必须存在
+    df = df.groupby('individual_id').apply(get_compact_state_info, include_groups=False)
     # 重置索引，因为groupby.apply可能会改变索引结构
     df.reset_index(drop=True, inplace=True)
     # --- 新增结束 ---
-
-    # 创建上一期的位置 (t-1)
-    # 对于每个个体的第一条记录，prev_provcd 将是 NaN
-    df['prev_provcd'] = df.groupby('individual_id')['provcd_t'].shift(1)
 
     # 在模型中，我们通常处理那些有明确起始位置的个体
     # 因此，删除每个个体的第一条观测记录，因为他们的迁移成本无法计算
