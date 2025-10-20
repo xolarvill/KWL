@@ -26,6 +26,7 @@ data/geo/adjacent/
 !楷体_GB2312.ttf
 test/
 progress/
+KW2011_src/
 
 results/**/*.pdf
 results/**/*.svg

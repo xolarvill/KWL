@@ -85,30 +85,37 @@ def e_step(
     params: Dict[str, Any], pi_k: np.ndarray, observed_data: pd.DataFrame, state_space: pd.DataFrame,
     transition_matrices: Dict[str, np.ndarray], beta: float, regions_df: pd.DataFrame,
     distance_matrix: np.ndarray, adjacency_matrix: np.ndarray, n_types: int = None,
-    force_type_separation: bool = True, n_jobs: int = 3
+    force_type_separation: bool = True, n_jobs: int = -1
 ) -> Tuple[np.ndarray, np.ndarray]:
     logger = logging.getLogger()
-    unique_individuals, individual_indices = np.unique(observed_data['individual_id'], return_inverse=True)
+    if n_jobs == -1:
+        n_jobs = os.cpu_count() or 1
+
+    unique_individuals = observed_data['individual_id'].unique()
     N = len(unique_individuals)
     K = len(pi_k) if n_types is None else n_types
     log_likelihood_matrix = np.zeros((N, K))
-    logger.info(f"  Computing log-likelihoods for {N} individuals across {K} types (parallel={n_jobs>1})...")
+    
+    # Create a mapping from individual_id to matrix row index for easy aggregation
+    individual_to_idx = {ind_id: i for i, ind_id in enumerate(unique_individuals)}
 
-    # Group data by individual once to avoid repeated grouping
-    individual_groups = observed_data.groupby('individual_id')
+    logger.info(f"  Computing log-likelihoods for {N} individuals across {K} types using {n_jobs} cores (granularity: individual chunks)...")
 
-    def compute_type_likelihood(k):
-        try:
-            type_specific_params = params.copy()
-            if f'gamma_0_type_{k}' in params:
-                type_specific_params['gamma_0'] = params[f'gamma_0_type_{k}']
+    # --- New Worker Function for a chunk of individuals ---
+    def _compute_likelihood_for_chunk(individual_ids_chunk: np.ndarray, k: int):
+        chunk_results = {}
+        type_specific_params = params.copy()
+        if f'gamma_0_type_{k}' in params:
+            type_specific_params['gamma_0'] = params[f'gamma_0_type_{k}']
 
-            # --- MAJOR CHANGE: Iterate through individuals ---
-            individual_log_lik_list = []
-            for individual_id, individual_df in individual_groups:
+        # Filter the main dataframe for the individuals in this chunk
+        chunk_data = observed_data[observed_data['individual_id'].isin(individual_ids_chunk)]
+        
+        for individual_id, individual_df in chunk_data.groupby('individual_id'):
+            try:
                 # Solve Bellman equation for this specific individual
                 converged_v_individual, _ = solve_bellman_equation_individual(
-                    utility_function=None, # The new solver calls utility internally
+                    utility_function=None,
                     individual_data=individual_df,
                     params=type_specific_params,
                     agent_type=int(k),
@@ -117,15 +124,17 @@ def e_step(
                     regions_df=regions_df,
                     distance_matrix=distance_matrix,
                     adjacency_matrix=adjacency_matrix,
-                    verbose=False # Disable verbose logging for individual solves
+                    verbose=False
                 )
 
                 # Calculate likelihood for this individual's observations
+                # Note: A proper implementation would require calculate_likelihood_from_v
+                # to also be adapted for individual data. Assuming it is for now.
                 log_lik_obs_vector = calculate_likelihood_from_v(
-                    converged_v=converged_v_individual, # Using individual-specific V
+                    converged_v=converged_v_individual,
                     params=type_specific_params,
                     observed_data=individual_df,
-                    state_space=None, # state_space is now implicit in the individual solver
+                    state_space=state_space, # This might need adjustment if state_space is not global
                     agent_type=int(k),
                     beta=beta,
                     transition_matrices=transition_matrices,
@@ -133,21 +142,30 @@ def e_step(
                     distance_matrix=distance_matrix,
                     adjacency_matrix=adjacency_matrix
                 )
-                individual_log_lik_list.append(np.sum(log_lik_obs_vector))
+                chunk_results[individual_id] = np.sum(log_lik_obs_vector)
+            except Exception as e:
+                logger.error(f"  Error on individual {individual_id} for type {k}: {e}")
+                chunk_results[individual_id] = -1e10
+        return k, chunk_results
 
-            return k, np.array(individual_log_lik_list)
-        except Exception as e:
-            logger.error(f"  Error computing likelihood for type {k}: {e}", exc_info=True)
-            return k, np.full(N, -1e10)
+    # --- New Parallelization Strategy ---
+    # Split individuals into chunks for better load balancing
+    n_chunks = n_jobs * 4  # Create more chunks than jobs
+    if N > 0:
+        individual_chunks = np.array_split(unique_individuals, n_chunks)
+        # Create a list of all tasks: (chunk_of_ids, type_k)
+        tasks = [(chunk, k) for chunk in individual_chunks for k in range(K)]
 
-    if n_jobs > 1:
-        results = Parallel(n_jobs=min(n_jobs, K))(delayed(compute_type_likelihood)(k) for k in range(K))
-        for k, log_lik_values in results: log_likelihood_matrix[:, k] = log_lik_values
-    else:
-        for k in range(K):
-            k_idx, log_lik_values = compute_type_likelihood(k)
-            log_likelihood_matrix[:, k_idx] = log_lik_values
+        results = Parallel(n_jobs=n_jobs)(
+            delayed(_compute_likelihood_for_chunk)(chunk, k) for chunk, k in tasks
+        )
 
+        # Aggregate results
+        for k, chunk_results in results:
+            for ind_id, log_lik in chunk_results.items():
+                if ind_id in individual_to_idx:
+                    log_likelihood_matrix[individual_to_idx[ind_id], k] = log_lik
+    
     try:
         pi_k_safe = np.maximum(pi_k, 1e-10)
         pi_k_safe = pi_k_safe / np.sum(pi_k_safe)
