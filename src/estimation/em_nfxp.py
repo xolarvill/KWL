@@ -8,7 +8,8 @@ import time
 import os
 from functools import wraps
 
-from src.model.likelihood import solve_bellman_for_params, calculate_likelihood_from_v, clear_bellman_cache
+from src.model.likelihood import calculate_likelihood_from_v, clear_bellman_cache
+from src.model.bellman import solve_bellman_equation_individual # Import the new individual solver
 from src.estimation.migration_behavior_analysis import identify_migration_behavior_types, create_behavior_based_initial_params
 
 # --- Logging and Timing Setup ---
@@ -93,33 +94,48 @@ def e_step(
     log_likelihood_matrix = np.zeros((N, K))
     logger.info(f"  Computing log-likelihoods for {N} individuals across {K} types (parallel={n_jobs>1})...")
 
+    # Group data by individual once to avoid repeated grouping
+    individual_groups = observed_data.groupby('individual_id')
+
     def compute_type_likelihood(k):
         try:
-            # 构建type-specific参数（现在只有gamma_0）
             type_specific_params = params.copy()
             if f'gamma_0_type_{k}' in params:
                 type_specific_params['gamma_0'] = params[f'gamma_0_type_{k}']
 
-            # Solve Bellman equation once for this type (use cache)
-            converged_v = solve_bellman_for_params(
-                params=type_specific_params, state_space=state_space, agent_type=int(k),
-                beta=beta, transition_matrices=transition_matrices, regions_df=regions_df,
-                distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix,
-                initial_v=None, verbose=False, use_cache=True
-            )
+            # --- MAJOR CHANGE: Iterate through individuals ---
+            individual_log_lik_list = []
+            for individual_id, individual_df in individual_groups:
+                # Solve Bellman equation for this specific individual
+                converged_v_individual, _ = solve_bellman_equation_individual(
+                    utility_function=None, # The new solver calls utility internally
+                    individual_data=individual_df,
+                    params=type_specific_params,
+                    agent_type=int(k),
+                    beta=beta,
+                    transition_matrices=transition_matrices,
+                    regions_df=regions_df,
+                    distance_matrix=distance_matrix,
+                    adjacency_matrix=adjacency_matrix,
+                    verbose=False # Disable verbose logging for individual solves
+                )
 
-            # Calculate likelihood using the converged value function
-            log_lik_obs_vector = calculate_likelihood_from_v(
-                converged_v=converged_v, params=type_specific_params, observed_data=observed_data,
-                state_space=state_space, agent_type=int(k), beta=beta,
-                transition_matrices=transition_matrices, regions_df=regions_df,
-                distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix
-            )
-            log_lik_obs_vector = np.nan_to_num(log_lik_obs_vector, nan=-1e10, posinf=-1e10, neginf=-1e10)
+                # Calculate likelihood for this individual's observations
+                log_lik_obs_vector = calculate_likelihood_from_v(
+                    converged_v=converged_v_individual, # Using individual-specific V
+                    params=type_specific_params,
+                    observed_data=individual_df,
+                    state_space=None, # state_space is now implicit in the individual solver
+                    agent_type=int(k),
+                    beta=beta,
+                    transition_matrices=transition_matrices,
+                    regions_df=regions_df,
+                    distance_matrix=distance_matrix,
+                    adjacency_matrix=adjacency_matrix
+                )
+                individual_log_lik_list.append(np.sum(log_lik_obs_vector))
 
-            # Use fast numpy aggregation instead of slow pandas groupby
-            individual_log_lik = np.bincount(individual_indices, weights=log_lik_obs_vector)
-            return k, individual_log_lik
+            return k, np.array(individual_log_lik_list)
         except Exception as e:
             logger.error(f"  Error computing likelihood for type {k}: {e}", exc_info=True)
             return k, np.full(N, -1e10)

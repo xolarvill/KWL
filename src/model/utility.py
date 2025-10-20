@@ -178,6 +178,102 @@ def calculate_flow_utility_vectorized(
 
     return np.clip(total_utility, -500, 500)
 
+def calculate_flow_utility_individual_vectorized(
+    state_data: Dict[str, np.ndarray],
+    region_data: Dict[str, np.ndarray],
+    distance_matrix: np.ndarray,
+    adjacency_matrix: np.ndarray,
+    params: Dict[str, Any],
+    agent_type: int,
+    n_states: int,  # Now this is n_individual_states
+    n_choices: int,
+    visited_locations: list, # 新增：个体访问过的地点列表
+    wage_predicted: Optional[np.ndarray] = None,
+    wage_reference: Optional[np.ndarray] = None,
+    eta_i: Optional[np.ndarray] = None,
+    nu_ij: Optional[np.ndarray] = None,
+    xi_ij: Optional[np.ndarray] = None
+) -> np.ndarray:
+    """
+    Calculates flow utility for a SINGLE INDIVIDUAL with a compact state space.
+    """
+    # --- 1. Map compact state indices back to global indices ---
+    # 'prev_provcd_idx' in state_data is now a compact index (e.g., 0, 1, 2...)
+    compact_prev_loc_indices = state_data['prev_provcd_idx']
+    
+    # Use the visited_locations list to map back to global province IDs
+    global_prev_loc_indices = np.array([visited_locations[i] for i in compact_prev_loc_indices])
+
+    # --- 2. Prepare data arrays by broadcasting ---
+    age = state_data['age'][:, np.newaxis]
+    # Use the mapped global indices for calculations
+    prev_loc_indices_b = global_prev_loc_indices[:, np.newaxis] 
+    hukou_loc_indices = state_data['hukou_prov_idx'][:, np.newaxis]
+    hometown_loc_indices = state_data['hometown_prov_idx'][:, np.newaxis]
+    dest_loc_indices = np.arange(n_choices)[np.newaxis, :]
+
+    # --- The rest of the logic is largely the same as the global version ---
+    
+    # Fallback income utility (as in the original function)
+    if '地区基本经济面' in region_data:
+        mu_jt = region_data['地区基本经济面'][:n_choices][np.newaxis, :]
+        wage_approx = np.exp(mu_jt + 10.0)
+    else:
+        wage_approx = np.full((n_states, n_choices), 30000.0)
+    income_utility = params.get("alpha_w", 1.0) * np.log(np.maximum(wage_approx, 1e-6))
+
+    # Amenities Utility
+    amenity_utility = (
+        params["alpha_climate"] * region_data["amenity_climate"][:n_choices][np.newaxis, :]
+        # ... (add other amenities as in the original function)
+    )
+    
+    # Home Premium
+    is_hometown = (dest_loc_indices == hometown_loc_indices)
+    home_premium = params.get("alpha_home", 0.0) * is_hometown
+
+    # Hukou Penalty
+    is_hukou_mismatch = (dest_loc_indices != hukou_loc_indices)
+    rho_base = params.get("rho_base_tier_1", 1.0) # Simplified for brevity
+    hukou_penalty = is_hukou_mismatch * rho_base
+
+    # Migration Cost
+    is_moving = (dest_loc_indices != prev_loc_indices_b)
+    
+    distance = distance_matrix[prev_loc_indices_b, dest_loc_indices]
+    log_distance = np.log(np.maximum(distance, 1.0))
+    
+    is_adjacent = adjacency_matrix[prev_loc_indices_b, dest_loc_indices]
+    is_return_migration = (dest_loc_indices == hometown_loc_indices) & is_moving
+
+    fixed_cost = params.get(f"gamma_0_type_{agent_type}", 0.0)
+    distance_cost = params.get("gamma_1", 0.0) * log_distance
+    adjacency_discount = params["gamma_2"] * is_adjacent
+    return_migration_cost = params["gamma_3"] * is_return_migration
+    age_cost = params["gamma_4"] * age
+    
+    log_dest_population = np.log(np.maximum(region_data["常住人口万"][:n_choices][np.newaxis, :], 1.0))
+    population_discount = params["gamma_5"] * log_dest_population
+    
+    migration_cost = is_moving * (
+        fixed_cost + distance_cost - adjacency_discount + 
+        return_migration_cost + age_cost - population_discount
+    )
+
+    # Total Utility
+    total_utility = (
+        income_utility
+        + amenity_utility
+        + home_premium
+        - hukou_penalty
+        - migration_cost
+    )
+
+    if xi_ij is not None:
+        total_utility += xi_ij
+
+    return np.clip(total_utility, -500, 500)
+
 # Keep the original function for compatibility if needed elsewhere, though it's now unused by Bellman
 def calculate_flow_utility(*args, **kwargs):
     raise NotImplementedError("Use calculate_flow_utility_vectorized. The non-vectorized version is deprecated.")

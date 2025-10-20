@@ -90,6 +90,30 @@ def preprocess_individual_data(file_path: str) -> pd.DataFrame:
     # 确保数据按个体和时间正确排序
     df.sort_values(['individual_id', 'year_t'], inplace=True)
 
+    # --- 新增：为每个个体创建紧凑的状态空间信息 ---
+    def get_compact_state_info(group):
+        # 识别所有相关的位置：当前位置、上一期位置、户籍地、家乡
+        all_locations = pd.concat([
+            group['provcd_t'],
+            group['prev_provcd'].dropna(),
+            group['hukou_prov'],
+            group['hometown']
+        ])
+        # 获取唯一的、排序的地点列表
+        visited_locations = sorted(list(all_locations.unique()))
+        # 创建从地点ID到紧凑索引的映射
+        location_map = {loc: i for i, loc in enumerate(visited_locations)}
+        
+        group['visited_locations'] = [visited_locations] * len(group)
+        group['location_map'] = [location_map] * len(group)
+        return group
+
+    print("为每个个体生成紧凑状态空间信息...")
+    df = df.groupby('individual_id').apply(get_compact_state_info)
+    # 重置索引，因为groupby.apply可能会改变索引结构
+    df.reset_index(drop=True, inplace=True)
+    # --- 新增结束 ---
+
     # 创建上一期的位置 (t-1)
     # 对于每个个体的第一条记录，prev_provcd 将是 NaN
     df['prev_provcd'] = df.groupby('individual_id')['provcd_t'].shift(1)
