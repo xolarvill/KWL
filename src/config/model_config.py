@@ -54,6 +54,7 @@ class ModelConfig:
     linguistic_matrix_path: str = 'data/processed/linguistic_matrix.csv'
     prov_language_data_path: str = 'data/processed/prov_language_data.csv'
     linguistic_data_path: str = 'data/processed/linguistic_tree.json'
+    prov_standard_path: str = 'data/processed/prov_standard_map.csv'
 
     # ========================
     # 二、输出参数
@@ -192,6 +193,31 @@ class ModelConfig:
     # 设为False可回退到原始EM算法（不使用支撑点枚举）
 
     # ========================
+    # 五（续）、参数边界约束（用于L-BFGS-B优化）
+    # ========================
+
+    ## 效用参数边界
+    alpha_bounds: Tuple[float, float] = (-2.0, 10.0)  # alpha_* 参数的边界
+
+    ## 户籍惩罚参数边界
+    rho_bounds: Tuple[float, float] = (0.0, 10.0)  # rho_* 参数的边界（必须非负）
+
+    ## 迁移成本参数边界
+    gamma_0_bounds: Tuple[float, float] = (0.0, 20.0)  # 固定迁移成本（必须非负）
+    gamma_1_bounds: Tuple[float, float] = (-5.0, 1.0)  # 距离系数（通常为负）
+    gamma_2_bounds: Tuple[float, float] = (-1.0, 5.0)  # 邻近性系数
+    gamma_3_bounds: Tuple[float, float] = (-5.0, 1.0)  # 回流迁移系数（通常为负）
+    gamma_4_bounds: Tuple[float, float] = (-0.5, 0.5)  # 年龄系数
+    gamma_5_bounds: Tuple[float, float] = (-1.0, 1.0)  # 人口规模系数
+
+    ## 其他参数边界
+    lambda_bounds: Tuple[float, float] = (1.0, 10.0)  # 损失厌恶系数（必须≥1）
+    sigma_epsilon_bounds: Tuple[float, float] = (0.1, 5.0)  # 工资波动性（必须为正）
+
+    ## 默认边界（用于未明确指定的参数）
+    default_bounds: Tuple[float, float] = (-10.0, 10.0)
+
+    # ========================
     # 六、辅助方法
     # ========================
 
@@ -301,6 +327,47 @@ class ModelConfig:
             "max_omega_per_individual": self.max_omega_per_individual,
             "use_simplified_omega": self.use_simplified_omega
         }
+
+    def get_parameter_bounds(self, param_names: List[str]) -> List[Tuple[float, float]]:
+        """
+        根据参数名称列表获取对应的边界约束
+
+        参数:
+        ----
+        param_names : List[str]
+            参数名称列表
+
+        返回:
+        ----
+        List[Tuple[float, float]]
+            每个参数的(下界, 上界)元组列表
+        """
+        bounds = []
+        for name in param_names:
+            if name.startswith('alpha_'):
+                bounds.append(self.alpha_bounds)
+            elif name.startswith('rho_'):
+                bounds.append(self.rho_bounds)
+            elif name.startswith('gamma_0_type_'):
+                bounds.append(self.gamma_0_bounds)
+            elif name == 'gamma_1':
+                bounds.append(self.gamma_1_bounds)
+            elif name == 'gamma_2':
+                bounds.append(self.gamma_2_bounds)
+            elif name == 'gamma_3':
+                bounds.append(self.gamma_3_bounds)
+            elif name == 'gamma_4':
+                bounds.append(self.gamma_4_bounds)
+            elif name == 'gamma_5':
+                bounds.append(self.gamma_5_bounds)
+            elif name == 'lambda':
+                bounds.append(self.lambda_bounds)
+            elif name == 'sigma_epsilon':
+                bounds.append(self.sigma_epsilon_bounds)
+            else:
+                bounds.append(self.default_bounds)
+
+        return bounds
 
     def update_param(self, param_name: str, value: Any) -> None:
         """
