@@ -15,7 +15,12 @@ from src.model.discrete_support import (
     SimplifiedOmegaEnumerator,
     extract_omega_values_for_state
 )
-from src.model.likelihood import solve_bellman_for_params, calculate_likelihood_from_v
+from src.model.likelihood import (
+    solve_bellman_for_params, 
+    calculate_likelihood_from_v,
+    calculate_likelihood_from_v_individual
+)
+from src.model.bellman import solve_bellman_equation_individual
 from src.model.wage_equation import calculate_predicted_wage, calculate_reference_wage
 
 
@@ -141,35 +146,30 @@ def e_step_with_omega(
 
                     # 求解Bellman方程（此处可能需要传入ω相关值到效用函数）
                     # 简化实现：先不传ω到Bellman求解中
-                    converged_v = solve_bellman_for_params(
+                    converged_v = solve_bellman_equation_individual(
+                        utility_function=None,
+                        individual_data=individual_data,
                         params=type_params,
-                        state_space=state_space,
                         agent_type=int(k),
                         beta=beta,
                         transition_matrices=transition_matrices,
                         regions_df=regions_df,
                         distance_matrix=distance_matrix,
                         adjacency_matrix=adjacency_matrix,
-                        initial_v=None,
-                        verbose=False,
-                        use_cache=True
+                        verbose=False
                     )
 
                     # 计算似然（包含工资似然）
-                    # TODO: 需要计算wage_predicted，这里简化为不包含工资似然
-                    log_lik_obs = calculate_likelihood_from_v(
-                        converged_v=converged_v,
+                    log_lik_obs = calculate_likelihood_from_v_individual(
+                        converged_v_individual=converged_v,
                         params=type_params,
-                        observed_data=individual_data,
-                        state_space=state_space,
+                        individual_data=individual_data,
                         agent_type=int(k),
                         beta=beta,
                         transition_matrices=transition_matrices,
                         regions_df=regions_df,
                         distance_matrix=distance_matrix,
-                        adjacency_matrix=adjacency_matrix,
-                        wage_predicted=None,  # TODO: 计算工资预测值
-                        include_wage_likelihood=False  # 暂时关闭工资似然
+                        adjacency_matrix=adjacency_matrix
                     )
 
                     # 汇总该个体的对数似然
@@ -314,103 +314,96 @@ def m_step_with_omega(
         )
         individual_omega_lists[individual_id] = omega_list
 
-    def objective_function(param_values: np.ndarray, param_names: List[str]) -> float:
-        """
-        M-step目标函数：负的期望对数似然
+    # --- Objective Function with detailed logging ---
+    class Objective:
+        def __init__(self):
+            self.call_count = 0
+            self.last_call_end_time = time.time()
 
-        Q(Θ) = Σ_i Σ_τ Σ_ω p(τ,ω|D_i) · ln L(D_i|τ,ω,Θ)
-        """
-        if not hasattr(objective_function, 'call_count'):
-            objective_function.call_count = 0
-        objective_function.call_count += 1
+        def function(self, param_values: np.ndarray, param_names: List[str]) -> float:
+            self.call_count += 1
+            start_time = time.time()
+            
+            log_msg_header = f"    [M-step Objective Call #{self.call_count}]"
+            logger.info(f"{log_msg_header} Starting...")
 
-        params = _unpack_params(param_values, param_names, initial_params['n_choices'])
+            params = _unpack_params(param_values, param_names, initial_params['n_choices'])
+            total_weighted_log_lik = 0.0
 
-        total_weighted_log_lik = 0.0
+            try:
+                # This is the triply nested loop causing the long runtime
+                for i_idx, individual_id in enumerate(unique_individuals):
+                    individual_data = observed_data[observed_data['individual_id'] == individual_id]
+                    posterior_matrix = individual_posteriors[individual_id]
+                    omega_list = individual_omega_lists[individual_id]
 
-        try:
-            # 遍历所有个体
-            for i_idx, individual_id in enumerate(unique_individuals):
-                individual_data = observed_data[observed_data['individual_id'] == individual_id]
-                posterior_matrix = individual_posteriors[individual_id]  # (n_omega, K)
-                omega_list = individual_omega_lists[individual_id]
+                    for omega_idx, omega in enumerate(omega_list):
+                        for k in range(K):
+                            weight = posterior_matrix[omega_idx, k]
+                            if weight < 1e-10: continue
 
-                # 对该个体的所有(ω, τ)组合求加权似然
-                for omega_idx, omega in enumerate(omega_list):
-                    eta_i = omega['eta']
-                    sigma_epsilon = omega['sigma']
+                            type_params = params.copy()
+                            if f'gamma_0_type_{k}' in params:
+                                type_params['gamma_0'] = params[f'gamma_0_type_{k}']
+                            type_params['sigma_epsilon'] = omega['sigma']
 
-                    for k in range(K):
-                        # 获取后验权重
-                        weight = posterior_matrix[omega_idx, k]
-                        if weight < 1e-10:
-                            continue
+                            # --- OPTIMIZATION: Use individual solver ---
+                            converged_v_individual, _ = solve_bellman_equation_individual(
+                                utility_function=None, # Not needed, called internally
+                                individual_data=individual_data,
+                                params=type_params,
+                                agent_type=int(k),
+                                beta=beta,
+                                transition_matrices=transition_matrices,
+                                regions_df=regions_df,
+                                distance_matrix=distance_matrix,
+                                adjacency_matrix=adjacency_matrix,
+                                verbose=False
+                            )
 
-                        # 构建type-specific参数
-                        # 注意：现在只有gamma_0是type-specific
-                        type_params = params.copy()
-                        if f'gamma_0_type_{k}' in params:
-                            type_params['gamma_0'] = params[f'gamma_0_type_{k}']
+                            # --- OPTIMIZATION: Use individual likelihood calculator ---
+                            log_lik_obs = calculate_likelihood_from_v_individual(
+                                converged_v_individual=converged_v_individual,
+                                params=type_params,
+                                individual_data=individual_data,
+                                agent_type=int(k),
+                                beta=beta,
+                                transition_matrices=transition_matrices,
+                                regions_df=regions_df,
+                                distance_matrix=distance_matrix,
+                                adjacency_matrix=adjacency_matrix
+                            )
+                            
+                            total_weighted_log_lik += weight * np.sum(log_lik_obs)
 
-                        type_params['sigma_epsilon'] = sigma_epsilon
+                neg_ll = -total_weighted_log_lik
+                duration = time.time() - start_time
+                time_since_last = time.time() - self.last_call_end_time
+                self.last_call_end_time = time.time()
 
-                        # 求解Bellman方程
-                        converged_v = solve_bellman_for_params(
-                            params=type_params,
-                            state_space=state_space,
-                            agent_type=int(k),
-                            beta=beta,
-                            transition_matrices=transition_matrices,
-                            regions_df=regions_df,
-                            distance_matrix=distance_matrix,
-                            adjacency_matrix=adjacency_matrix,
-                            initial_v=None,
-                            verbose=False,
-                            use_cache=False  # M-step中关闭缓存以确保梯度正确
-                        )
+                logger.info(f"{log_msg_header} Finished. Duration: {duration:.2f}s. Total time since last call: {time_since_last:.2f}s. NegLogLik: {neg_ll:.4f}")
+                param_subset = param_values[:3]
+                logger.info(f"{log_msg_header} Params (first 3): {np.round(param_subset, 4)}")
 
-                        # 计算似然
-                        log_lik_obs = calculate_likelihood_from_v(
-                            converged_v=converged_v,
-                            params=type_params,
-                            observed_data=individual_data,
-                            state_space=state_space,
-                            agent_type=int(k),
-                            beta=beta,
-                            transition_matrices=transition_matrices,
-                            regions_df=regions_df,
-                            distance_matrix=distance_matrix,
-                            adjacency_matrix=adjacency_matrix,
-                            wage_predicted=None,
-                            include_wage_likelihood=False
-                        )
+                return neg_ll
 
-                        # 加权求和
-                        individual_log_lik = np.sum(log_lik_obs)
-                        total_weighted_log_lik += weight * individual_log_lik
-
-            neg_ll = -total_weighted_log_lik
-
-            if objective_function.call_count <= 3 or objective_function.call_count % 5 == 0:
-                logger.info(f"    M-step eval #{objective_function.call_count}: neg_log_lik = {neg_ll:.4f}")
-
-            return neg_ll
-
-        except Exception as e:
-            logger.error(f"  Error in M-step objective function: {e}", exc_info=True)
-            return 1e10
+            except Exception as e:
+                logger.error(f"{log_msg_header} Error: {e}", exc_info=True)
+                return 1e10
 
     # 打包参数并优化
+    objective = Objective()
     initial_param_values, param_names = _pack_params(initial_params)
     logger.info(f"  Optimizing {len(param_names)} parameters with L-BFGS-B...")
 
-    initial_neg_ll = objective_function(initial_param_values, param_names)
+    # Run initial call to log starting value
+    initial_neg_ll = objective.function(initial_param_values, param_names)
     logger.info(f"  Initial objective value: {initial_neg_ll:.4f}")
-    objective_function.call_count = 0
+    objective.call_count = 0 # Reset counter for the actual optimization
 
     try:
         result = minimize(
-            objective_function,
+            objective.function,
             initial_param_values,
             args=(param_names,),
             method='L-BFGS-B',

@@ -192,6 +192,125 @@ def calculate_likelihood_from_v(
 
     return total_log_likelihood
 
+def calculate_likelihood_from_v_individual(
+    converged_v_individual: np.ndarray,
+    params: Dict[str, Any],
+    individual_data: pd.DataFrame,
+    agent_type: int,
+    beta: float,
+    transition_matrices: Dict[str, np.ndarray],
+    regions_df: pd.DataFrame,
+    distance_matrix: np.ndarray,
+    adjacency_matrix: np.ndarray,
+) -> np.ndarray:
+    """
+    Calculates the log-likelihood for a single individual's observations
+    using a pre-solved, compact value function.
+    """
+    logger = logging.getLogger()
+    
+    # --- 1. Reconstruct individual's state space and V-function structure ---
+    visited_locations = individual_data['visited_locations'].iloc[0]
+    location_map = individual_data['location_map'].iloc[0]
+    n_visited_locations = len(visited_locations)
+    ages = sorted(individual_data['age_t'].unique())
+    age_map = {age: i for i, age in enumerate(ages)}
+    n_ages = len(ages)
+
+    # --- 2. Calculate Choice Probabilities (CCPs) for all states of this individual ---
+    # The state is (age, prev_loc_compact_idx)
+    
+    # Create the state_data dict for all states this individual could be in
+    state_ages = np.repeat(ages, n_visited_locations)
+    state_prev_locs = np.tile(np.arange(n_visited_locations), n_ages)
+    
+    state_data_individual = {
+        'age': state_ages,
+        'prev_provcd_idx': state_prev_locs, # Compact indices
+        'hukou_prov_idx': np.full(len(state_ages), individual_data['hukou_prov_idx'].iloc[0]),
+        'hometown_prov_idx': np.full(len(state_ages), individual_data['hometown_prov_idx'].iloc[0])
+    }
+
+    # a. Calculate flow utility
+    flow_utility_matrix = calculate_flow_utility_individual_vectorized(
+        state_data=state_data_individual,
+        region_data=regions_df, # Passed as numpy dict
+        distance_matrix=distance_matrix,
+        adjacency_matrix=adjacency_matrix,
+        params=params,
+        agent_type=agent_type,
+        n_states=(n_ages * n_visited_locations),
+        n_choices=params['n_choices'],
+        visited_locations=visited_locations
+    )
+
+    # b. Calculate expected future value
+    future_v_global = np.zeros(params['n_choices'])
+    for global_loc_id, compact_idx in location_map.items():
+        # This mapping is tricky. V is indexed by (age_idx, loc_idx)
+        # We need V for age t+1.
+        pass # This logic is now inside the Bellman solve, not here.
+
+    # We already have the converged V, so we use it directly.
+    # The CCP calculation needs EV, which is P @ V_next.
+    # This logic is duplicated from the Bellman solve, which is correct.
+    
+    expected_future_value_matrix = np.zeros_like(flow_utility_matrix)
+    for age_idx, age in enumerate(ages):
+        if age == max(ages):
+            future_v_for_age = np.zeros(n_visited_locations)
+        else:
+            next_age_idx = age_map[age + 1]
+            future_v_for_age = converged_v_individual[next_age_idx * n_visited_locations : (next_age_idx + 1) * n_visited_locations]
+        
+        future_v_global = np.zeros(params['n_choices'])
+        for global_loc_id, compact_idx in location_map.items():
+            future_v_global[global_loc_id] = future_v_for_age[compact_idx]
+            
+        start_idx = age_idx * n_visited_locations
+        end_idx = start_idx + n_visited_locations
+        expected_future_value_matrix[start_idx:end_idx, :] = np.tile(future_v_global, (n_visited_locations, 1))
+
+    # c. Calculate CCPs
+    choice_specific_values = flow_utility_matrix + beta * expected_future_value_matrix
+    max_v = np.max(choice_specific_values, axis=1, keepdims=True)
+    exp_v = np.exp(choice_specific_values - max_v)
+    sum_exp_v = np.sum(exp_v, axis=1, keepdims=True)
+    ccps_individual = exp_v / np.maximum(sum_exp_v, 1e-300)
+    ccps_individual = np.maximum(ccps_individual, 1e-15)
+
+    # --- 3. Look up probabilities for observed choices ---
+    # Map observed states to the row index of ccps_individual
+    obs_ages = individual_data['age_t'].values
+    obs_prev_loc_global = individual_data['prev_provcd'].values
+    
+    # Convert global prev_loc to compact index
+    obs_prev_loc_compact = np.array([location_map.get(loc, -1) for loc in obs_prev_loc_global])
+    
+    # Convert age to age_idx
+    obs_age_idx = np.array([age_map.get(age, -1) for age in obs_ages])
+
+    # Calculate state index for the individual's state space
+    # state_idx = age_idx * n_visited_locations + prev_loc_compact_idx
+    valid_obs = (obs_prev_loc_compact != -1) & (obs_age_idx != -1)
+    state_indices = obs_age_idx[valid_obs] * n_visited_locations + obs_prev_loc_compact[valid_obs]
+    
+    choice_indices = individual_data['choice_index'].values[valid_obs]
+
+    # Look up choice probabilities
+    choice_probs = ccps_individual[state_indices, choice_indices]
+    log_choice_likelihood = np.log(choice_probs)
+
+    # For now, we only handle choice likelihood
+    # A full implementation would also calculate and add wage likelihood here.
+    
+    # Create a full-length result vector
+    total_log_likelihood = np.full(len(individual_data), -1e10) # Default for invalid obs
+    total_log_likelihood[valid_obs] = log_choice_likelihood
+
+    return total_log_likelihood
+
+
 def calculate_log_likelihood(
     params: Dict[str, Any],
     observed_data: pd.DataFrame,
