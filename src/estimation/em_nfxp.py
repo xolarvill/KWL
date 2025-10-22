@@ -81,6 +81,7 @@ def _calculate_mixture_log_likelihood(log_likelihood_matrix: np.ndarray, pi_k: n
 
 # --- EM Algorithm Steps ---
 
+@timing_decorator
 def e_step(
     params: Dict[str, Any], pi_k: np.ndarray, observed_data: pd.DataFrame, state_space: pd.DataFrame,
     transition_matrices: Dict[str, np.ndarray], beta: float, regions_df: pd.DataFrame,
@@ -104,67 +105,66 @@ def e_step(
     # --- New Worker Function for a chunk of individuals ---
     def _compute_likelihood_for_chunk(individual_ids_chunk: np.ndarray, k: int):
         chunk_results = {}
+        total_bellman_time = 0
+        total_likelihood_time = 0
+        
         type_specific_params = params.copy()
         if f'gamma_0_type_{k}' in params:
             type_specific_params['gamma_0'] = params[f'gamma_0_type_{k}']
 
-        # Filter the main dataframe for the individuals in this chunk
         chunk_data = observed_data[observed_data['individual_id'].isin(individual_ids_chunk)]
         
         for individual_id, individual_df in chunk_data.groupby('individual_id'):
             try:
-                # Solve Bellman equation for this specific individual
+                bellman_start = time.time()
                 converged_v_individual, _ = solve_bellman_equation_individual(
-                    utility_function=None,
-                    individual_data=individual_df,
-                    params=type_specific_params,
-                    agent_type=int(k),
-                    beta=beta,
-                    transition_matrices=transition_matrices,
-                    regions_df=regions_df,
-                    distance_matrix=distance_matrix,
-                    adjacency_matrix=adjacency_matrix,
+                    utility_function=None, individual_data=individual_df,
+                    params=type_specific_params, agent_type=int(k), beta=beta,
+                    transition_matrices=transition_matrices, regions_df=regions_df,
+                    distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix,
                     verbose=False
                 )
+                total_bellman_time += time.time() - bellman_start
 
-                # Calculate likelihood for this individual's observations
-                # Note: A proper implementation would require calculate_likelihood_from_v
-                # to also be adapted for individual data. Assuming it is for now.
+                likelihood_start = time.time()
                 log_lik_obs_vector = calculate_likelihood_from_v(
-                    converged_v=converged_v_individual,
-                    params=type_specific_params,
-                    observed_data=individual_df,
-                    state_space=state_space, # This might need adjustment if state_space is not global
-                    agent_type=int(k),
-                    beta=beta,
-                    transition_matrices=transition_matrices,
-                    regions_df=regions_df,
-                    distance_matrix=distance_matrix,
+                    converged_v=converged_v_individual, params=type_specific_params,
+                    observed_data=individual_df, state_space=state_space,
+                    agent_type=int(k), beta=beta, transition_matrices=transition_matrices,
+                    regions_df=regions_df, distance_matrix=distance_matrix,
                     adjacency_matrix=adjacency_matrix
                 )
+                total_likelihood_time += time.time() - likelihood_start
+                
                 chunk_results[individual_id] = np.sum(log_lik_obs_vector)
             except Exception as e:
                 logger.error(f"  Error on individual {individual_id} for type {k}: {e}")
                 chunk_results[individual_id] = -1e10
-        return k, chunk_results
+        return k, chunk_results, total_bellman_time, total_likelihood_time
 
     # --- New Parallelization Strategy ---
-    # Split individuals into chunks for better load balancing
-    n_chunks = n_jobs * 4  # Create more chunks than jobs
+    n_chunks = n_jobs * 4
     if N > 0:
         individual_chunks = np.array_split(unique_individuals, n_chunks)
-        # Create a list of all tasks: (chunk_of_ids, type_k)
         tasks = [(chunk, k) for chunk in individual_chunks for k in range(K)]
 
         results = Parallel(n_jobs=n_jobs)(
             delayed(_compute_likelihood_for_chunk)(chunk, k) for chunk, k in tasks
         )
 
-        # Aggregate results
-        for k, chunk_results in results:
+        # Aggregate results and timings
+        total_bellman_time_all = 0
+        total_likelihood_time_all = 0
+        for k, chunk_results, bellman_time, likelihood_time in results:
+            total_bellman_time_all += bellman_time
+            total_likelihood_time_all += likelihood_time
             for ind_id, log_lik in chunk_results.items():
                 if ind_id in individual_to_idx:
                     log_likelihood_matrix[individual_to_idx[ind_id], k] = log_lik
+        
+        logger.info(f"  E-step timing breakdown (sum over all chunks):")
+        logger.info(f"    - Total time in Bellman solves: {total_bellman_time_all:.2f}s")
+        logger.info(f"    - Total time in Likelihood calcs: {total_likelihood_time_all:.2f}s")
     
     try:
         pi_k_safe = np.maximum(pi_k, 1e-10)
@@ -190,6 +190,7 @@ def e_step(
     logger.info(f"  E-step completed. Posterior probability range: [{posterior_probs.min():.6f}, {posterior_probs.max():.6f}]")
     return posterior_probs, log_likelihood_matrix
 
+@timing_decorator
 def m_step(
     posterior_probs: np.ndarray, initial_params: Dict[str, Any], observed_data: pd.DataFrame,
     state_space: pd.DataFrame, transition_matrices: Dict[str, np.ndarray], beta: float,
@@ -212,68 +213,82 @@ def m_step(
     # --- PERFORMANCE FIX: Pre-calculate observation-to-individual mapping ---
     unique_individuals, individual_indices = np.unique(observed_data['individual_id'], return_inverse=True)
 
-    def objective_function(param_values: np.ndarray, param_names: List[str]) -> float:
-        if not hasattr(objective_function, 'call_count'):
-            objective_function.call_count = 0
-        objective_function.call_count += 1
+    # --- Objective Function for L-BFGS-B ---
+    # Use a class to maintain state like call count
+    class Objective:
+        def __init__(self):
+            self.call_count = 0
+            self.last_call_time = time.time()
 
-        params_k = _unpack_params(param_values, param_names, initial_params['n_choices'])
-        total_weighted_log_lik = 0
-        try:
-            for k in range(K):
-                weights = posterior_probs[:, k]
-                if np.sum(weights) < 1e-10: continue
+        def function(self, param_values: np.ndarray, param_names: List[str]) -> float:
+            self.call_count += 1
+            start_time = time.time()
+            
+            params_k = _unpack_params(param_values, param_names, initial_params['n_choices'])
+            total_weighted_log_lik = 0
+            
+            log_msg_header = f"    [M-step Objective Call #{self.call_count}]"
+            logger.info(f"{log_msg_header} Starting...")
 
-                type_specific_params = params_k.copy()
-                if f'gamma_0_type_{k}' in params_k:
-                    type_specific_params['gamma_0'] = params_k[f'gamma_0_type_{k}']
+            try:
+                # --- This inner loop is the most expensive part ---
+                for k in range(K):
+                    weights = posterior_probs[:, k]
+                    if np.sum(weights) < 1e-10: continue
 
-                # a guess from the previous EM iteration's M-step.
-                # CRITICAL: Set initial_v=None to ensure optimizer gets a clean gradient.
-                # Using hot_start_state here makes the function surface appear flat to the optimizer.
-                converged_v = solve_bellman_for_params(
-                    params=type_specific_params, state_space=state_space, agent_type=int(k),
-                    beta=beta, transition_matrices=transition_matrices, regions_df=regions_df,
-                    distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix,
-                    initial_v=None, verbose=False, use_cache=False
-                )
+                    type_specific_params = params_k.copy()
+                    if f'gamma_0_type_{k}' in params_k:
+                        type_specific_params['gamma_0'] = params_k[f'gamma_0_type_{k}']
+                    
+                    # CRITICAL FOR DIAGNOSIS: Disable caching during optimization
+                    # The optimizer needs to see the function's true curvature.
+                    converged_v = solve_bellman_for_params(
+                        params=type_specific_params, state_space=state_space, agent_type=int(k),
+                        beta=beta, transition_matrices=transition_matrices, regions_df=regions_df,
+                        distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix,
+                        initial_v=hot_start_state.get(k), verbose=False, use_cache=False
+                    )
 
-                # DO NOT update hot_start_state here, as it contaminates gradient calculation
+                    log_lik_k_obs_vector = calculate_likelihood_from_v(
+                        converged_v=converged_v, params=type_specific_params, observed_data=observed_data,
+                        state_space=state_space, agent_type=int(k), beta=beta,
+                        transition_matrices=transition_matrices, regions_df=regions_df,
+                        distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix
+                    )
+                    log_lik_k_obs_vector = np.nan_to_num(log_lik_k_obs_vector, nan=-1e10, posinf=-1e10, neginf=-1e10)
+                    individual_log_lik = np.bincount(individual_indices, weights=log_lik_k_obs_vector)
+                    total_weighted_log_lik += np.sum(weights * individual_log_lik)
 
-                # Calculate likelihood using the converged value function
-                log_lik_k_obs_vector = calculate_likelihood_from_v(
-                    converged_v=converged_v, params=type_specific_params, observed_data=observed_data,
-                    state_space=state_space, agent_type=int(k), beta=beta,
-                    transition_matrices=transition_matrices, regions_df=regions_df,
-                    distance_matrix=distance_matrix, adjacency_matrix=adjacency_matrix
-                )
-                log_lik_k_obs_vector = np.nan_to_num(log_lik_k_obs_vector, nan=-1e10, posinf=-1e10, neginf=-1e10)
+                neg_ll = -total_weighted_log_lik
+                duration = time.time() - start_time
+                time_since_last = duration + (start_time - self.last_call_time)
+                self.last_call_time = time.time()
 
-                # --- PERFORMANCE FIX: Use fast NumPy aggregation ---
-                individual_log_lik = np.bincount(individual_indices, weights=log_lik_k_obs_vector)
-                total_weighted_log_lik += np.sum(weights * individual_log_lik)
+                logger.info(f"{log_msg_header} Finished. Duration: {duration:.2f}s. Total time since last call: {time_since_last:.2f}s. NegLogLik: {neg_ll:.4f}")
+                
+                # Log first 3 parameter values for progress tracking
+                param_subset = param_values[:3]
+                logger.info(f"{log_msg_header} Params (first 3): {np.round(param_subset, 4)}")
 
-            neg_ll = -total_weighted_log_lik
-            if objective_function.call_count <= 3:
-                logger.info(f"    Objective function call #{objective_function.call_count}: neg_log_lik = {neg_ll:.4f}")
-            return neg_ll
-        except Exception as e:
-            logger.error(f"  Error in objective function: {e}", exc_info=True)
-            return 1e10
+                return neg_ll
+            except Exception as e:
+                logger.error(f"{log_msg_header} Error: {e}", exc_info=True)
+                return 1e10
 
+    objective = Objective()
     initial_param_values, param_names = _pack_params(initial_params)
     logger.info(f"\n  Starting L-BFGS-B optimization...")
     logger.info(f"  Optimizing {len(param_names)} parameters.")
     
     # 为日志记录一个初始目标函数值
-    initial_neg_ll = objective_function(initial_param_values, param_names)
+    initial_neg_ll = objective.function(initial_param_values, param_names)
     logger.info(f"  Initial objective value (neg_log_lik): {initial_neg_ll:.4f}")
-    objective_function.call_count = 0 # 重置计数器
+    objective.call_count = 0 # 重置计数器
 
     try:
         result = minimize(
-            objective_function, initial_param_values, args=(param_names,), method='L-BFGS-B',
-            options={'disp': False, 'maxiter': 200, 'gtol': 1e-5, 'ftol': 1e-5, 'eps': 1e-6} # 增加迭代次数
+            objective.function, initial_param_values, args=(param_names,), method='L-BFGS-B',
+            options={'disp': False, 'maxiter': 200, 'gtol': 1e-5, 'ftol': 1e-5, 'eps': 1e-6}
         )
         
         final_neg_ll = result.fun

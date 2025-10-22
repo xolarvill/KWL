@@ -95,7 +95,7 @@ def preprocess_individual_data(file_path: str) -> pd.DataFrame:
     df['prev_provcd'] = df.groupby('individual_id')['provcd_t'].shift(1)
 
     # --- 新增：为每个个体创建紧凑的状态空间信息 ---
-    def get_compact_state_info(group):
+    def get_compact_state_info(group, name):
         # 识别所有相关的位置：当前位置、上一期位置、户籍地、家乡
         all_locations = pd.concat([
             group['provcd_t'],
@@ -104,18 +104,24 @@ def preprocess_individual_data(file_path: str) -> pd.DataFrame:
             group['hometown']
         ])
         # 获取唯一的、排序的地点列表
-        visited_locations = sorted(list(all_locations.unique()))
+        # 确保所有地点都转换为数值类型再取unique，避免混合类型问题
+        visited_locations = sorted(list(pd.to_numeric(all_locations.unique())))
         # 创建从地点ID到紧凑索引的映射
         location_map = {loc: i for i, loc in enumerate(visited_locations)}
         
         group['visited_locations'] = [visited_locations] * len(group)
         group['location_map'] = [location_map] * len(group)
+        # 关键修复：使用传入的 name (即 individual_id)
+        group['individual_id'] = name
         return group
 
     print("为每个个体生成紧凑状态空间信息...")
     # 在应用此函数之前，'prev_provcd' 列必须存在
-    df = df.groupby('individual_id').apply(get_compact_state_info, include_groups=False)
-    # 重置索引，因为groupby.apply可能会改变索引结构
+    # 使用列表推导，并将 name 传递给函数
+    df_list = [get_compact_state_info(group, name) for name, group in df.groupby('individual_id')]
+    df = pd.concat(df_list)
+    
+    # 重置索引
     df.reset_index(drop=True, inplace=True)
     # --- 新增结束 ---
 
