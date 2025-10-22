@@ -197,12 +197,21 @@ def calculate_flow_utility_individual_vectorized(
     """
     Calculates flow utility for a SINGLE INDIVIDUAL with a compact state space.
     """
+    # Convert all region_data values to numpy arrays if they are pandas Series
+    region_data_np = {}
+    for key, value in region_data.items():
+        if hasattr(value, 'to_numpy'):
+            region_data_np[key] = value.to_numpy()
+        else:
+            region_data_np[key] = value
+    region_data = region_data_np
+
     # --- 1. Map compact state indices back to global indices ---
     # 'prev_provcd_idx' in state_data is now a compact index (e.g., 0, 1, 2...)
-    compact_prev_loc_indices = state_data['prev_provcd_idx']
-    
+    compact_prev_loc_indices = state_data['prev_provcd_idx'].astype(int)
+
     # Use the visited_locations list to map back to global province IDs
-    global_prev_loc_indices = np.array([visited_locations[i] for i in compact_prev_loc_indices])
+    global_prev_loc_indices = np.array([visited_locations[i] for i in compact_prev_loc_indices], dtype=int)
 
     # --- 2. Prepare data arrays by broadcasting ---
     age = state_data['age'][:, np.newaxis]

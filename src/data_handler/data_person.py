@@ -2,7 +2,7 @@ import pandas as pd
 import os
 import json # Added for json.load
 
-def preprocess_individual_data(file_path: str) -> pd.DataFrame:
+def preprocess_individual_data(file_path: str, prov_to_idx: dict = None) -> pd.DataFrame:
     """
     加载 CLDS 数据并进行预处理，为结构化估计做准备。
 
@@ -14,6 +14,7 @@ def preprocess_individual_data(file_path: str) -> pd.DataFrame:
 
     Args:
         file_path (str): clds.csv 文件的路径。
+        prov_to_idx (dict, optional): 省份代码到索引的映射字典。
 
     Returns:
         pd.DataFrame: 预处理后的个体面板数据。
@@ -103,12 +104,21 @@ def preprocess_individual_data(file_path: str) -> pd.DataFrame:
             group['hukou_prov'],
             group['hometown']
         ])
-        # 获取唯一的、排序的地点列表
+        # 获取唯一的、排序的省份代码列表
         # 确保所有地点都转换为数值类型再取unique，避免混合类型问题
-        visited_locations = sorted(list(pd.to_numeric(all_locations.unique())))
-        # 创建从地点ID到紧凑索引的映射
-        location_map = {loc: i for i, loc in enumerate(visited_locations)}
-        
+        visited_provcds = sorted(list(pd.to_numeric(all_locations.unique())))
+
+        # 如果提供了prov_to_idx映射，将省份代码转换为索引
+        if prov_to_idx is not None:
+            # visited_locations存储省份索引（0-30）
+            visited_locations = sorted([prov_to_idx[int(provcd)] for provcd in visited_provcds if int(provcd) in prov_to_idx])
+            # location_map: 从省份索引到紧凑索引的映射
+            location_map = {loc_idx: i for i, loc_idx in enumerate(visited_locations)}
+        else:
+            # 向后兼容：如果没有提供映射，使用省份代码（旧行为）
+            visited_locations = visited_provcds
+            location_map = {loc: i for i, loc in enumerate(visited_locations)}
+
         group['visited_locations'] = [visited_locations] * len(group)
         group['location_map'] = [location_map] * len(group)
         # 关键修复：使用传入的 name (即 individual_id)

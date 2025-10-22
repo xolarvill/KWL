@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, Any, Tuple, List
 import logging
+import time
 from joblib import Parallel, delayed
 
 from src.model.discrete_support import (
@@ -146,7 +147,7 @@ def e_step_with_omega(
 
                     # 求解Bellman方程（此处可能需要传入ω相关值到效用函数）
                     # 简化实现：先不传ω到Bellman求解中
-                    converged_v = solve_bellman_equation_individual(
+                    converged_v, _ = solve_bellman_equation_individual(
                         utility_function=None,
                         individual_data=individual_data,
                         params=type_params,
@@ -177,8 +178,10 @@ def e_step_with_omega(
                     log_lik_matrix[omega_idx, k] = individual_log_lik
 
                 except Exception as e:
+                    import traceback
                     logger.error(f"Error computing likelihood for individual {individual_id}, "
                                f"omega_idx={omega_idx}, type={k}: {e}")
+                    logger.error(f"Traceback: {traceback.format_exc()}")
                     log_lik_matrix[omega_idx, k] = -1e10
 
         # 4. 计算后验概率 p(τ, ω | D_i)

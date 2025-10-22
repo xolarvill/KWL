@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, Any, Callable, Tuple
 
-from src.model.utility import calculate_flow_utility_vectorized
+from src.model.utility import calculate_flow_utility_vectorized, calculate_flow_utility_individual_vectorized
 
 def solve_bellman_iteration_vectorized(
     v_old: np.ndarray,
@@ -207,7 +207,7 @@ def solve_bellman_equation_individual(
         
         future_v_global = np.zeros(params['n_choices'])
         for global_loc_id, compact_idx in location_map.items():
-            future_v_global[global_loc_id] = future_v[compact_idx]
+            future_v_global[int(global_loc_id)] = future_v[int(compact_idx)]
 
         # Expected future value is the same for all current states, as it only depends on the next period's value
         expected_future_value_matrix = np.tile(future_v_global, (n_visited_locations, 1))

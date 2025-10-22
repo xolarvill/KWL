@@ -8,7 +8,7 @@ import pandas as pd
 from typing import Dict, Any, Callable, Tuple, Optional
 
 from src.model.bellman import solve_bellman_equation
-from src.model.utility import calculate_flow_utility_vectorized
+from src.model.utility import calculate_flow_utility_vectorized, calculate_flow_utility_individual_vectorized
 from src.model.wage_equation import calculate_wage_likelihood
 
 # Global cache for Bellman solutions
@@ -265,7 +265,7 @@ def calculate_likelihood_from_v_individual(
         
         future_v_global = np.zeros(params['n_choices'])
         for global_loc_id, compact_idx in location_map.items():
-            future_v_global[global_loc_id] = future_v_for_age[compact_idx]
+            future_v_global[int(global_loc_id)] = future_v_for_age[int(compact_idx)]
             
         start_idx = age_idx * n_visited_locations
         end_idx = start_idx + n_visited_locations

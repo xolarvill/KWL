@@ -33,16 +33,24 @@ class DataLoader:
         self._validate_path(self.config.linguistic_data_path, "语言特征数据(xlsx)")
         
 
-    def load_individual_data(self) -> pd.DataFrame:
-        """加载并预处理个体面板数据。"""
+    def load_individual_data(self, prov_to_idx: dict = None) -> pd.DataFrame:
+        """
+        加载并预处理个体面板数据。
+
+        Args:
+            prov_to_idx (dict, optional): 省份代码到索引的映射字典。
+
+        Returns:
+            pd.DataFrame: 预处理后的个体数据
+        """
         path = self.config.individual_data_path
         self._validate_path(path, "个体数据(csv)")
-        
+
         try:
-            df_individual = preprocess_individual_data(path)
+            df_individual = preprocess_individual_data(path, prov_to_idx=prov_to_idx)
         except Exception as e:
             raise RuntimeError(f"读取或处理个体数据时出错 (路径: {path}): {str(e)}")
-            
+
         return df_individual
         
     def load_regional_data(self) -> pd.DataFrame:
@@ -171,12 +179,15 @@ class DataLoader:
             transition_matrices: 转移矩阵字典
             df_region: 地区数据
         """
-        df_individual = self.load_individual_data()
+        # 先加载地区数据以创建prov_to_idx映射
         df_region = self.load_regional_data()
 
         # 将省级代码映射到0-30的索引
         prov_codes = sorted(df_region['provcd'].unique())
         prov_to_idx = {code: i for i, code in enumerate(prov_codes)}
+
+        # 传递prov_to_idx给个体数据加载函数
+        df_individual = self.load_individual_data(prov_to_idx=prov_to_idx)
 
         # 注意：preprocess_individual_data()将provcd重命名为provcd_t，IID重命名为individual_id
         df_individual['provcd_idx'] = df_individual['provcd_t'].map(prov_to_idx)
