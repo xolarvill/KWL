@@ -256,9 +256,9 @@ def e_step_with_omega(
         # 存储
         individual_posteriors[individual_id] = joint_probs
 
-        # 5. 边缘化ω以获得p(τ|D_i)用于更新π_k
-        marginal_type_posterior = np.sum(joint_probs, axis=0)
-        log_likelihood_matrix[i_idx, :] = marginal_type_posterior
+        # 5. 边缘化ω以获得p(τ|D_i)用于更新π_k和计算似然
+        marginal_type_likelihood = np.sum(np.exp(log_lik_matrix), axis=0)
+        log_likelihood_matrix[i_idx, :] = marginal_type_likelihood
 
     logger.info(f"  [E-step with ω] Completed.")
 
@@ -389,12 +389,26 @@ def m_step_with_omega(
             logger.info(f"{log_msg_header} Starting...")
 
             params = _unpack_params(param_values, param_names, initial_params['n_choices'])
+            
+            # **调试增强**: 输出当前参数值
+            logger.debug(f"{log_msg_header} Current params: {params}")
+            
+            # **调试增强**: 检查参数值是否有效
+            invalid_params = {k: v for k, v in params.items() if np.isnan(v) or np.isinf(v)}
+            if invalid_params:
+                logger.warning(f"{log_msg_header} Invalid params detected: {invalid_params}")
+                return 1e10
+            
             total_weighted_log_lik = 0.0
 
             # **调试增强**: 统计计数器
             n_valid_computations = 0
             n_failed_computations = 0
             individual_log_liks = []
+            
+            # **调试增强**: 记录权重和似然值
+            all_weights = []
+            all_log_liks = []
 
             try:
                 # This is the triply nested loop causing the long runtime
@@ -405,15 +419,28 @@ def m_step_with_omega(
 
                     individual_contribution = 0.0
 
+                    # **调试增强**: 输出当前个体的信息
+                    if self.call_count == 1 and i_idx == 0:
+                        logger.debug(f"{log_msg_header} Processing individual {individual_id}, posterior_matrix shape: {posterior_matrix.shape}")
+
                     for omega_idx, omega in enumerate(omega_list):
                         for k in range(K):
                             weight = posterior_matrix[omega_idx, k]
                             if weight < 1e-10: continue
 
+                            # **调试增强**: 输出权重信息
+                            if self.call_count <= 2 and i_idx == 0 and omega_idx == 0:
+                                logger.debug(f"{log_msg_header} ind={individual_id}, omega_idx={omega_idx}, type={k}, weight={weight:.6f}")
+
                             type_params = params.copy()
                             if f'gamma_0_type_{k}' in params:
                                 type_params['gamma_0'] = params[f'gamma_0_type_{k}']
                             type_params['sigma_epsilon'] = omega['sigma']
+
+                            # **调试增强**: 输出前几个参数值
+                            if self.call_count == 1 and i_idx == 0 and omega_idx == 0 and k == 0:
+                                debug_params = {k: v for k, v in type_params.items() if k in ['alpha_w', 'gamma_0', 'sigma_epsilon']}
+                                logger.debug(f"{log_msg_header} Type {k} params sample: {debug_params}")
 
                             try:
                                 # --- OPTIMIZATION: Use individual solver ---
@@ -458,6 +485,15 @@ def m_step_with_omega(
                                     n_failed_computations += 1
                                     continue
 
+                                # **调试增强**: 输出前几个计算的似然值
+                                if self.call_count <= 2 and i_idx == 0 and omega_idx == 0 and k <= 2:
+                                    logger.debug(f"{log_msg_header} ind={individual_id}, omega_idx={omega_idx}, type={k}, weight={weight:.6f}, log_lik={individual_log_lik:.6f}")
+
+                                # **调试增强**: 收集权重和似然值用于统计
+                                if self.call_count == 1:
+                                    all_weights.append(weight)
+                                    all_log_liks.append(individual_log_lik)
+
                                 weighted_contribution = weight * individual_log_lik
                                 individual_contribution += weighted_contribution
                                 n_valid_computations += 1
@@ -480,6 +516,11 @@ def m_step_with_omega(
                 logger.info(f"{log_msg_header} Mean individual log-lik: {np.mean(individual_log_liks):.4f}" if individual_log_liks else f"{log_msg_header} No valid individual log-liks")
                 param_subset = param_values[:3]
                 logger.info(f"{log_msg_header} Params (first 3): {np.round(param_subset, 4)}")
+                
+                # **调试增强**: 输出权重和似然值的统计信息
+                if self.call_count == 1 and all_weights and all_log_liks:
+                    logger.debug(f"{log_msg_header} Weight stats - Mean: {np.mean(all_weights):.6f}, Std: {np.std(all_weights):.6f}, Min: {np.min(all_weights):.6f}, Max: {np.max(all_weights):.6f}")
+                    logger.debug(f"{log_msg_header} Log-lik stats - Mean: {np.mean(all_log_liks):.6f}, Std: {np.std(all_log_liks):.6f}, Min: {np.min(all_log_liks):.6f}, Max: {np.max(all_log_liks):.6f}")
 
                 # **调试增强**: 如果所有计算都失败，返回大惩罚值
                 if n_valid_computations == 0:
@@ -495,7 +536,10 @@ def m_step_with_omega(
     # 打包参数并优化
     objective = Objective()
     initial_param_values, param_names = _pack_params(initial_params)
-
+    
+    # **调试增强**: 输出打包后的参数信息
+    logger.debug(f"  Packed params - names: {param_names[:5]}..., values: {initial_param_values[:5]}...")
+    
     # **关键修复**: 从ModelConfig获取参数边界约束
     param_bounds = config.get_parameter_bounds(param_names)
     logger.info(f"  Optimizing {len(param_names)} parameters with L-BFGS-B...")
@@ -516,9 +560,9 @@ def m_step_with_omega(
             options={
                 'disp': False,
                 'maxiter': lbfgsb_maxiter,
-                'gtol': 1e-3,
-                'ftol': 1e-3,
-                'eps': 1e-6
+                'gtol': 1e-4,      # 降低梯度容忍度以增加敏感性
+                'ftol': 1e-4,      # 降低函数值容忍度
+                'eps': 1e-7        # 增加数值微分精度
             }
         )
 
@@ -526,9 +570,28 @@ def m_step_with_omega(
         logger.info(f"  L-BFGS-B result: success={result.success}, nit={result.nit}")
         logger.info(f"  Objective change: {initial_neg_ll:.4f} -> {final_neg_ll:.4f} "
                    f"(Δ {initial_neg_ll - final_neg_ll:.4f})")
-
+        
+        # **调试增强**: 输出优化结果的详细信息
+        if hasattr(result, 'nit') and result.nit > 0:
+            logger.debug(f"  Optimization details - nit: {result.nit}, nfev: {getattr(result, 'nfev', 'N/A')}, njev: {getattr(result, 'njev', 'N/A')}")
+        
         if result.success or result.nit > 0:
             updated_params = _unpack_params(result.x, param_names, initial_params['n_choices'])
+            
+            # **调试增强**: 输出参数变化
+            param_changes = {}
+            for i, param_name in enumerate(param_names):
+                initial_val = initial_param_values[i]
+                final_val = result.x[i]
+                if abs(final_val - initial_val) > 1e-6:
+                    param_changes[param_name] = (initial_val, final_val, final_val - initial_val)
+            
+            if param_changes:
+                logger.debug(f"  Significant parameter changes:")
+                for param_name, (initial, final, change) in list(param_changes.items())[:5]:
+                    logger.debug(f"    {param_name}: {initial:.6f} -> {final:.6f} (Δ {change:.6f})")
+            else:
+                logger.debug(f"  No significant parameter changes detected")
         else:
             logger.warning(f"  M-step optimization did not converge, using initial params")
             updated_params = initial_params

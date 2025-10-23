@@ -1,10 +1,8 @@
 """
-EM-with-ω小样本测试脚本
+EM-with-ω调试脚本
 
-测试完整的EM-NFXP算法集成离散支撑点的流程
-使用极小样本（10个个体）快速验证
+用于调试EM算法中的问题
 """
-
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -20,7 +18,7 @@ from src.estimation.em_with_omega import run_em_algorithm_with_omega
 
 # 设置日志
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -28,17 +26,17 @@ logger = logging.getLogger(__name__)
 
 def main():
     """
-    主测试流程
+    主调试流程
     """
     logger.info("\n" + "#"*80)
-    logger.info("# EM-with-ω SMALL SAMPLE TEST")
+    logger.info("# EM-with-ω DEBUG TEST")
     logger.info("#"*80)
 
     # 1. 加载配置
     config = ModelConfig()
     config.use_discrete_support = True  # 确保使用离散支撑点
-    config.em_max_iterations = 5  # 测试时减少迭代次数
-    config.lbfgsb_maxiter = 5     # 减少M-step优化迭代
+    config.em_max_iterations = 2  # 减少迭代次数
+    config.lbfgsb_maxiter = 3     # 减少M-step优化迭代
 
     # 2. 加载数据
     logger.info("\n[1] Loading data...")
@@ -54,7 +52,7 @@ def main():
         return
 
     # 3. 抽取极小样本
-    SAMPLE_SIZE = 100
+    SAMPLE_SIZE = 5  # 进一步减少样本量用于调试
     logger.info(f"\n[2] Sampling {SAMPLE_SIZE} individuals...")
     unique_individuals = df_individual['individual_id'].unique()[:SAMPLE_SIZE]
     df_individual_sample = df_individual[df_individual['individual_id'].isin(unique_individuals)]
@@ -66,9 +64,9 @@ def main():
     # 4. 创建支撑点生成器（简化版）
     logger.info("\n[3] Creating discrete support generator...")
     support_gen = DiscreteSupportGenerator(
-        n_eta_support=3,   # 极简化：3个支撑点
-        n_nu_support=3,
-        n_xi_support=3,
+        n_eta_support=2,   # 极简化：2个支撑点
+        n_nu_support=2,
+        n_xi_support=2,
         n_sigma_support=2,
         eta_range=(-1.0, 1.0),
         nu_range=(-0.5, 0.5),
@@ -115,7 +113,7 @@ def main():
             n_choices=config.n_choices,
             initial_params=initial_params,
             initial_pi_k=initial_pi_k,
-            max_omega_per_individual=500,  # 限制ω组合数
+            max_omega_per_individual=100,  # 限制ω组合数
             use_simplified_omega=True,
             lbfgsb_maxiter=config.lbfgsb_maxiter
         )
@@ -136,8 +134,7 @@ def main():
         estimated_params = results['structural_params']
         param_samples = [
             'alpha_w', 'rho_base_tier_1', 'rho_base_tier_2', 'rho_base_tier_3',
-            'gamma_0_type_1', 'gamma_0_type_2',
-            'alpha_home_type_0', 'alpha_home_type_1', 'alpha_home_type_2'
+            'gamma_0_type_1', 'gamma_0_type_2'
         ]
         for param_name in param_samples:
             if param_name in estimated_params:

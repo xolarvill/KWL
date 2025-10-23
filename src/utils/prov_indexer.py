@@ -32,7 +32,7 @@ class ProvIndexer():
 
     def get_prov_to_idx_map(self) -> Dict[int, int]:
         """
-        返回从2位省份代码 (e.g., 11) 到其矩阵索引 (rank) 的映射字典。
+        返回从2位省份代码 (e.g., 11) 到其矩阵索引 (rank-1) 的映射字典。
 
         Returns:
             Dict[int, int]: 省份代码到索引的映射字典。
@@ -41,8 +41,8 @@ class ProvIndexer():
         codes = pandas.to_numeric(self.prov_standard_map['code'])
         ranks = pandas.to_numeric(self.prov_standard_map['rank'])
         
-        # 创建字典
-        prov_to_idx = dict(zip(codes, ranks))
+        # 创建字典，将rank减1以匹配0基索引
+        prov_to_idx = dict(zip(codes, ranks - 1))
         return prov_to_idx
 
     def _find_nth_element(self, value, n):

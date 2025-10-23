@@ -185,7 +185,8 @@ def solve_bellman_equation_individual(
             agent_type=agent_type,
             n_states=n_visited_locations,
             n_choices=params['n_choices'],
-            visited_locations=visited_locations
+            visited_locations=visited_locations,
+            prov_to_idx=prov_to_idx
         )
 
         # b. Calculate expected future value

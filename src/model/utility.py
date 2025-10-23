@@ -188,6 +188,7 @@ def calculate_flow_utility_individual_vectorized(
     n_states: int,  # Now this is n_individual_states
     n_choices: int,
     visited_locations: list, # 新增：个体访问过的地点列表
+    prov_to_idx: Dict[int, int] = None,  # 新增：省份编码到索引的映射
     wage_predicted: Optional[np.ndarray] = None,
     wage_reference: Optional[np.ndarray] = None,
     eta_i: Optional[np.ndarray] = None,
@@ -196,6 +197,23 @@ def calculate_flow_utility_individual_vectorized(
 ) -> np.ndarray:
     """
     Calculates flow utility for a SINGLE INDIVIDUAL with a compact state space.
+    
+    Args:
+        state_data: State data for this individual
+        region_data: Regional data
+        distance_matrix: Distance matrix
+        adjacency_matrix: Adjacency matrix
+        params: Model parameters
+        agent_type: Agent type
+        n_states: Number of states
+        n_choices: Number of choices
+        visited_locations: List of visited locations for this individual
+        prov_to_idx: Province code to index mapping (optional)
+        wage_predicted: Predicted wages (optional)
+        wage_reference: Reference wages (optional)
+        eta_i: Individual fixed effect (optional)
+        nu_ij: Individual-region income match (optional)
+        xi_ij: Individual-region preference match (optional)
     """
     # Convert all region_data values to numpy arrays if they are pandas Series
     region_data_np = {}
@@ -249,10 +267,31 @@ def calculate_flow_utility_individual_vectorized(
     # Migration Cost
     is_moving = (dest_loc_indices != prev_loc_indices_b)
     
-    distance = distance_matrix[prev_loc_indices_b, dest_loc_indices]
-    log_distance = np.log(np.maximum(distance, 1.0))
+    # Convert global location indices to matrix indices if prov_to_idx is provided
+    if prov_to_idx is not None:
+        # Convert prev_loc_indices_b from global codes to matrix indices
+        prev_loc_matrix_indices = np.zeros_like(prev_loc_indices_b)
+        for i in range(prev_loc_indices_b.shape[0]):
+            for j in range(prev_loc_indices_b.shape[1]):
+                global_code = prev_loc_indices_b[i, j]
+                matrix_index = prov_to_idx.get(global_code, global_code)  # Fallback to global_code if not found
+                prev_loc_matrix_indices[i, j] = matrix_index
+                
+        # Convert dest_loc_indices from global codes to matrix indices
+        dest_loc_matrix_indices = np.zeros_like(dest_loc_indices)
+        for j in range(dest_loc_indices.shape[1]):
+            global_code = dest_loc_indices[0, j]
+            matrix_index = prov_to_idx.get(global_code, global_code)  # Fallback to global_code if not found
+            dest_loc_matrix_indices[:, j] = matrix_index
+            
+        distance = distance_matrix[prev_loc_matrix_indices, dest_loc_matrix_indices]
+        is_adjacent = adjacency_matrix[prev_loc_matrix_indices, dest_loc_matrix_indices]
+    else:
+        # Fallback for old behavior or tests that don't provide the map
+        distance = distance_matrix[prev_loc_indices_b, dest_loc_indices]
+        is_adjacent = adjacency_matrix[prev_loc_indices_b, dest_loc_indices]
     
-    is_adjacent = adjacency_matrix[prev_loc_indices_b, dest_loc_indices]
+    log_distance = np.log(np.maximum(distance, 1.0))
     is_return_migration = (dest_loc_indices == hometown_loc_indices) & is_moving
 
     fixed_cost = params.get(f"gamma_0_type_{agent_type}", 0.0)
