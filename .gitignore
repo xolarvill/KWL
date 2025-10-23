@@ -39,6 +39,7 @@ results/**/*.svg
 test/
 gemini.md
 .vercel/
+.qoder/
 
 
 # Icon must end with two \r
