@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import pandas
 import os
+from typing import Dict
 
 class ProvIndexer():
     def __init__(self, config=None):
@@ -28,6 +29,21 @@ class ProvIndexer():
             names=['code', 'full_code', 'name', 'rank'],
             dtype={'code': str, 'full_code': str, 'name': str, 'rank': int}
         )
+
+    def get_prov_to_idx_map(self) -> Dict[int, int]:
+        """
+        返回从2位省份代码 (e.g., 11) 到其矩阵索引 (rank) 的映射字典。
+
+        Returns:
+            Dict[int, int]: 省份代码到索引的映射字典。
+        """
+        # 确保 'code' 和 'rank' 列是正确的数字类型
+        codes = pandas.to_numeric(self.prov_standard_map['code'])
+        ranks = pandas.to_numeric(self.prov_standard_map['rank'])
+        
+        # 创建字典
+        prov_to_idx = dict(zip(codes, ranks))
+        return prov_to_idx
 
     def _find_nth_element(self, value, n):
         """

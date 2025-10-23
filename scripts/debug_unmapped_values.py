@@ -7,8 +7,8 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import pandas as pd
-import json
 from src.config.model_config import ModelConfig
+from src.utils.prov_indexer import ProvIndexer
 
 def main():
     """
@@ -22,21 +22,12 @@ def main():
     raw_csv_path = config.individual_data_path
     df_raw = pd.read_csv(raw_csv_path)
 
-    # 加载映射表
-    processed_dir = os.path.dirname(raw_csv_path)
-    prov_name_path = os.path.join(processed_dir, 'prov_name_ranked.json')
-    prov_code_path = os.path.join(processed_dir, 'prov_code_ranked.json')
-
-    with open(prov_name_path, 'r', encoding='utf-8') as f:
-        prov_names = json.load(f)
-    with open(prov_code_path, 'r', encoding='utf-8') as f:
-        prov_codes = json.load(f)
-
-    prov_name_to_code = {name: code for name, code in zip(prov_names, prov_codes)}
-
-    print(f"\n映射表中的省份 (共{len(prov_name_to_code)}个):")
-    for name, code in prov_name_to_code.items():
-        print(f"  {name} -> {code}")
+    # 使用 ProvIndexer
+    indexer = ProvIndexer(config)
+    
+    print(f"\n映射表中的省份 (共{len(indexer.prov_standard_map)}个):")
+    for index, row in indexer.prov_standard_map.iterrows():
+        print(f"  {row['name']} -> {row['code']}")
 
     # 检查每一列的未映射值
     for col_name in ['provcd', 'hukou_prov', 'hometown']:
@@ -46,7 +37,7 @@ def main():
 
         unmapped_values = []
         for val in df_raw[col_name].dropna().unique():
-            if val not in prov_name_to_code:
+            if indexer.index(val) is None:
                 unmapped_values.append(val)
 
         if unmapped_values:
@@ -82,7 +73,7 @@ def main():
     for col_name in ['provcd', 'hukou_prov', 'hometown']:
         col_unmapped = []
         for val in df_raw[col_name].dropna().unique():
-            if val not in prov_name_to_code:
+            if indexer.index(val) is None:
                 col_unmapped.append(val)
 
         if col_unmapped:

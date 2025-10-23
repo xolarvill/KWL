@@ -97,42 +97,55 @@ def preprocess_individual_data(file_path: str, prov_to_idx: dict = None) -> pd.D
     df['prev_provcd'] = df.groupby('individual_id')['provcd_t'].shift(1)
 
     # --- 新增：为每个个体创建紧凑的状态空间信息 ---
-    def get_compact_state_info(group, name):
-        # 识别所有相关的位置：当前位置、上一期位置、户籍地、家乡
-        all_locations = pd.concat([
-            group['provcd_t'],
-            group['prev_provcd'].dropna(),
-            group['hukou_prov'],
-            group['hometown']
-        ])
-        # 获取唯一的、排序的省份代码列表
-        # 确保所有地点都转换为数值类型再取unique，避免混合类型问题
-        visited_provcds = sorted(list(pd.to_numeric(all_locations.unique())))
+    def get_compact_state_info(group, name, prov_to_idx):
+        """Helper to create compact state space info for one individual."""
+        # Step 1: Gather all relevant locations from different columns.
+        sources = [
+            pd.to_numeric(group['provcd_t'], errors='coerce').dropna(),
+            pd.to_numeric(group['prev_provcd'], errors='coerce').dropna(),
+            pd.to_numeric(group['hukou_prov'], errors='coerce').dropna(),
+            pd.to_numeric(group['hometown'], errors='coerce').dropna()
+        ]
+        # **FIX for FutureWarning**: Filter out empty Series before concatenation.
+        non_empty_sources = [s for s in sources if not s.empty]
+        
+        if not non_empty_sources:
+            # Handle cases where an individual has no valid location data
+            group['visited_locations'] = [[]] * len(group)
+            group['location_map'] = [{}] * len(group)
+            group['individual_id'] = name
+            return group
 
-        # 如果提供了prov_to_idx映射，将省份代码转换为索引
+        all_locations = pd.concat(non_empty_sources)
+        
+        # Step 2: Get unique raw province codes (e.g., 11, 31, 44) and sort them.
+        visited_provcds = sorted(list(all_locations.unique().astype(int)))
+
+        # Step 3: Create the mappings.
         if prov_to_idx is not None:
-            # visited_locations存储省份索引（0-30）
-            visited_locations = sorted([prov_to_idx[int(provcd)] for provcd in visited_provcds if int(provcd) in prov_to_idx])
-            # location_map: 从省份索引到紧凑索引的映射
-            location_map = {loc_idx: i for i, loc_idx in enumerate(visited_locations)}
+            # `visited_locations` stores the global province indices (0-30) for the utility function.
+            visited_locations_indices = sorted([
+                prov_to_idx[provcd] for provcd in visited_provcds if provcd in prov_to_idx
+            ])
+            # **FIX for invalid observations**: `location_map` must map from the raw province code
+            # (used for lookup in likelihood.py) to the compact index (0, 1, 2...).
+            location_map = {provcd: i for i, provcd in enumerate(visited_provcds)}
+            
+            group['visited_locations'] = [visited_locations_indices] * len(group)
+            group['location_map'] = [location_map] * len(group)
         else:
-            # 向后兼容：如果没有提供映射，使用省份代码（旧行为）
-            visited_locations = visited_provcds
-            location_map = {loc: i for i, loc in enumerate(visited_locations)}
+            # Fallback for backward compatibility.
+            location_map = {loc: i for i, loc in enumerate(visited_provcds)}
+            group['visited_locations'] = [visited_provcds] * len(group)
+            group['location_map'] = [location_map] * len(group)
 
-        group['visited_locations'] = [visited_locations] * len(group)
-        group['location_map'] = [location_map] * len(group)
-        # 关键修复：使用传入的 name (即 individual_id)
         group['individual_id'] = name
         return group
 
     print("为每个个体生成紧凑状态空间信息...")
-    # 在应用此函数之前，'prev_provcd' 列必须存在
-    # 使用列表推导，并将 name 传递给函数
-    df_list = [get_compact_state_info(group, name) for name, group in df.groupby('individual_id')]
+    df_list = [get_compact_state_info(group, name, prov_to_idx) for name, group in df.groupby('individual_id')]
     df = pd.concat(df_list)
     
-    # 重置索引
     df.reset_index(drop=True, inplace=True)
     # --- 新增结束 ---
 

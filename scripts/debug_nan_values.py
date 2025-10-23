@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import pandas as pd
 import numpy as np
 from src.config.model_config import ModelConfig
+from src.utils.prov_indexer import ProvIndexer
 
 def main():
     """
@@ -19,6 +20,7 @@ def main():
     print("=" * 80)
 
     config = ModelConfig()
+    indexer = ProvIndexer(config)
 
     # 1. 读取原始CSV数据（在preprocess_individual_data之前）
     print("\n[1] 检查原始CSV数据...")
@@ -99,42 +101,27 @@ def main():
 
     # 6. 如果不是数字，检查映射文件是否存在
     if not pd.api.types.is_numeric_dtype(df_raw[provcd_col]):
-        print(f"\n[6] 检查省份映射文件...")
-        processed_dir = os.path.dirname(raw_csv_path)
-        prov_name_path = os.path.join(processed_dir, 'prov_name_ranked.json')
-        prov_code_path = os.path.join(processed_dir, 'prov_code_ranked.json')
+        print(f"\n[6] 检查省份映射...")
+        
+        print(f"\n省份映射表 (前10个):")
+        for index, row in indexer.prov_standard_map.head(10).iterrows():
+            print(f"  {row['name']} -> {row['code']}")
 
-        print(f"prov_name_ranked.json 存在: {os.path.exists(prov_name_path)}")
-        print(f"prov_code_ranked.json 存在: {os.path.exists(prov_code_path)}")
+        # 检查数据中的省份名是否都在映射表中
+        print(f"\n[7] 检查是否有未映射的省份名称...")
+        for col_name in [provcd_col, hukou_col, hometown_col]:
+            if col_name in df_raw.columns:
+                unmapped = []
+                for val in df_raw[col_name].dropna().unique():
+                    if indexer.index(val) is None:
+                        unmapped.append(val)
 
-        if os.path.exists(prov_name_path) and os.path.exists(prov_code_path):
-            import json
-            with open(prov_name_path, 'r', encoding='utf-8') as f:
-                prov_names = json.load(f)
-            with open(prov_code_path, 'r', encoding='utf-8') as f:
-                prov_codes = json.load(f)
-
-            print(f"\n省份映射表 (前10个):")
-            for name, code in list(zip(prov_names, prov_codes))[:10]:
-                print(f"  {name} -> {code}")
-
-            # 检查数据中的省份名是否都在映射表中
-            prov_name_to_code = {name: code for name, code in zip(prov_names, prov_codes)}
-
-            print(f"\n[7] 检查是否有未映射的省份名称...")
-            for col_name in [provcd_col, hukou_col, hometown_col]:
-                if col_name in df_raw.columns:
-                    unmapped = []
-                    for val in df_raw[col_name].dropna().unique():
-                        if val not in prov_name_to_code:
-                            unmapped.append(val)
-
-                    if unmapped:
-                        print(f"\n{col_name} 中未能映射的值:")
-                        print(f"  数量: {len(unmapped)}")
-                        print(f"  样本: {unmapped[:10]}")
-                    else:
-                        print(f"\n{col_name}: 所有非NaN值都能成功映射")
+                if unmapped:
+                    print(f"\n{col_name} 中未能映射的值:")
+                    print(f"  数量: {len(unmapped)}")
+                    print(f"  样本: {unmapped[:10]}")
+                else:
+                    print(f"\n{col_name}: 所有非NaN值都能成功映射")
 
     # 7. 分析NaN值的个体特征
     print(f"\n[8] 分析含NaN值的个体特征...")

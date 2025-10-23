@@ -121,6 +121,7 @@ def solve_bellman_equation_individual(
     tolerance: float = 1e-4,
     max_iterations: int = 200,
     verbose: bool = True,
+    prov_to_idx: Dict[int, int] = None,
 ) -> Tuple[np.ndarray, int]:
     """
     Solves the Bellman equation for a SINGLE INDIVIDUAL using a compact state space.
@@ -206,8 +207,16 @@ def solve_bellman_equation_individual(
         # Let's assume for now the value is zero for unvisited locations.
         
         future_v_global = np.zeros(params['n_choices'])
-        for global_loc_id, compact_idx in location_map.items():
-            future_v_global[int(global_loc_id)] = future_v[int(compact_idx)]
+        if prov_to_idx is None:
+            # Fallback for old behavior or tests that don't provide the map
+            logger.warning("prov_to_idx not provided. Assuming global_loc_id is a valid index.")
+            for global_loc_id, compact_idx in location_map.items():
+                future_v_global[int(global_loc_id)] = future_v[int(compact_idx)]
+        else:
+            for global_loc_id, compact_idx in location_map.items():
+                global_idx = prov_to_idx.get(int(global_loc_id))
+                if global_idx is not None:
+                    future_v_global[global_idx] = future_v[int(compact_idx)]
 
         # Expected future value is the same for all current states, as it only depends on the next period's value
         expected_future_value_matrix = np.tile(future_v_global, (n_visited_locations, 1))

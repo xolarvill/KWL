@@ -202,10 +202,23 @@ def calculate_likelihood_from_v_individual(
     regions_df: pd.DataFrame,
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
+    prov_to_idx: Dict[int, int] = None
 ) -> np.ndarray:
     """
     Calculates the log-likelihood for a single individual's observations
     using a pre-solved, compact value function.
+    
+    Args:
+        converged_v_individual: Converged value function for this individual
+        params: Model parameters
+        individual_data: Data for this individual
+        agent_type: Agent type
+        beta: Discount factor
+        transition_matrices: Transition matrices
+        regions_df: Regional data
+        distance_matrix: Distance matrix
+        adjacency_matrix: Adjacency matrix
+        prov_to_idx: Province code to index mapping (optional)
     """
     logger = logging.getLogger()
     
@@ -265,7 +278,17 @@ def calculate_likelihood_from_v_individual(
         
         future_v_global = np.zeros(params['n_choices'])
         for global_loc_id, compact_idx in location_map.items():
-            future_v_global[int(global_loc_id)] = future_v_for_age[int(compact_idx)]
+            if prov_to_idx is not None:
+                # Convert global_loc_id to the correct index using prov_to_idx
+                global_idx = prov_to_idx.get(int(global_loc_id))
+                if global_idx is not None:
+                    future_v_global[global_idx] = future_v_for_age[int(compact_idx)]
+                else:
+                    logger.warning(f"Province code {global_loc_id} not found in prov_to_idx mapping")
+            else:
+                # Fallback for old behavior or tests that don't provide the map
+                logger.warning("prov_to_idx not provided. Assuming global_loc_id is a valid index.")
+                future_v_global[int(global_loc_id)] = future_v_for_age[int(compact_idx)]
             
         start_idx = age_idx * n_visited_locations
         end_idx = start_idx + n_visited_locations
@@ -293,6 +316,16 @@ def calculate_likelihood_from_v_individual(
     # Calculate state index for the individual's state space
     # state_idx = age_idx * n_visited_locations + prev_loc_compact_idx
     valid_obs = (obs_prev_loc_compact != -1) & (obs_age_idx != -1)
+    
+    # **新增**: 记录无效观测值的数量
+    n_invalid_obs = np.sum(~valid_obs)
+    if n_invalid_obs > 0:
+        logger.warning(
+            f"Found {n_invalid_obs} invalid observations for individual "
+            f"(ID hash: {hash(individual_data['individual_id'].iloc[0]) % 10000}). "
+            f"Prev_loc or age not in individual's compact state space."
+        )
+
     state_indices = obs_age_idx[valid_obs] * n_visited_locations + obs_prev_loc_compact[valid_obs]
     
     choice_indices = individual_data['choice_index'].values[valid_obs]
@@ -305,7 +338,8 @@ def calculate_likelihood_from_v_individual(
     # A full implementation would also calculate and add wage likelihood here.
     
     # Create a full-length result vector
-    total_log_likelihood = np.full(len(individual_data), -1e10) # Default for invalid obs
+    # **修改**: 将惩罚值从-1e10改为-100
+    total_log_likelihood = np.full(len(individual_data), -100.0) # Default for invalid obs
     total_log_likelihood[valid_obs] = log_choice_likelihood
 
     return total_log_likelihood

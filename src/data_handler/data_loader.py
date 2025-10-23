@@ -16,6 +16,8 @@ class DataLoader:
         self.config = config
         # 初始化ProvIndexer以统一处理省份编码
         self.prov_indexer = ProvIndexer(config)
+        # 从indexer获取并存储prov_to_idx映射
+        self.prov_to_idx = self.prov_indexer.get_prov_to_idx_map()
 
     def _validate_path(self, path: str, file_description: str) -> None:
         """辅助函数，用于验证文件路径是否存在。"""
@@ -188,12 +190,11 @@ class DataLoader:
             transition_matrices: 转移矩阵字典
             df_region: 地区数据
         """
-        # 先加载地区数据以创建prov_to_idx映射
+        # 先加载地区数据
         df_region = self.load_regional_data()
 
-        # 将省级代码映射到0-30的索引
-        prov_codes = sorted(df_region['provcd'].unique())
-        prov_to_idx = {code: i for i, code in enumerate(prov_codes)}
+        # 使用已经从ProvIndexer加载的映射
+        prov_to_idx = self.prov_to_idx
 
         # 传递prov_to_idx给个体数据加载函数
         df_individual = self.load_individual_data(prov_to_idx=prov_to_idx)
@@ -210,6 +211,12 @@ class DataLoader:
         # **新增**: 加载户籍和家乡的索引
         df_individual['hukou_prov_idx'] = df_individual['hukou_prov'].map(prov_to_idx)
         df_individual['hometown_prov_idx'] = df_individual['hometown'].map(prov_to_idx)
+
+        # **关键修复**: 检查并移除无法映射的行
+        unmapped_provcd_count = df_individual['provcd_idx'].isnull().sum()
+        if unmapped_provcd_count > 0:
+            print(f"警告: {unmapped_provcd_count} 条观测的 'provcd_t' 无法映射到索引，将被过滤")
+            df_individual = df_individual.dropna(subset=['provcd_idx'])
 
         # 创建状态空间
         if simplified_state:
@@ -264,7 +271,7 @@ class DataLoader:
 
         # 创建简化的转移矩阵（单位矩阵，假设状态转移由选择决定）
         n_states = len(state_space)
-        transition_matrices = {i: np.eye(n_states) for i in range(len(prov_codes))}
+        transition_matrices = {i: np.eye(n_states) for i in range(len(prov_to_idx))}
 
         print(f"数据准备完成: {len(df_individual)} 条观测, {len(state_space)} 个状态")
 

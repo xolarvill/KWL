@@ -102,6 +102,7 @@ def main():
             distance_matrix=distance_matrix,
             adjacency_matrix=adjacency_matrix,
             support_generator=support_gen,
+            prov_to_idx=data_loader.prov_to_idx,
             max_iterations=config.em_max_iterations,
             tolerance=config.em_tolerance,
             n_choices=config.n_choices,

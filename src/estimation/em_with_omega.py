@@ -17,12 +17,59 @@ from src.model.discrete_support import (
     extract_omega_values_for_state
 )
 from src.model.likelihood import (
-    solve_bellman_for_params, 
+    solve_bellman_for_params,
     calculate_likelihood_from_v,
     calculate_likelihood_from_v_individual
 )
 from src.model.bellman import solve_bellman_equation_individual
 from src.model.wage_equation import calculate_predicted_wage, calculate_reference_wage
+
+
+def _pack_params(params: Dict[str, Any]) -> Tuple[np.ndarray, List[str]]:
+    """
+    将参数字典打包为数组和名称列表
+
+    参数:
+    ----
+    params : Dict[str, Any]
+        参数字典
+
+    返回:
+    ----
+    Tuple[np.ndarray, List[str]]
+        (参数值数组, 参数名称列表)
+    """
+    # 显式排除 gamma_0_type_0（归一化为0）和 n_choices
+    param_names = sorted([k for k in params.keys() if k not in ['n_choices', 'gamma_0_type_0']])
+    param_values = np.array([params[name] for name in param_names])
+    return param_values, param_names
+
+
+def _unpack_params(param_values: np.ndarray, param_names: List[str], n_choices: int) -> Dict[str, Any]:
+    """
+    将参数数组解包为参数字典
+
+    参数:
+    ----
+    param_values : np.ndarray
+        参数值数组
+    param_names : List[str]
+        参数名称列表
+    n_choices : int
+        选择数量
+
+    返回:
+    ----
+    Dict[str, Any]
+        参数字典
+    """
+    params_dict = dict(zip(param_names, param_values))
+    params_dict['n_choices'] = n_choices
+    # 将被归一化的参数重新加回字典
+    params_dict['gamma_0_type_0'] = 0.0
+    return params_dict
+
+
 
 
 def e_step_with_omega(
@@ -37,6 +84,7 @@ def e_step_with_omega(
     adjacency_matrix: np.ndarray,
     support_generator: DiscreteSupportGenerator,
     n_types: int,
+    prov_to_idx: Dict[int, int],
     max_omega_per_individual: int = 1000,
     use_simplified_omega: bool = True
 ) -> Tuple[Dict[Any, np.ndarray], np.ndarray]:
@@ -60,6 +108,8 @@ def e_step_with_omega(
         支撑点生成器
     n_types : int
         类型数量K
+    prov_to_idx : Dict[int, int]
+        省份ID到矩阵索引的映射
     max_omega_per_individual : int
         每个个体的最大ω组合数
     use_simplified_omega : bool
@@ -157,7 +207,8 @@ def e_step_with_omega(
                         regions_df=regions_df,
                         distance_matrix=distance_matrix,
                         adjacency_matrix=adjacency_matrix,
-                        verbose=False
+                        verbose=False,
+                        prov_to_idx=prov_to_idx
                     )
 
                     # 计算似然（包含工资似然）
@@ -170,7 +221,8 @@ def e_step_with_omega(
                         transition_matrices=transition_matrices,
                         regions_df=regions_df,
                         distance_matrix=distance_matrix,
-                        adjacency_matrix=adjacency_matrix
+                        adjacency_matrix=adjacency_matrix,
+                        prov_to_idx=prov_to_idx
                     )
 
                     # 汇总该个体的对数似然
@@ -265,6 +317,7 @@ def m_step_with_omega(
     adjacency_matrix: np.ndarray,
     support_generator: DiscreteSupportGenerator,
     n_types: int,
+    prov_to_idx: Dict[int, int],
     max_omega_per_individual: int = 1000,
     lbfgsb_maxiter: int = 15
 ) -> Tuple[Dict[str, Any], np.ndarray]:
@@ -281,6 +334,8 @@ def m_step_with_omega(
     initial_params : Dict[str, Any]
         当前参数值
     ... (其他参数同e_step_with_omega)
+    prov_to_idx : Dict[int, int]
+        省份ID到矩阵索引的映射
     lbfgsb_maxiter : int
         L-BFGS-B最大迭代次数
 
@@ -295,7 +350,10 @@ def m_step_with_omega(
     logger.info(f"\n  [M-step with ω] Starting parameter optimization...")
 
     from scipy.optimize import minimize
-    from src.estimation.em_nfxp import _pack_params, _unpack_params
+    from src.config.model_config import ModelConfig
+
+    # 创建配置对象以获取参数边界
+    config = ModelConfig()
 
     unique_individuals = list(individual_posteriors.keys())
     N = len(unique_individuals)
@@ -326,12 +384,17 @@ def m_step_with_omega(
         def function(self, param_values: np.ndarray, param_names: List[str]) -> float:
             self.call_count += 1
             start_time = time.time()
-            
+
             log_msg_header = f"    [M-step Objective Call #{self.call_count}]"
             logger.info(f"{log_msg_header} Starting...")
 
             params = _unpack_params(param_values, param_names, initial_params['n_choices'])
             total_weighted_log_lik = 0.0
+
+            # **调试增强**: 统计计数器
+            n_valid_computations = 0
+            n_failed_computations = 0
+            individual_log_liks = []
 
             try:
                 # This is the triply nested loop causing the long runtime
@@ -339,6 +402,8 @@ def m_step_with_omega(
                     individual_data = observed_data[observed_data['individual_id'] == individual_id]
                     posterior_matrix = individual_posteriors[individual_id]
                     omega_list = individual_omega_lists[individual_id]
+
+                    individual_contribution = 0.0
 
                     for omega_idx, omega in enumerate(omega_list):
                         for k in range(K):
@@ -350,34 +415,60 @@ def m_step_with_omega(
                                 type_params['gamma_0'] = params[f'gamma_0_type_{k}']
                             type_params['sigma_epsilon'] = omega['sigma']
 
-                            # --- OPTIMIZATION: Use individual solver ---
-                            converged_v_individual, _ = solve_bellman_equation_individual(
-                                utility_function=None, # Not needed, called internally
-                                individual_data=individual_data,
-                                params=type_params,
-                                agent_type=int(k),
-                                beta=beta,
-                                transition_matrices=transition_matrices,
-                                regions_df=regions_df,
-                                distance_matrix=distance_matrix,
-                                adjacency_matrix=adjacency_matrix,
-                                verbose=False
-                            )
+                            try:
+                                # --- OPTIMIZATION: Use individual solver ---
+                                converged_v_individual, converged = solve_bellman_equation_individual(
+                                    utility_function=None, # Not needed, called internally
+                                    individual_data=individual_data,
+                                    params=type_params,
+                                    agent_type=int(k),
+                                    beta=beta,
+                                    transition_matrices=transition_matrices,
+                                    regions_df=regions_df,
+                                    distance_matrix=distance_matrix,
+                                    adjacency_matrix=adjacency_matrix,
+                                    verbose=False,
+                                    prov_to_idx=prov_to_idx
+                                )
 
-                            # --- OPTIMIZATION: Use individual likelihood calculator ---
-                            log_lik_obs = calculate_likelihood_from_v_individual(
-                                converged_v_individual=converged_v_individual,
-                                params=type_params,
-                                individual_data=individual_data,
-                                agent_type=int(k),
-                                beta=beta,
-                                transition_matrices=transition_matrices,
-                                regions_df=regions_df,
-                                distance_matrix=distance_matrix,
-                                adjacency_matrix=adjacency_matrix
-                            )
-                            
-                            total_weighted_log_lik += weight * np.sum(log_lik_obs)
+                                if not converged:
+                                    logger.warning(f"{log_msg_header} Bellman did not converge for ind={individual_id}, omega_idx={omega_idx}, type={k}")
+                                    n_failed_computations += 1
+                                    continue
+
+                                # --- OPTIMIZATION: Use individual likelihood calculator ---
+                                log_lik_obs = calculate_likelihood_from_v_individual(
+                                    converged_v_individual=converged_v_individual,
+                                    params=type_params,
+                                    individual_data=individual_data,
+                                    agent_type=int(k),
+                                    beta=beta,
+                                    transition_matrices=transition_matrices,
+                                    regions_df=regions_df,
+                                    distance_matrix=distance_matrix,
+                                    adjacency_matrix=adjacency_matrix,
+                                    prov_to_idx=prov_to_idx
+                                )
+
+                                individual_log_lik = np.sum(log_lik_obs)
+
+                                # **调试增强**: 检查似然值是否有效
+                                if np.isnan(individual_log_lik) or np.isinf(individual_log_lik) or individual_log_lik < -1e9:
+                                    logger.warning(f"{log_msg_header} Invalid log-lik={individual_log_lik:.2f} for ind={individual_id}, omega_idx={omega_idx}, type={k}")
+                                    n_failed_computations += 1
+                                    continue
+
+                                weighted_contribution = weight * individual_log_lik
+                                individual_contribution += weighted_contribution
+                                n_valid_computations += 1
+
+                            except Exception as inner_e:
+                                logger.warning(f"{log_msg_header} Inner exception for ind={individual_id}, omega_idx={omega_idx}, type={k}: {inner_e}")
+                                n_failed_computations += 1
+                                continue
+
+                    total_weighted_log_lik += individual_contribution
+                    individual_log_liks.append(individual_contribution)
 
                 neg_ll = -total_weighted_log_lik
                 duration = time.time() - start_time
@@ -385,8 +476,15 @@ def m_step_with_omega(
                 self.last_call_end_time = time.time()
 
                 logger.info(f"{log_msg_header} Finished. Duration: {duration:.2f}s. Total time since last call: {time_since_last:.2f}s. NegLogLik: {neg_ll:.4f}")
+                logger.info(f"{log_msg_header} Valid computations: {n_valid_computations}, Failed: {n_failed_computations}")
+                logger.info(f"{log_msg_header} Mean individual log-lik: {np.mean(individual_log_liks):.4f}" if individual_log_liks else f"{log_msg_header} No valid individual log-liks")
                 param_subset = param_values[:3]
                 logger.info(f"{log_msg_header} Params (first 3): {np.round(param_subset, 4)}")
+
+                # **调试增强**: 如果所有计算都失败，返回大惩罚值
+                if n_valid_computations == 0:
+                    logger.error(f"{log_msg_header} All computations failed! Returning penalty.")
+                    return 1e10
 
                 return neg_ll
 
@@ -397,7 +495,11 @@ def m_step_with_omega(
     # 打包参数并优化
     objective = Objective()
     initial_param_values, param_names = _pack_params(initial_params)
+
+    # **关键修复**: 从ModelConfig获取参数边界约束
+    param_bounds = config.get_parameter_bounds(param_names)
     logger.info(f"  Optimizing {len(param_names)} parameters with L-BFGS-B...")
+    logger.info(f"  Parameter bounds set for {len(param_bounds)} parameters")
 
     # Run initial call to log starting value
     initial_neg_ll = objective.function(initial_param_values, param_names)
@@ -410,6 +512,7 @@ def m_step_with_omega(
             initial_param_values,
             args=(param_names,),
             method='L-BFGS-B',
+            bounds=param_bounds,  # **关键修复**: 添加边界约束
             options={
                 'disp': False,
                 'maxiter': lbfgsb_maxiter,
@@ -462,6 +565,7 @@ def run_em_algorithm_with_omega(
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
     support_generator: 'DiscreteSupportGenerator',
+    prov_to_idx: Dict[int, int],
     max_iterations: int = 100,
     tolerance: float = 1e-4,
     n_choices: int = 31,
@@ -496,6 +600,8 @@ def run_em_algorithm_with_omega(
         邻接矩阵
     support_generator : DiscreteSupportGenerator
         离散支撑点生成器
+    prov_to_idx : Dict[int, int]
+        省份ID到矩阵索引的映射
     max_iterations : int
         EM最大迭代次数
     tolerance : float
@@ -564,6 +670,7 @@ def run_em_algorithm_with_omega(
             adjacency_matrix=adjacency_matrix,
             support_generator=support_generator,
             n_types=n_types,
+            prov_to_idx=prov_to_idx,
             max_omega_per_individual=max_omega_per_individual,
             use_simplified_omega=use_simplified_omega
         )
@@ -602,6 +709,7 @@ def run_em_algorithm_with_omega(
             adjacency_matrix=adjacency_matrix,
             support_generator=support_generator,
             n_types=n_types,
+            prov_to_idx=prov_to_idx,
             max_omega_per_individual=max_omega_per_individual,
             lbfgsb_maxiter=lbfgsb_maxiter
         )
