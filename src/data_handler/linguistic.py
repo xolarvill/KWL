@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, List
+from src.utils.prov_indexer import ProvIndexer
 
 class TreeNode:
     """树节点类，用于表示语言树中的一个节点。"""
@@ -131,11 +132,12 @@ if __name__ == '__main__':
     
     prov_lang_path = os.path.join(project_root, "data/processed/prov_language.csv")
     json_tree_path = os.path.join(project_root, "data/processed/linguistic_tree.json")
-    ranked_prov_path = os.path.join(project_root, "data/processed/prov_name_ranked.json")
     output_path = os.path.join(project_root, "data/processed/linguistic_distance_matrix.csv")
     
-    with open(ranked_prov_path, 'r', encoding='utf-8') as f:
-        ordered_provinces = json.load(f)
+    # 使用 ProvIndexer 获取排序好的省份列表
+    indexer = ProvIndexer()
+    ordered_provinces_df = indexer.prov_standard_map.sort_values(by='rank')
+    ordered_provinces = ordered_provinces_df['name'].tolist()
         
     distance_df = linguistic_matrix(
         prov_lang_path=prov_lang_path, 

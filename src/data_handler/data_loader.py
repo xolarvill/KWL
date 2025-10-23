@@ -6,6 +6,7 @@ from typing import List, Tuple, Dict
 from src.data_handler import data_person, data_region, adjacent, distance, linguistic
 from src.data_handler.data_person import preprocess_individual_data
 from src.config import ModelConfig
+from src.utils.prov_indexer import ProvIndexer
 
 class DataLoader:
     '''
@@ -13,6 +14,8 @@ class DataLoader:
     '''
     def __init__(self, config: ModelConfig):
         self.config = config
+        # 初始化ProvIndexer以统一处理省份编码
+        self.prov_indexer = ProvIndexer(config)
 
     def _validate_path(self, path: str, file_description: str) -> None:
         """辅助函数，用于验证文件路径是否存在。"""
@@ -78,6 +81,9 @@ class DataLoader:
         except Exception as e:
             raise RuntimeError(f"读取原始地区数据时出错 (路径: {path_raw}): {str(e)}")
 
+        # 使用ProvIndexer标准化省份编码
+        df_raw['provcd'] = df_raw['provcd'].apply(lambda x: self.prov_indexer.index(x) if pd.notna(x) else x)
+
         # 2. 加载amenity综合指标数据
         path_amenity = self.config.regional_amenity_path
         self._validate_path(path_amenity, "amenity综合指标数据")
@@ -86,6 +92,9 @@ class DataLoader:
             df_amenity = pd.read_csv(path_amenity)
         except Exception as e:
             raise RuntimeError(f"读取amenity数据时出错 (路径: {path_amenity}): {str(e)}")
+
+        # 使用ProvIndexer标准化省份编码
+        df_amenity['provcd'] = df_amenity['provcd'].apply(lambda x: self.prov_indexer.index(x) if pd.notna(x) else x)
 
         # 3. 合并两个数据源
         # 使用provcd和year作为合并键
@@ -190,6 +199,12 @@ class DataLoader:
         df_individual = self.load_individual_data(prov_to_idx=prov_to_idx)
 
         # 注意：preprocess_individual_data()将provcd重命名为provcd_t，IID重命名为individual_id
+        # 确保所有省份编码都已标准化
+        df_individual['provcd_t'] = df_individual['provcd_t'].apply(lambda x: self.prov_indexer.index(x) if pd.notna(x) else x)
+        df_individual['prev_provcd'] = df_individual['prev_provcd'].apply(lambda x: self.prov_indexer.index(x) if pd.notna(x) else x)
+        df_individual['hukou_prov'] = df_individual['hukou_prov'].apply(lambda x: self.prov_indexer.index(x) if pd.notna(x) else x)
+        df_individual['hometown'] = df_individual['hometown'].apply(lambda x: self.prov_indexer.index(x) if pd.notna(x) else x)
+
         df_individual['provcd_idx'] = df_individual['provcd_t'].map(prov_to_idx)
         df_individual['prev_provcd_idx'] = df_individual['prev_provcd'].map(prov_to_idx)
         # **新增**: 加载户籍和家乡的索引

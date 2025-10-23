@@ -28,31 +28,32 @@ def preprocess_individual_data(file_path: str, prov_to_idx: dict = None) -> pd.D
     # 'provcd' 代表个体在 'year' 这一期所在的省份
     df.rename(columns={'provcd': 'provcd_t', 'year': 'year_t', 'age': 'age_t', 'IID': 'individual_id'}, inplace=True)
 
-    # 检查省份列是否已经是数字编码
-    if pd.api.types.is_numeric_dtype(df['provcd_t']):
-        print("省份列已是数字编码，跳过名称映射。")
-    else:
-        # 加载省份名称列表和省份代码列表
-        prov_name_ranked_path = os.path.join(os.path.dirname(file_path), 'prov_name_ranked.json')
-        prov_code_ranked_path = os.path.join(os.path.dirname(file_path), 'prov_code_ranked.json')
+    # 使用ProvIndexer统一处理所有省份编码
+    from src.utils.prov_indexer import ProvIndexer
+    prov_indexer = ProvIndexer()
 
-        with open(prov_name_ranked_path, 'r', encoding='utf-8') as f:
-            prov_names = json.load(f)
-        with open(prov_code_ranked_path, 'r', encoding='utf-8') as f:
-            prov_codes = json.load(f)
+    # 将无效的缺失值编码替换为NaN（在标准化之前）
+    invalid_values = ['0', '90000', '澳门', '香港']
+    for col in ['provcd_t', 'hukou_prov', 'hometown']:
+        df[col] = df[col].replace(invalid_values, pd.NA)
+    
+    # 如果prev_provcd列存在，也需要处理
+    if 'prev_provcd' in df.columns:
+        df['prev_provcd'] = df['prev_provcd'].replace(invalid_values, pd.NA)
 
-        # 创建省份名称到行政区划代码的映射
-        prov_name_to_admin_code = {name: code for name, code in zip(prov_names, prov_codes)}
-
-        # 将无效的缺失值编码替换为NaN（在映射之前）
-        invalid_values = ['0', '90000', '澳门', '香港']
-        for col in ['provcd_t', 'hukou_prov', 'hometown']:
-            df[col] = df[col].replace(invalid_values, pd.NA)
-
-        # 将省份名称转换为数字编码
-        df['provcd_t'] = df['provcd_t'].map(prov_name_to_admin_code)
-        df['hukou_prov'] = df['hukou_prov'].map(prov_name_to_admin_code)
-        df['hometown'] = df['hometown'].map(prov_name_to_admin_code)
+    # 使用ProvIndexer标准化所有省份编码列为统一的2位数字编码
+    # 处理当前所在省份
+    df['provcd_t'] = df['provcd_t'].apply(lambda x: prov_indexer.index(x) if pd.notna(x) else x)
+    
+    # 处理户籍省份
+    df['hukou_prov'] = df['hukou_prov'].apply(lambda x: prov_indexer.index(x) if pd.notna(x) else x)
+    
+    # 处理家乡
+    df['hometown'] = df['hometown'].apply(lambda x: prov_indexer.index(x) if pd.notna(x) else x)
+    
+    # 如果prev_provcd列存在，也需要标准化
+    if 'prev_provcd' in df.columns:
+        df['prev_provcd'] = df['prev_provcd'].apply(lambda x: prov_indexer.index(x) if pd.notna(x) else x)
 
     # 转换 'gender' 列为数字 (男=1, 女=0)
     df['gender'] = df['gender'].map({'男': 1, '女': 0})
@@ -60,7 +61,7 @@ def preprocess_individual_data(file_path: str, prov_to_idx: dict = None) -> pd.D
     # 转换 'is_at_hukou' 列为数字 (是=1, 否=0)
     df['is_at_hukou'] = df['is_at_hukou'].map({'是': 1, '否': 0})
 
-    # 确保映射成功，处理可能存在的NaN（未匹配的省份名称）
+    # 确保标准化成功，处理可能存在的NaN（未匹配的省份名称）
     initial_len_before_filter = len(df)
     if df['provcd_t'].isnull().any():
         nan_count = df['provcd_t'].isnull().sum()
