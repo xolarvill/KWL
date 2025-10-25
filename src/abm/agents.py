@@ -1,5 +1,5 @@
 """
-ABM代理类定义
+ABM代理人的类定义
 """
 import numpy as np
 from typing import Dict, List, Any
