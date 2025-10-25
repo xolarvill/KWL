@@ -34,9 +34,7 @@
   a4paper,
   zihao=-4,
   twoside,
-  openany,
-  AutoFakeBold,
-  AutoFakeSlant
+  openany
 ]{ctexbook}
 
 % ==================== 加载必需宏包 ====================
@@ -45,6 +43,7 @@
 \RequirePackage{fancyhdr}
 \RequirePackage{titlesec}
 \RequirePackage{titletoc}
+\RequirePackage[export]{adjustbox}
 
 % 字体设置
 \RequirePackage{fontspec}
@@ -58,12 +57,14 @@
 \RequirePackage{tabularx}
 \RequirePackage{array}
 \RequirePackage{xcolor}
+\RequirePackage{multirow}
+\RequirePackage{ragged2e}
 
 % 引用和链接
 \RequirePackage{hyperref}
 \RequirePackage[
   backend=biber,
-  style=gb7714-2005,
+  style=gb7714-2015,
   citestyle=authoryear,
   sorting=nyvt,
   maxnames=1,
@@ -206,16 +207,27 @@
   {0.5\baselineskip}
   {0.5\baselineskip}
 
+% 无编号章标题格式（参考文献、致谢、声明等）
+\titleformat{name=\chapter,numberless}[block]
+  {\centering\zihao{3}\heiti}
+  {}
+  {0pt}
+  {}
+
+\titlespacing{name=\chapter,numberless}
+  {0pt}
+  {2\baselineskip}
+  {1\baselineskip}
+
 % ==================== 目录格式 ====================
 % 目录标题
 \renewcommand{\contentsname}{目\quad 录}
 
 % 目录格式设置
-\titlecontents{chapter}[0em]
-  {\zihao{-4}\songti}
-  {\thecontentslabel\quad}
-  {}
-  {\titlerule*[0.5pc]{.}\contentspage}
+\ctexset{
+  chapter/name = {},
+  chapter/number = \arabic{chapter},
+}
 
 \titlecontents{section}[2em]
   {\zihao{-4}\songti}
@@ -257,6 +269,9 @@
 
 % 表格行间距：单倍行距
 \renewcommand{\arraystretch}{1.0}
+
+% 表格换行左对齐
+\newcolumntype{L}{>{\RaggedRight\arraybackslash}X}
 
 % 重定义booktabs三线表线宽
 \setlength{\heavyrulewidth}{1.5pt}  % 上下两根线1.5磅
@@ -336,11 +351,12 @@
 \newcommand{\authorName}[1]{\def\@authorName{#1}}
 \newcommand{\studentID}[1]{\def\@studentID{#1}}
 \newcommand{\mentorName}[1]{\def\@mentorName{#1}}
-\newcommand{\mentorTitle}[1]{\def\@mentorTitle{#1}}
 \newcommand{\majorName}[1]{\def\@majorName{#1}}
 \newcommand{\deptName}[1]{\def\@deptName{#1}}
 \newcommand{\submitDate}[1]{\def\@submitDate{#1}}
 \newcommand{\submitDateEN}[1]{\def\@submitDateEN{#1}}
+\newcommand{\reviewDate}[1]{\def\@reviewDate{#1}}
+\newcommand{\secrecyLevel}[1]{\def\@secrecyLevel{#1}}
 
 % 默认值
 \thesisTitle{论文题目}
@@ -348,62 +364,99 @@
 \authorName{学生姓名}
 \studentID{学号}
 \mentorName{导师姓名}
-\mentorTitle{教授}
 \majorName{专业名称}
 \deptName{学院名称}
 \submitDate{\today}
 \submitDateEN{\today}
+\reviewDate{\today}
+\secrecyLevel{}
 
 % ==================== 封面生成 ====================
+% 定义一个用于自动换行、居中且带下划线的宏
+\newcommand{\AutoWrapUnderline}[2]{%
+  \parbox[t]{#1}{% [t] 表示顶部对齐
+    \centering
+    \kaishu #2% 内容
+    \vspace*{0.5ex}
+    \hrule height 0.4pt  % 下划线
+  }%
+}
+
+% 定义一个用于单行、居中且带下划线的宏
+\newcommand{\SimpleUnderline}[2]{%
+  \parbox[t]{#1}{%
+    \centering
+    \kaishu #2%
+    \vspace*{0.5ex} % 增加安全间距
+    \hrule height 0.4pt
+  }%
+}
+
 \newcommand{\makethesiscover}{
   \begin{titlepage}
     \centering
     
-    % 学校代码和密级
-    \begin{flushleft}
-      \zihao{-4}\songti
-      学校代码：11482 \hfill 密级：\underline{\hspace{2cm}}
-    \end{flushleft}
+    % === 右上角：学校代码 & 密级 ===
+    \hfill
+    \begin{tabular}[t]{@{}l@{}}
+      \zihao{-4}\kaishu 学校代码：11482 \\
+      \zihao{-4}\kaishu 密\quad\quad 级：\@secrecyLevel
+    \end{tabular}
+    \par
     
-    \vspace{2cm}
+    \vspace{1.5cm}
     
-    % 学校名称
-    {\zihao{1}\heiti 浙江财经大学}
-    \vspace{0.5cm}
-
-    % 学位类型
-    \ifmaster
-      {\zihao{1}\heiti 硕士学位论文}
-    \else
-      \ifdoctor
-        {\zihao{1}\heiti 博士学位论文}
-      \fi
-    \fi
-        
-    \vspace{3cm}
-    
-    % 论文题目
-    {\zihao{-2}\heiti \@thesisTitle}
-    
-    \vspace{3cm}
-    
-    % 基本信息
+    % === 校徽与校名图片 ===
     \begin{center}
-      \zihao{-3}\songti
+      \includegraphics[height=2.21cm, keepaspectratio, valign=c]{images/logo/schoolLogo.png}
+      \hspace{0.75cm}% 调整两张图之间的间距，如 1em、0.5cm 等
+      \includegraphics[height=1.73cm, keepaspectratio, valign=c]{images/logo/schoolName.png}
+    \end{center}
+    
+    \vspace{0.8cm}
+    
+    % === 英文校名 ===
+    {\zihao{4}\rmfamily\linespread{1}\selectfont
+     \textbf{ZHEJIANG UNIVERSITY OF FINANCE AND ECONOMICS}\par}
+    
+    % \vspace{1cm}
+    
+    % === 中文“硕士学位论文”（隶书，30pt，加粗）===
+    {\fontsize{30}{36}\selectfont\bfseries
+     \ifxetex
+       \CJKfontspec{报隶-简}%
+     \else
+       \CJKfontspec{STLiti}%
+     \fi
+     \textbf{硕士学位论文}\par}
+    
+    \vspace{0.8cm}
+    
+    % === 英文“MASTER DISSERTATION” ===
+    {\zihao{4}\rmfamily\linespread{1}\selectfont
+     \textbf{MASTER DISSERTATION}\par}
+    
+    \vspace{2.8cm}
+    
+    % === 基本信息表格（含论文题目）===
+    \begin{center}
+      \zihao{-3}
       \renewcommand{\arraystretch}{1.5}
-      \begin{tabular}{lc}
+      \begin{tabular}{l c}
         \ifblind
-          % 盲审版：隐藏姓名和导师
-          学科专业： & \underline{\makebox[8cm][c]{\@majorName}} \\
-          研究生学号： & \underline{\makebox[8cm][c]{\phantom{\@studentID}}} \\
-          完成日期： & \underline{\makebox[8cm][c]{\@submitDate}} \\
+          % 盲审版：隐藏个人信息，但保留题目
+          \heiti 论文题目： & \AutoWrapUnderline{10cm}{\@thesisTitle} \\
+          \heiti 学\quad \quad 院：& \SimpleUnderline{10cm}{\@deptName} \\
+          \heiti 专\quad \quad 业： & \SimpleUnderline{10cm}{\@majorName} \\
+          \heiti 送审时间： & \SimpleUnderline{10cm}{\@reviewDate} \\
         \else
-          % 非盲审版：显示完整信息
-          学科专业： & \underline{\makebox[8cm][c]{\@majorName}} \\
-          研究生姓名： & \underline{\makebox[8cm][c]{\@authorName}} \\
-          研究生学号： & \underline{\makebox[8cm][c]{\@studentID}} \\
-          指导教师姓名： & \underline{\makebox[8cm][c]{\@mentorName\quad\@mentorTitle}} \\
-          完成日期： & \underline{\makebox[8cm][c]{\@submitDate}} \\
+          % 非盲审版
+          \heiti 论文题目： & \AutoWrapUnderline{10cm}{\@thesisTitle} \\
+          \heiti 作者姓名： & \SimpleUnderline{10cm}{\@authorName} \\
+          \heiti 专\quad \quad 业： & \SimpleUnderline{10cm}{\@majorName} \\
+          \heiti 所在学院： & \SimpleUnderline{10cm}{\@deptName} \\
+          \heiti 指导教师： & \SimpleUnderline{10cm}{\@mentorName} \\
+          \heiti 完成日期： & \SimpleUnderline{10cm}{\@submitDate} \\
         \fi
       \end{tabular}
     \end{center}
@@ -446,13 +499,21 @@
   \thispagestyle{empty}
   
   \begin{center}
-    \vspace*{3cm}
     
-    {\zihao{-1}\heiti \@thesisTitle}
+    % 顶部：硕士学位论文（黑体，小一）
+    {\zihao{1}\heiti 硕士学位论文}
+
+    \vspace*{\fill}
+
+    % 中部：论文中文标题（黑体，小一，自动换行）
+    \parbox{0.8\textwidth}{\centering
+      \zihao{1}\heiti \@thesisTitle
+    }
     
-    \vfill
+    \vspace*{\fill}
     
-    {\zihao{4}\kaishu 完成日期：\@submitDate}
+    % 底部：完成日期（楷体，四号）
+    {\zihao{4}\kaishu \@submitDate}
   \end{center}
   
   \clearpage
@@ -464,13 +525,21 @@
   \thispagestyle{empty}
   
   \begin{center}
-    \vspace*{3cm}
     
-    {\zihao{-1}\bfseries \@thesisTitleEN}
+    % 顶部：Master Dissertation（Times New Roman，小一）
+    {\zihao{1}\rmfamily \textbf{Master Dissertation}}
     
-    \vfill
+    \vspace*{\fill}
     
-    {\zihao{4} Completion Date: \@submitDateEN}
+    % 中部：英文标题（Times New Roman，小一，自动换行）
+    \parbox{0.8\textwidth}{\centering
+      \zihao{1}\rmfamily \textbf{\@thesisTitleEN}
+    }
+    
+    \vspace*{\fill}
+    
+    % 底部：Completion Date（Times New Roman，四号）
+    {\zihao{4}\rmfamily \textbf{\@submitDateEN}}
   \end{center}
   
   \clearpage
@@ -616,29 +685,32 @@
   \thispagestyle{empty}
   
   \vspace*{\fill}
+    
+  \parbox{\textwidth}{%
+    \hspace*{2em}% 首行空两格
+    \zihao{-3}%
+    \textit{浙江财经大学}
+  }
+
+  \vspace{0.25cm}
+
+  \hrulefill
   
-  \begin{center}
-    \zihao{4}\songti
+  \vspace{0.25cm}
+
+  {\zihao{4}地址：浙江省杭州市下沙高教园区学源街18号}
     
-    \vspace{2cm}
+  \vspace{0.5cm}
     
-    浙江财经大学
+  {\zihao{4}邮编：310018}
     
-    \vspace{0.5cm}
+  \vspace{0.5cm}
+
+  {\zihao{4}电话：0571-86735317}
+
+  \vspace{0.5cm}
     
-    地址：浙江省杭州市下沙高教园区学源街18号
-    
-    \vspace{0.5cm}
-    
-    邮编：310018
-    
-    \vspace{0.5cm}
-    
-    网址：http://www.zufe.edu.cn
-    
-  \end{center}
-  
-  \vspace*{\fill}
+  {\zihao{4}网址：http://www.zufe.edu.cn}
 }
 
 % ==================== 页码设置 ====================
