@@ -750,7 +750,12 @@ def run_em_algorithm_with_omega(
         if iteration > 0:
             ll_change = current_log_likelihood - prev_log_likelihood
             logger.info(f"  Log-likelihood change: {ll_change:.6f}")
-
+            
+            # **诊断增强**: 添加相对变化
+            if abs(prev_log_likelihood) > 1e-10:
+                relative_change = abs(ll_change / prev_log_likelihood)
+                logger.info(f"  Relative log-likelihood change: {relative_change:.6f}")
+            
             if abs(ll_change) < tolerance:
                 logger.info(f"\n  ✓ Converged! (Δ log-likelihood < {tolerance})")
                 converged = True
