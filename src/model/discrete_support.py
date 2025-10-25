@@ -272,12 +272,18 @@ class SimplifiedOmegaEnumerator:
         # 为每个访问过的地区生成nu和xi的支撑点
         nu_combinations = list(product(self.gen.nu_support, repeat=len(visited_regions)))
         xi_combinations = list(product(self.gen.xi_support, repeat=len(visited_regions)))
-
+        
+        # 预计算概率值以提高效率
+        eta_probs = self.gen.eta_prob
+        nu_prob = (self.gen.nu_prob[0] ** len(visited_regions))  # 简化：均匀概率
+        xi_prob = (self.gen.xi_prob[0] ** len(visited_regions))
+        sigma_probs = self.gen.sigma_prob
+        
         # 枚举所有组合
-        for eta_val, eta_prob in zip(self.gen.eta_support, self.gen.eta_prob):
+        for eta_idx, (eta_val, eta_prob) in enumerate(zip(self.gen.eta_support, eta_probs)):
             for nu_tuple in nu_combinations:
                 for xi_tuple in xi_combinations:
-                    for sigma_val, sigma_prob in zip(self.gen.sigma_support, self.gen.sigma_prob):
+                    for sigma_idx, (sigma_val, sigma_prob) in enumerate(zip(self.gen.sigma_support, sigma_probs)):
                         # 构建ω字典
                         omega = {
                             'eta': eta_val,
@@ -288,8 +294,6 @@ class SimplifiedOmegaEnumerator:
                         omega_list.append(omega)
 
                         # 计算联合先验概率（假设独立）
-                        nu_prob = (self.gen.nu_prob[0] ** len(visited_regions))  # 简化：均匀概率
-                        xi_prob = (self.gen.xi_prob[0] ** len(visited_regions))
                         joint_prob = eta_prob * nu_prob * xi_prob * sigma_prob
                         prob_list.append(joint_prob)
 

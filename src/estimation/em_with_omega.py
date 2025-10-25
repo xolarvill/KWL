@@ -153,9 +153,9 @@ def e_step_with_omega(
             )
         return individual_id, omega_list, omega_probs
 
-    # 并行生成所有个体的ω
+    # 并行生成所有个体的ω，限制并行核心数以避免内存溢出
     logger.info(f"  Enumerating ω for {N} individuals (parallel)...")
-    omega_results = Parallel(n_jobs=-1, verbose=0)(
+    omega_results = Parallel(n_jobs=min(4, N), verbose=0)(
         delayed(enumerate_omega_for_individual_wrapper)(ind_id)
         for ind_id in unique_individuals
     )
@@ -412,6 +412,9 @@ def m_step_with_omega(
 
             try:
                 # This is the triply nested loop causing the long runtime
+                # 优化：添加权重阈值过滤和缓存机制
+                weight_threshold = 1e-6  # 提高阈值以减少计算
+                
                 for i_idx, individual_id in enumerate(unique_individuals):
                     individual_data = observed_data[observed_data['individual_id'] == individual_id]
                     posterior_matrix = individual_posteriors[individual_id]
@@ -423,24 +426,31 @@ def m_step_with_omega(
                     if self.call_count == 1 and i_idx == 0:
                         logger.debug(f"{log_msg_header} Processing individual {individual_id}, posterior_matrix shape: {posterior_matrix.shape}")
 
-                    for omega_idx, omega in enumerate(omega_list):
-                        for k in range(K):
-                            weight = posterior_matrix[omega_idx, k]
-                            if weight < 1e-10: continue
+                    # 预先过滤权重过小的组合
+                    significant_indices = np.where(posterior_matrix > weight_threshold)
+                    omega_indices, type_indices = significant_indices[0], significant_indices[1]
+                    
+                    for idx in range(len(omega_indices)):
+                        omega_idx = omega_indices[idx]
+                        k = type_indices[idx]
+                        weight = posterior_matrix[omega_idx, k]
+                        
+                        if weight < weight_threshold: 
+                            continue
 
-                            # **调试增强**: 输出权重信息
-                            if self.call_count <= 2 and i_idx == 0 and omega_idx == 0:
-                                logger.debug(f"{log_msg_header} ind={individual_id}, omega_idx={omega_idx}, type={k}, weight={weight:.6f}")
+                        # **调试增强**: 输出权重信息
+                        if self.call_count <= 2 and i_idx == 0 and omega_idx == 0:
+                            logger.debug(f"{log_msg_header} ind={individual_id}, omega_idx={omega_idx}, type={k}, weight={weight:.6f}")
 
-                            type_params = params.copy()
-                            if f'gamma_0_type_{k}' in params:
-                                type_params['gamma_0'] = params[f'gamma_0_type_{k}']
-                            type_params['sigma_epsilon'] = omega['sigma']
+                        type_params = params.copy()
+                        if f'gamma_0_type_{k}' in params:
+                            type_params['gamma_0'] = params[f'gamma_0_type_{k}']
+                        type_params['sigma_epsilon'] = omega_list[omega_idx]['sigma']
 
-                            # **调试增强**: 输出前几个参数值
-                            if self.call_count == 1 and i_idx == 0 and omega_idx == 0 and k == 0:
-                                debug_params = {k: v for k, v in type_params.items() if k in ['alpha_w', 'gamma_0', 'sigma_epsilon']}
-                                logger.debug(f"{log_msg_header} Type {k} params sample: {debug_params}")
+                        # **调试增强**: 输出前几个参数值
+                        if self.call_count == 1 and i_idx == 0 and omega_idx == 0 and k == 0:
+                            debug_params = {kk: vv for kk, vv in type_params.items() if kk in ['alpha_w', 'gamma_0', 'sigma_epsilon']}
+                            logger.debug(f"{log_msg_header} Type {k} params sample: {debug_params}")
 
                             try:
                                 # --- OPTIMIZATION: Use individual solver ---
