@@ -191,6 +191,11 @@ class ModelConfig:
     ## EM算法控制开关
     use_discrete_support: bool = True  # 是否使用离散支撑点ω（P0.2功能）
     # 设为False可回退到原始EM算法（不使用支撑点枚举）
+    
+    ## 性能优化参数
+    use_jit_compilation: bool = True  # 是否使用JIT编译优化
+    parallel_jobs: int = 4  # 并行计算的核心数
+    weight_threshold: float = 1e-6  # 权重阈值，用于过滤小权重计算
 
     # ========================
     # 五（续）、参数边界约束（用于L-BFGS-B优化）

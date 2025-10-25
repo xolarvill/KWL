@@ -5,7 +5,29 @@ of migration. This version is optimized for vectorized computation.
 
 import numpy as np
 from typing import Dict, Any, Optional
+from numba import jit, float64, int64, prange
 from src.model.wage_equation import calculate_prospect_theory_utility
+
+@jit(nopython=True)
+def _compute_distance_cost_jit(distance_matrix, prev_loc_indices, dest_loc_indices):
+    """JIT编译的距离成本计算"""
+    n_states, n_choices = prev_loc_indices.shape[0], dest_loc_indices.shape[1]
+    distance_cost = np.zeros((n_states, n_choices))
+    for i in range(n_states):
+        for j in range(n_choices):
+            dist = distance_matrix[int(prev_loc_indices[i, 0]), int(dest_loc_indices[0, j])]
+            distance_cost[i, j] = np.log(max(dist, 1.0))
+    return distance_cost
+
+@jit(nopython=True)
+def _compute_adjacency_jit(adjacency_matrix, prev_loc_indices, dest_loc_indices):
+    """JIT编译的邻接性计算"""
+    n_states, n_choices = prev_loc_indices.shape[0], dest_loc_indices.shape[1]
+    is_adjacent = np.zeros((n_states, n_choices))
+    for i in range(n_states):
+        for j in range(n_choices):
+            is_adjacent[i, j] = adjacency_matrix[int(prev_loc_indices[i, 0]), int(dest_loc_indices[0, j])]
+    return is_adjacent
 
 def calculate_flow_utility_vectorized(
     state_data: Dict[str, np.ndarray],
@@ -137,11 +159,9 @@ def calculate_flow_utility_vectorized(
     # 2.5 Migration Cost: C_ijt = I(j != i) * (gamma_0 + ...)
     is_moving = (dest_loc_indices != prev_loc_indices)
     
-    # Use log(distance) as per the paper, adding a small constant to avoid log(0)
-    distance = distance_matrix[prev_loc_indices, dest_loc_indices]
-    log_distance = np.log(np.maximum(distance, 1.0)) # Use 1km as minimum distance
-    
-    is_adjacent = adjacency_matrix[prev_loc_indices, dest_loc_indices]
+    # Use JIT-optimized functions for distance and adjacency calculations
+    log_distance = _compute_distance_cost_jit(distance_matrix, prev_loc_indices, dest_loc_indices)
+    is_adjacent = _compute_adjacency_jit(adjacency_matrix, prev_loc_indices, dest_loc_indices)
     is_return_migration = (dest_loc_indices == hometown_loc_indices) & is_moving
 
     fixed_cost = params.get(f"gamma_0_type_{agent_type}", 0.0)

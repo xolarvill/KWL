@@ -6,10 +6,26 @@ import logging
 import numpy as np
 import pandas as pd
 from typing import Dict, Any, Callable, Tuple, Optional
+from numba import jit, float64, int64, prange
 
 from src.model.bellman import solve_bellman_equation
 from src.model.utility import calculate_flow_utility_vectorized, calculate_flow_utility_individual_vectorized
 from src.model.wage_equation import calculate_wage_likelihood
+
+@jit(nopython=True)
+def _compute_ccp_jit(choice_specific_values):
+    """JIT编译的条件选择概率计算"""
+    n_states, n_choices = choice_specific_values.shape
+    ccps = np.zeros((n_states, n_choices))
+    
+    for i in range(n_states):
+        max_v = np.max(choice_specific_values[i, :])
+        exp_v = np.exp(choice_specific_values[i, :] - max_v)
+        sum_exp_v = np.sum(exp_v)
+        for j in range(n_choices):
+            ccps[i, j] = exp_v[j] / max(sum_exp_v, 1e-300)
+    
+    return ccps
 
 # Global cache for Bellman solutions
 _BELLMAN_CACHE: Dict[Tuple, np.ndarray] = {}
@@ -146,10 +162,8 @@ def calculate_likelihood_from_v(
         
     choice_specific_values = flow_utility_matrix + beta * expected_future_value_matrix
 
-    max_v = np.max(choice_specific_values, axis=1, keepdims=True)
-    exp_v = np.exp(choice_specific_values - max_v)
-    sum_exp_v = np.sum(exp_v, axis=1, keepdims=True)
-    ccps = exp_v / np.maximum(sum_exp_v, 1e-300)
+    # 使用JIT优化的CCP计算
+    ccps = _compute_ccp_jit(choice_specific_values)
     ccps = np.maximum(ccps, 1e-15)
 
     state_indices = observed_data['state_index'].values
