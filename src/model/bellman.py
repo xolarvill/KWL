@@ -115,7 +115,7 @@ def solve_bellman_equation_individual(
     agent_type: int,
     beta: float,
     transition_matrices: Dict[str, np.ndarray],
-    regions_df: pd.DataFrame,
+    regions_df: Dict[str, np.ndarray],
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
     tolerance: float = 1e-4,
@@ -143,15 +143,8 @@ def solve_bellman_equation_individual(
     n_individual_states = n_ages * n_visited_locations
     v_old = np.zeros(n_individual_states)
 
-    # Pre-convert region data for performance
-    regions_df_indexed = regions_df.set_index('provcd')
-    unique_provcds = sorted(regions_df['provcd'].unique())
-    numeric_cols = regions_df.select_dtypes(include=np.number).columns.tolist()
-    regions_df_np = {
-        col: regions_df_indexed.loc[unique_provcds][col].to_numpy()
-        for col in numeric_cols if col != 'provcd'
-    }
-    regions_df_np['provcd'] = unique_provcds
+    # OPTIMIZATION: The conversion from regions_df to regions_df_np is now done *outside* this function.
+    regions_df_np = regions_df
     
     # --- 2. Value Function Iteration (backward induction) ---
     v_new = np.zeros_like(v_old)

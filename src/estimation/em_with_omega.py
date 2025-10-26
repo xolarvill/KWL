@@ -79,7 +79,7 @@ def e_step_with_omega(
     state_space: pd.DataFrame,
     transition_matrices: Dict[str, np.ndarray],
     beta: float,
-    regions_df: pd.DataFrame,
+    regions_df: Dict[str, np.ndarray],
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
     support_generator: DiscreteSupportGenerator,
@@ -312,7 +312,7 @@ def m_step_with_omega(
     state_space: pd.DataFrame,
     transition_matrices: Dict[str, np.ndarray],
     beta: float,
-    regions_df: pd.DataFrame,
+    regions_df: Dict[str, np.ndarray],
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
     support_generator: DiscreteSupportGenerator,
@@ -628,6 +628,19 @@ def m_step_with_omega(
     return updated_params, updated_pi_k
 
 
+def _prepare_numpy_region_data(regions_df: pd.DataFrame, prov_to_idx: Dict[int, int]) -> Dict[str, np.ndarray]:
+    """
+    Converts the regions DataFrame to a dictionary of NumPy arrays, ordered by prov_to_idx.
+    """
+    # Ensure the DataFrame is sorted according to the indexer to guarantee correct alignment
+    idx_to_prov = {v: k for k, v in prov_to_idx.items()}
+    sorted_provs = [idx_to_prov[i] for i in range(len(prov_to_idx))]
+    
+    regions_df_sorted = regions_df.set_index('provcd').loc[sorted_provs].reset_index()
+
+    regions_df_np = {col: regions_df_sorted[col].to_numpy() for col in regions_df_sorted.columns}
+    return regions_df_np
+
 def run_em_algorithm_with_omega(
     observed_data: pd.DataFrame,
     state_space: pd.DataFrame,
@@ -707,6 +720,11 @@ def run_em_algorithm_with_omega(
     logger.info("EM-NFXP Algorithm with Discrete Support Points (ω)")
     logger.info("="*80)
 
+    # --- OPTIMIZATION: Pre-convert region data to NumPy ---
+    logger.info("Pre-converting regional data to NumPy for performance...")
+    regions_df_np = _prepare_numpy_region_data(regions_df, prov_to_idx)
+    logger.info("Conversion complete.")
+
     # 初始化
     if initial_params is None:
         from src.config.model_config import ModelConfig
@@ -738,7 +756,7 @@ def run_em_algorithm_with_omega(
             state_space=state_space,
             transition_matrices=transition_matrices,
             beta=beta,
-            regions_df=regions_df,
+            regions_df=regions_df_np,  # Pass NumPy version
             distance_matrix=distance_matrix,
             adjacency_matrix=adjacency_matrix,
             support_generator=support_generator,
@@ -782,7 +800,7 @@ def run_em_algorithm_with_omega(
             state_space=state_space,
             transition_matrices=transition_matrices,
             beta=beta,
-            regions_df=regions_df,
+            regions_df=regions_df_np,  # Pass NumPy version
             distance_matrix=distance_matrix,
             adjacency_matrix=adjacency_matrix,
             support_generator=support_generator,

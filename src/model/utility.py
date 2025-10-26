@@ -198,6 +198,138 @@ def calculate_flow_utility_vectorized(
 
     return np.clip(total_utility, -500, 500)
 
+@jit(nopython=True)
+def _calculate_flow_utility_individual_jit(
+    age: np.ndarray,
+    prev_loc_indices: np.ndarray,
+    hukou_loc_indices: np.ndarray,
+    hometown_loc_indices: np.ndarray,
+    dest_loc_indices: np.ndarray,
+    distance_matrix: np.ndarray,
+    adjacency_matrix: np.ndarray,
+    mu_jt: np.ndarray,
+    amenity_climate: np.ndarray,
+    amenity_health: np.ndarray,
+    amenity_education: np.ndarray,
+    amenity_public_services: np.ndarray,
+    amenity_hazard: np.ndarray,
+    hukou_difficulty: np.ndarray,
+    房价收入比: np.ndarray,
+    常住人口万: np.ndarray,
+    params_alpha_w: float,
+    params_alpha_climate: float,
+    params_alpha_health: float,
+    params_alpha_education: float,
+    params_alpha_public_services: float,
+    params_alpha_hazard: float,
+    params_alpha_home: float,
+    params_rho_base_tier_1: float,
+    params_rho_base_tier_2: float,
+    params_rho_base_tier_3: float,
+    params_rho_edu: float,
+    params_rho_health: float,
+    params_rho_house: float,
+    gamma_0: float,
+    gamma_1: float,
+    gamma_2: float,
+    gamma_3: float,
+    gamma_4: float,
+    gamma_5: float,
+    n_states: int,
+    n_choices: int
+) -> np.ndarray:
+    """
+    JIT-compiled core logic for individual flow utility calculation.
+    This function only accepts NumPy arrays and scalars for maximum performance.
+    """
+    # --- 1. Income Utility ---
+    wage_approx = np.exp(mu_jt + 10.0)
+    income_utility = params_alpha_w * np.log(wage_approx)
+
+    # --- 2. Amenities Utility ---
+    amenity_utility = (
+        params_alpha_climate * amenity_climate +
+        params_alpha_health * amenity_health +
+        params_alpha_education * amenity_education +
+        params_alpha_public_services * amenity_public_services +
+        params_alpha_hazard * amenity_hazard
+    )
+
+    # --- 3. Home Premium ---
+    is_hometown = (dest_loc_indices == hometown_loc_indices)
+    home_premium = params_alpha_home * is_hometown
+
+    # --- 4. Hukou Penalty ---
+    is_hukou_mismatch = (dest_loc_indices != hukou_loc_indices)
+    rho_base = np.zeros((n_states, n_choices))
+    for i in range(n_states):
+        for j in range(n_choices):
+            difficulty = hukou_difficulty[0, j]
+            if difficulty == 3:
+                rho_base[i, j] = params_rho_base_tier_1
+            elif difficulty == 2:
+                rho_base[i, j] = params_rho_base_tier_2
+            else:
+                rho_base[i, j] = params_rho_base_tier_3
+    
+    hukou_penalty = is_hukou_mismatch * (
+        rho_base +
+        params_rho_edu * amenity_education +
+        params_rho_health * amenity_health +
+        params_rho_house * 房价收入比
+    )
+
+    # --- 5. Migration Cost ---
+    is_moving = (dest_loc_indices != prev_loc_indices)
+    
+    log_distance = np.zeros((n_states, n_choices))
+    is_adjacent = np.zeros((n_states, n_choices))
+    for i in range(n_states):
+        for j in range(n_choices):
+            p_idx = prev_loc_indices[i, 0]
+            d_idx = dest_loc_indices[0, j]
+            log_distance[i, j] = np.log(max(distance_matrix[p_idx, d_idx], 1.0))
+            is_adjacent[i, j] = adjacency_matrix[p_idx, d_idx]
+
+    is_return_migration = (dest_loc_indices == hometown_loc_indices) & is_moving
+    
+    distance_cost = gamma_1 * log_distance
+    adjacency_discount = gamma_2 * is_adjacent
+    return_migration_cost = gamma_3 * is_return_migration
+    age_cost = gamma_4 * age
+    
+    log_dest_population = np.log(np.maximum(常住人口万, 1.0))
+    population_discount = gamma_5 * log_dest_population
+    
+    migration_cost = is_moving * (
+        gamma_0 +
+        distance_cost -
+        adjacency_discount +
+        return_migration_cost +
+        age_cost -
+        population_discount
+    )
+
+    # --- 6. Total Utility ---
+    total_utility = (
+        income_utility +
+        amenity_utility +
+        home_premium -
+        hukou_penalty -
+        migration_cost
+    )
+    
+    # Clipping is important for stability
+    for i in range(n_states):
+        for j in range(n_choices):
+            if total_utility[i, j] < -500:
+                total_utility[i, j] = -500
+            elif total_utility[i, j] > 500:
+                total_utility[i, j] = 500
+
+    return total_utility
+
+
 def calculate_flow_utility_individual_vectorized(
     state_data: Dict[str, np.ndarray],
     region_data: Dict[str, np.ndarray],
@@ -205,142 +337,68 @@ def calculate_flow_utility_individual_vectorized(
     adjacency_matrix: np.ndarray,
     params: Dict[str, Any],
     agent_type: int,
-    n_states: int,  # Now this is n_individual_states
+    n_states: int,
     n_choices: int,
-    visited_locations: list, # 新增：个体访问过的地点列表
-    prov_to_idx: Dict[int, int] = None,  # 新增：省份编码到索引的映射
-    wage_predicted: Optional[np.ndarray] = None,
-    wage_reference: Optional[np.ndarray] = None,
-    eta_i: Optional[np.ndarray] = None,
-    nu_ij: Optional[np.ndarray] = None,
-    xi_ij: Optional[np.ndarray] = None
+    visited_locations: list,
+    prov_to_idx: Dict[int, int],
+    **kwargs # Absorb other optional args
 ) -> np.ndarray:
     """
-    Calculates flow utility for a SINGLE INDIVIDUAL with a compact state space.
-    
-    Args:
-        state_data: State data for this individual
-        region_data: Regional data
-        distance_matrix: Distance matrix
-        adjacency_matrix: Adjacency matrix
-        params: Model parameters
-        agent_type: Agent type
-        n_states: Number of states
-        n_choices: Number of choices
-        visited_locations: List of visited locations for this individual
-        prov_to_idx: Province code to index mapping (optional)
-        wage_predicted: Predicted wages (optional)
-        wage_reference: Reference wages (optional)
-        eta_i: Individual fixed effect (optional)
-        nu_ij: Individual-region income match (optional)
-        xi_ij: Individual-region preference match (optional)
+    Wrapper for the JIT-compiled individual flow utility calculation.
+    Prepares pure NumPy arrays and calls the optimized core function.
     """
-    # Convert all region_data values to numpy arrays if they are pandas Series
-    region_data_np = {}
-    for key, value in region_data.items():
-        if hasattr(value, 'to_numpy'):
-            region_data_np[key] = value.to_numpy()
-        else:
-            region_data_np[key] = value
-    region_data = region_data_np
-
-    # --- 1. Map compact state indices back to global indices ---
-    # 'prev_provcd_idx' in state_data is now a compact index (e.g., 0, 1, 2...)
-    compact_prev_loc_indices = state_data['prev_provcd_idx'].astype(int)
-
-    # Use the visited_locations list to map back to global province IDs
-    global_prev_loc_indices = np.array([visited_locations[i] for i in compact_prev_loc_indices], dtype=int)
-
-    # --- 2. Prepare data arrays by broadcasting ---
+    # --- 1. Prepare State Data ---
     age = state_data['age'][:, np.newaxis]
-    # Use the mapped global indices for calculations
-    prev_loc_indices_b = global_prev_loc_indices[:, np.newaxis] 
-    hukou_loc_indices = state_data['hukou_prov_idx'][:, np.newaxis]
-    hometown_loc_indices = state_data['hometown_prov_idx'][:, np.newaxis]
+    
+    # Map compact prev_loc_idx back to global provcd
+    compact_prev_loc_indices = state_data['prev_provcd_idx'].astype(int)
+    global_prev_loc_provcds = np.array([visited_locations[i] for i in compact_prev_loc_indices])
+    
+    # Vectorized mapping from global provcd to matrix index
+    # Create a mapping array: index is provcd, value is matrix_idx
+    max_provcd = max(prov_to_idx.keys())
+    provcd_to_matrix_idx_map = np.zeros(max_provcd + 1, dtype=np.int32)
+    for provcd, idx in prov_to_idx.items():
+        provcd_to_matrix_idx_map[provcd] = idx
+        
+    prev_loc_indices = provcd_to_matrix_idx_map[global_prev_loc_provcds][:, np.newaxis]
+    hukou_loc_indices = provcd_to_matrix_idx_map[state_data['hukou_prov_idx']][:, np.newaxis]
+    hometown_loc_indices = provcd_to_matrix_idx_map[state_data['hometown_prov_idx']][:, np.newaxis]
     dest_loc_indices = np.arange(n_choices)[np.newaxis, :]
 
-    # --- The rest of the logic is largely the same as the global version ---
-    
-    # Fallback income utility (as in the original function)
-    if '地区基本经济面' in region_data:
-        mu_jt = region_data['地区基本经济面'][:n_choices][np.newaxis, :]
-        wage_approx = np.exp(mu_jt + 10.0)
-    else:
-        wage_approx = np.full((n_states, n_choices), 30000.0)
-    income_utility = params.get("alpha_w", 1.0) * np.log(np.maximum(wage_approx, 1e-6))
+    # --- 2. Prepare Region Data (already NumPy arrays) ---
+    mu_jt = region_data['地区基本经济面'][np.newaxis, :n_choices]
+    amenity_climate = region_data["amenity_climate"][np.newaxis, :n_choices]
+    amenity_health = region_data["amenity_health"][np.newaxis, :n_choices]
+    amenity_education = region_data["amenity_education"][np.newaxis, :n_choices]
+    amenity_public_services = region_data["amenity_public_services"][np.newaxis, :n_choices]
+    amenity_hazard = region_data["amenity_hazard"][np.newaxis, :n_choices]
+    hukou_difficulty = region_data['户籍获取难度'][np.newaxis, :n_choices]
+    房价收入比 = region_data["房价收入比"][np.newaxis, :n_choices]
+    常住人口万 = region_data["常住人口万"][np.newaxis, :n_choices]
 
-    # Amenities Utility
-    amenity_utility = (
-        params["alpha_climate"] * region_data["amenity_climate"][:n_choices][np.newaxis, :]
-        # ... (add other amenities as in the original function)
+    # --- 3. Prepare Parameters ---
+    gamma_0 = params.get(f"gamma_0_type_{agent_type}", 0.0)
+
+    # --- 4. Call JIT Function ---
+    total_utility = _calculate_flow_utility_individual_jit(
+        age, prev_loc_indices, hukou_loc_indices, hometown_loc_indices, dest_loc_indices,
+        distance_matrix, adjacency_matrix,
+        mu_jt, amenity_climate, amenity_health, amenity_education, amenity_public_services, amenity_hazard,
+        hukou_difficulty, 房价收入比, 常住人口万,
+        params["alpha_w"], params["alpha_climate"], params["alpha_health"], params["alpha_education"],
+        params["alpha_public_services"], params["alpha_hazard"], params["alpha_home"],
+        params["rho_base_tier_1"], params["rho_base_tier_2"], params["rho_base_tier_3"],
+        params["rho_edu"], params["rho_health"], params["rho_house"],
+        gamma_0, params["gamma_1"], params["gamma_2"], params["gamma_3"], params["gamma_4"], params["gamma_5"],
+        n_states, n_choices
     )
     
-    # Home Premium
-    is_hometown = (dest_loc_indices == hometown_loc_indices)
-    home_premium = params.get("alpha_home", 0.0) * is_hometown
+    # Add preference shock if provided (not in JIT for flexibility)
+    if 'xi_ij' in kwargs and kwargs['xi_ij'] is not None:
+        total_utility += kwargs['xi_ij']
 
-    # Hukou Penalty
-    is_hukou_mismatch = (dest_loc_indices != hukou_loc_indices)
-    rho_base = params.get("rho_base_tier_1", 1.0) # Simplified for brevity
-    hukou_penalty = is_hukou_mismatch * rho_base
-
-    # Migration Cost
-    is_moving = (dest_loc_indices != prev_loc_indices_b)
-    
-    # Convert global location indices to matrix indices if prov_to_idx is provided
-    if prov_to_idx is not None:
-        # Convert prev_loc_indices_b from global codes to matrix indices
-        prev_loc_matrix_indices = np.zeros_like(prev_loc_indices_b)
-        for i in range(prev_loc_indices_b.shape[0]):
-            for j in range(prev_loc_indices_b.shape[1]):
-                global_code = prev_loc_indices_b[i, j]
-                matrix_index = prov_to_idx.get(global_code, global_code)  # Fallback to global_code if not found
-                prev_loc_matrix_indices[i, j] = matrix_index
-                
-        # Convert dest_loc_indices from global codes to matrix indices
-        dest_loc_matrix_indices = np.zeros_like(dest_loc_indices)
-        for j in range(dest_loc_indices.shape[1]):
-            global_code = dest_loc_indices[0, j]
-            matrix_index = prov_to_idx.get(global_code, global_code)  # Fallback to global_code if not found
-            dest_loc_matrix_indices[:, j] = matrix_index
-            
-        distance = distance_matrix[prev_loc_matrix_indices, dest_loc_matrix_indices]
-        is_adjacent = adjacency_matrix[prev_loc_matrix_indices, dest_loc_matrix_indices]
-    else:
-        # Fallback for old behavior or tests that don't provide the map
-        distance = distance_matrix[prev_loc_indices_b, dest_loc_indices]
-        is_adjacent = adjacency_matrix[prev_loc_indices_b, dest_loc_indices]
-    
-    log_distance = np.log(np.maximum(distance, 1.0))
-    is_return_migration = (dest_loc_indices == hometown_loc_indices) & is_moving
-
-    fixed_cost = params.get(f"gamma_0_type_{agent_type}", 0.0)
-    distance_cost = params.get("gamma_1", 0.0) * log_distance
-    adjacency_discount = params["gamma_2"] * is_adjacent
-    return_migration_cost = params["gamma_3"] * is_return_migration
-    age_cost = params["gamma_4"] * age
-    
-    log_dest_population = np.log(np.maximum(region_data["常住人口万"][:n_choices][np.newaxis, :], 1.0))
-    population_discount = params["gamma_5"] * log_dest_population
-    
-    migration_cost = is_moving * (
-        fixed_cost + distance_cost - adjacency_discount + 
-        return_migration_cost + age_cost - population_discount
-    )
-
-    # Total Utility
-    total_utility = (
-        income_utility
-        + amenity_utility
-        + home_premium
-        - hukou_penalty
-        - migration_cost
-    )
-
-    if xi_ij is not None:
-        total_utility += xi_ij
-
-    return np.clip(total_utility, -500, 500)
+    return total_utility
 
 # Keep the original function for compatibility if needed elsewhere, though it's now unused by Bellman
 def calculate_flow_utility(*args, **kwargs):
