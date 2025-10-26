@@ -37,8 +37,9 @@ def main():
     # 1. 加载配置
     config = ModelConfig()
     config.use_discrete_support = True  # 确保使用离散支撑点
-    config.em_max_iterations = 5  # 测试时减少迭代次数
-    config.lbfgsb_maxiter = 5     # 减少M-step优化迭代
+    config.em_max_iterations = 2  # 进一步减少迭代次数以加快测试
+    config.lbfgsb_maxiter = 3     # 减少M-step优化迭代
+    config.max_omega_per_individual = 100  # 减少每个个体的ω组合数
 
     # 2. 加载数据
     logger.info("\n[1] Loading data...")
