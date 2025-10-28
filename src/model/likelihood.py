@@ -28,7 +28,25 @@ def _compute_ccp_jit(choice_specific_values):
     return ccps
 
 # Global cache for Bellman solutions
-_BELLMAN_CACHE: Dict[Tuple, np.ndarray] = {}
+from collections import OrderedDict
+
+class LRUCache:
+    def __init__(self, capacity=100):
+        self.cache = OrderedDict()
+        self.capacity = capacity
+
+    def get(self, key):
+        if key not in self.cache:
+            return None
+        self.cache.move_to_end(key)
+        return self.cache[key]
+
+    def put(self, key, value):
+        if len(self.cache) >= self.capacity:
+            self.cache.popitem(last=False)
+        self.cache[key] = value
+
+_BELLMAN_CACHE = LRUCache(capacity=50)  # 保留最近50组参数
 
 def _make_cache_key(params: Dict[str, Any], agent_type: int) -> Tuple:
     """
@@ -171,7 +189,7 @@ def calculate_likelihood_from_v(
 
     if np.any(state_indices >= ccps.shape[0]) or np.any(choice_indices >= ccps.shape[1]):
         logger.error("Error: Invalid state or choice index detected.")
-        return np.full(len(observed_data), -1e10)
+        return np.full(len(observed_data), -100.0)
 
     # 1. 计算选择概率的对数似然
     choice_probs = ccps[state_indices, choice_indices]

@@ -323,28 +323,6 @@ def m_step_with_omega(
 ) -> Tuple[Dict[str, Any], np.ndarray]:
     """
     扩展的M-step：对ω进行加权求和来更新参数
-
-    根据论文公式(1132-1138行):
-        Θ^(k+1) = argmax_Θ Σ_i Σ_τ Σ_ω p(τ,ω|D_i,Θ^(k)) · ln L(D_i|τ,ω,Θ)
-
-    参数:
-    ----
-    individual_posteriors : Dict[individual_id, np.ndarray]
-        E-step计算出的后验概率，每个个体是一个(n_omega, K)矩阵
-    initial_params : Dict[str, Any]
-        当前参数值
-    ... (其他参数同e_step_with_omega)
-    prov_to_idx : Dict[int, int]
-        省份ID到矩阵索引的映射
-    lbfgsb_maxiter : int
-        L-BFGS-B最大迭代次数
-
-    返回:
-    ----
-    updated_params : Dict[str, Any]
-        更新后的参数
-    updated_pi_k : np.ndarray
-        更新后的类型概率
     """
     logger = logging.getLogger()
     logger.info(f"\n  [M-step with ω] Starting parameter optimization...")
@@ -352,30 +330,27 @@ def m_step_with_omega(
     from scipy.optimize import minimize
     from src.config.model_config import ModelConfig
 
-    # 创建配置对象以获取参数边界
     config = ModelConfig()
-
     unique_individuals = list(individual_posteriors.keys())
     N = len(unique_individuals)
     K = n_types
 
-    # 创建个体ID到索引的映射
     individual_to_idx = {ind_id: idx for idx, ind_id in enumerate(unique_individuals)}
 
-    # 为每个个体预先枚举ω（与E-step保持一致）
+    # 预枚举所有个体的ω
     enumerator = SimplifiedOmegaEnumerator(support_generator)
     individual_omega_lists = {}
 
     logger.info("  Pre-enumerating omega for all individuals...")
     for individual_id in unique_individuals:
         individual_data = observed_data[observed_data['individual_id'] == individual_id]
-        omega_list, omega_probs = enumerator.enumerate_omega_for_individual(
+        omega_list, _ = enumerator.enumerate_omega_for_individual(
             individual_data,
             max_combinations=max_omega_per_individual
         )
         individual_omega_lists[individual_id] = omega_list
 
-    # --- Objective Function with detailed logging ---
+    # --- 目标函数类 ---
     class Objective:
         def __init__(self):
             self.call_count = 0
@@ -384,255 +359,197 @@ def m_step_with_omega(
         def function(self, param_values: np.ndarray, param_names: List[str]) -> float:
             self.call_count += 1
             start_time = time.time()
-
             log_msg_header = f"    [M-step Objective Call #{self.call_count}]"
             logger.info(f"{log_msg_header} Starting...")
 
+            # 解包参数
             params = _unpack_params(param_values, param_names, initial_params['n_choices'])
-            
-            # **调试增强**: 输出当前参数值
-            logger.debug(f"{log_msg_header} Current params: {params}")
-            
-            # **调试增强**: 检查参数值是否有效
-            invalid_params = {k: v for k, v in params.items() if np.isnan(v) or np.isinf(v)}
-            if invalid_params:
-                logger.warning(f"{log_msg_header} Invalid params detected: {invalid_params}")
-                return 1e10
-            
-            total_weighted_log_lik = 0.0
 
-            # **调试增强**: 统计计数器
+            # 提前定义统计变量
+            total_weighted_log_lik = 0.0
             n_valid_computations = 0
             n_failed_computations = 0
             individual_log_liks = []
-            
-            # **调试增强**: 记录权重和似然值
             all_weights = []
             all_log_liks = []
 
-            try:
-                # This is the triply nested loop causing the long runtime
-                # 优化：添加权重阈值过滤和缓存机制
-                weight_threshold = 1e-6  # 提高阈值以减少计算
-                
-                for i_idx, individual_id in enumerate(unique_individuals):
-                    individual_data = observed_data[observed_data['individual_id'] == individual_id]
-                    posterior_matrix = individual_posteriors[individual_id]
-                    omega_list = individual_omega_lists[individual_id]
+            weight_threshold = 1e-10
 
-                    individual_contribution = 0.0
+            # 主循环：遍历每个个体
+            for i_idx, individual_id in enumerate(unique_individuals):
+                individual_data = observed_data[observed_data['individual_id'] == individual_id]
+                posterior_matrix = individual_posteriors[individual_id]  # (n_omega, K)
+                omega_list = individual_omega_lists[individual_id]
 
-                    # **调试增强**: 输出当前个体的信息
-                    if self.call_count == 1 and i_idx == 0:
-                        logger.debug(f"{log_msg_header} Processing individual {individual_id}, posterior_matrix shape: {posterior_matrix.shape}")
+                individual_contribution = 0.0
 
-                    # 预先过滤权重过小的组合
-                    significant_indices = np.where(posterior_matrix > weight_threshold)
-                    omega_indices, type_indices = significant_indices[0], significant_indices[1]
-                    
-                    for idx in range(len(omega_indices)):
-                        omega_idx = omega_indices[idx]
-                        k = type_indices[idx]
-                        weight = posterior_matrix[omega_idx, k]
-                        
-                        if weight < weight_threshold: 
+                # 提取显著权重组合
+                omega_indices, type_indices = np.where(posterior_matrix > weight_threshold)
+
+                if len(omega_indices) == 0:
+                    n_failed_computations += 1
+                    continue  # 跳过该个体
+
+                # 遍历每个显著 (ω, τ) 组合
+                for idx in range(len(omega_indices)):
+                    omega_idx = omega_indices[idx]
+                    k = type_indices[idx]
+                    weight = posterior_matrix[omega_idx, k]
+
+                    # 构建 type-specific 参数
+                    type_params = params.copy()
+                    if f'gamma_0_type_{k}' in params:
+                        type_params['gamma_0'] = params[f'gamma_0_type_{k}']
+                    sigma_epsilon = omega_list[omega_idx]['sigma']
+                    type_params['sigma_epsilon'] = sigma_epsilon
+
+                    # 参数有效性检查
+                    if not (np.isfinite(sigma_epsilon) and sigma_epsilon > 0):
+                        n_failed_computations += 1
+                        continue
+
+                    try:
+                        # 求解 Bellman 方程
+                        converged_v_individual, converged = solve_bellman_equation_individual(
+                            utility_function=None,
+                            individual_data=individual_data,
+                            params=type_params,
+                            agent_type=int(k),
+                            beta=beta,
+                            transition_matrices=transition_matrices,
+                            regions_df=regions_df,
+                            distance_matrix=distance_matrix,
+                            adjacency_matrix=adjacency_matrix,
+                            verbose=False,
+                            prov_to_idx=prov_to_idx
+                        )
+
+                        if not converged:
+                            n_failed_computations += 1
                             continue
 
-                        # **调试增强**: 输出权重信息
-                        if self.call_count <= 2 and i_idx == 0 and omega_idx == 0:
-                            logger.debug(f"{log_msg_header} ind={individual_id}, omega_idx={omega_idx}, type={k}, weight={weight:.6f}")
+                        if np.any(~np.isfinite(converged_v_individual)):
+                            n_failed_computations += 1
+                            continue
 
-                        type_params = params.copy()
-                        if f'gamma_0_type_{k}' in params:
-                            type_params['gamma_0'] = params[f'gamma_0_type_{k}']
-                        type_params['sigma_epsilon'] = omega_list[omega_idx]['sigma']
+                        # 计算个体似然
+                        log_lik_obs = calculate_likelihood_from_v_individual(
+                            converged_v_individual=converged_v_individual,
+                            params=type_params,
+                            individual_data=individual_data,
+                            agent_type=int(k),
+                            beta=beta,
+                            transition_matrices=transition_matrices,
+                            regions_df=regions_df,
+                            distance_matrix=distance_matrix,
+                            adjacency_matrix=adjacency_matrix,
+                            prov_to_idx=prov_to_idx
+                        )
 
-                        # **调试增强**: 输出前几个参数值
-                        if self.call_count == 1 and i_idx == 0 and omega_idx == 0 and k == 0:
-                            debug_params = {kk: vv for kk, vv in type_params.items() if kk in ['alpha_w', 'gamma_0', 'sigma_epsilon']}
-                            logger.debug(f"{log_msg_header} Type {k} params sample: {debug_params}")
+                        individual_log_lik = np.sum(log_lik_obs)
+                        if not np.isfinite(individual_log_lik):
+                            n_failed_computations += 1
+                            continue
 
-                            try:
-                                # --- OPTIMIZATION: Use individual solver ---
-                                converged_v_individual, converged = solve_bellman_equation_individual(
-                                    utility_function=None, # Not needed, called internally
-                                    individual_data=individual_data,
-                                    params=type_params,
-                                    agent_type=int(k),
-                                    beta=beta,
-                                    transition_matrices=transition_matrices,
-                                    regions_df=regions_df,
-                                    distance_matrix=distance_matrix,
-                                    adjacency_matrix=adjacency_matrix,
-                                    verbose=False,
-                                    prov_to_idx=prov_to_idx
-                                )
+                        # 加权贡献
+                        weighted_contribution = weight * individual_log_lik
+                        individual_contribution += weighted_contribution
+                        n_valid_computations += 1
 
-                                if not converged:
-                                    logger.warning(f"{log_msg_header} Bellman did not converge for ind={individual_id}, omega_idx={omega_idx}, type={k}")
-                                    n_failed_computations += 1
-                                    continue
-                                
-                                # 增加调试：检查收敛后的V值
-                                if np.any(np.isnan(converged_v_individual)) or np.any(np.isinf(converged_v_individual)):
-                                    logger.warning(f"{log_msg_header} Bellman converged but V contains NaN/inf for ind={individual_id}, omega_idx={omega_idx}, type={k}")
-                                    n_failed_computations += 1
-                                    continue
+                        # 首次调用时收集调试信息
+                        if self.call_count == 1:
+                            all_weights.append(weight)
+                            all_log_liks.append(individual_log_lik)
 
-                                # --- OPTIMIZATION: Use individual likelihood calculator ---
-                                log_lik_obs = calculate_likelihood_from_v_individual(
-                                    converged_v_individual=converged_v_individual,
-                                    params=type_params,
-                                    individual_data=individual_data,
-                                    agent_type=int(k),
-                                    beta=beta,
-                                    transition_matrices=transition_matrices,
-                                    regions_df=regions_df,
-                                    distance_matrix=distance_matrix,
-                                    adjacency_matrix=adjacency_matrix,
-                                    prov_to_idx=prov_to_idx
-                                )
+                    except Exception as e:
+                        logger.debug(f"{log_msg_header} Error for ind={individual_id}, ω_idx={omega_idx}, τ={k}: {e}")
+                        n_failed_computations += 1
+                        continue  # 跳过该组合
 
-                                individual_log_lik = np.sum(log_lik_obs)
+                # 累加该个体总贡献
+                total_weighted_log_lik += individual_contribution
+                individual_log_liks.append(individual_contribution)
 
-                                # **调试增强**: 检查似然值是否有效
-                                if np.isnan(individual_log_lik) or np.isinf(individual_log_lik) or individual_log_lik < -1e9:
-                                    logger.warning(f"{log_msg_header} Invalid log-lik={individual_log_lik:.2f} for ind={individual_id}, omega_idx={omega_idx}, type={k}")
-                                    n_failed_computations += 1
-                                    continue
+            # 计算负对数似然
+            neg_ll = -total_weighted_log_lik
+            duration = time.time() - start_time
+            time_since_last = time.time() - self.last_call_end_time
+            self.last_call_end_time = time.time()
 
-                                # **调试增强**: 输出前几个计算的似然值
-                                if self.call_count <= 2 and i_idx == 0 and omega_idx == 0 and k <= 2:
-                                    logger.debug(f"{log_msg_header} ind={individual_id}, omega_idx={omega_idx}, type={k}, weight={weight:.6f}, log_lik={individual_log_lik:.6f}")
+            # 日志输出
+            logger.info(f"{log_msg_header} Finished. Duration: {duration:.2f}s, "
+                        f"Since last: {time_since_last:.2f}s, NegLL: {neg_ll:.4f}")
+            logger.info(f"{log_msg_header} Valid: {n_valid_computations}, Failed: {n_failed_computations}")
+            if individual_log_liks:
+                logger.info(f"{log_msg_header} Mean ind loglik: {np.mean(individual_log_liks):.4f}")
 
-                                # **调试增强**: 收集权重和似然值用于统计
-                                if self.call_count == 1:
-                                    all_weights.append(weight)
-                                    all_log_liks.append(individual_log_lik)
-
-                                weighted_contribution = weight * individual_log_lik
-                                individual_contribution += weighted_contribution
-                                n_valid_computations += 1
-
-                            except Exception as inner_e:
-                                logger.warning(f"{log_msg_header} Inner exception for ind={individual_id}, omega_idx={omega_idx}, type={k}: {inner_e}")
-                                n_failed_computations += 1
-                                continue
-
-                    total_weighted_log_lik += individual_contribution
-                    individual_log_liks.append(individual_contribution)
-
-                neg_ll = -total_weighted_log_lik
-                duration = time.time() - start_time
-                time_since_last = time.time() - self.last_call_end_time
-                self.last_call_end_time = time.time()
-
-                logger.info(f"{log_msg_header} Finished. Duration: {duration:.2f}s. Total time since last call: {time_since_last:.2f}s. NegLogLik: {neg_ll:.4f}")
-                logger.info(f"{log_msg_header} Valid computations: {n_valid_computations}, Failed: {n_failed_computations}")
-                logger.info(f"{log_msg_header} Mean individual log-lik: {np.mean(individual_log_liks):.4f}" if individual_log_liks else f"{log_msg_header} No valid individual log-liks")
-                param_subset = param_values[:3]
-                logger.info(f"{log_msg_header} Params (first 3): {np.round(param_subset, 4)}")
-                
-                # **调试增强**: 输出权重和似然值的统计信息
-                if self.call_count == 1 and all_weights and all_log_liks:
-                    logger.debug(f"{log_msg_header} Weight stats - Mean: {np.mean(all_weights):.6f}, Std: {np.std(all_weights):.6f}, Min: {np.min(all_weights):.6f}, Max: {np.max(all_weights):.6f}")
-                    logger.debug(f"{log_msg_header} Log-lik stats - Mean: {np.mean(all_log_liks):.6f}, Std: {np.std(all_log_liks):.6f}, Min: {np.min(all_log_liks):.6f}, Max: {np.max(all_log_liks):.6f}")
-
-                # **调试增强**: 如果所有计算都失败，返回大惩罚值
-                if n_valid_computations == 0:
-                    logger.error(f"{log_msg_header} All computations failed! Returning penalty.")
-                    return 1e10
-
-                return neg_ll
-
-            except Exception as e:
-                logger.error(f"{log_msg_header} Error: {e}", exc_info=True)
+            if n_valid_computations == 0:
+                logger.error(f"{log_msg_header} All computations failed!")
                 return 1e10
 
-    # 打包参数并优化
+            # 首次调用输出权重/似然统计
+            if self.call_count == 1 and all_weights:
+                logger.debug(f"{log_msg_header} Weight stats: "
+                             f"mean={np.mean(all_weights):.2e}, std={np.std(all_weights):.2e}, "
+                             f"min={np.min(all_weights):.2e}, max={np.max(all_weights):.2e}")
+                logger.debug(f"{log_msg_header} Loglik stats: "
+                             f"mean={np.mean(all_log_liks):.2f}, std={np.std(all_log_liks):.2f}, "
+                             f"min={np.min(all_log_liks):.2f}, max={np.max(all_log_liks):.2f}")
+
+            return neg_ll
+
+    # --- 优化执行 ---
     objective = Objective()
     initial_param_values, param_names = _pack_params(initial_params)
-    
-    # **调试增强**: 输出打包后的参数信息
-    logger.debug(f"  Packed params - names: {param_names[:5]}..., values: {initial_param_values[:5]}...")
-    
-    # **关键修复**: 从ModelConfig获取参数边界约束
     param_bounds = config.get_parameter_bounds(param_names)
-    logger.info(f"  Optimizing {len(param_names)} parameters with L-BFGS-B...")
-    logger.info(f"  Parameter bounds set for {len(param_bounds)} parameters")
 
-    # Run initial call to log starting value
+    logger.info(f"  Optimizing {len(param_names)} parameters with L-BFGS-B (maxiter={lbfgsb_maxiter})")
     initial_neg_ll = objective.function(initial_param_values, param_names)
-    logger.info(f"  Initial objective value: {initial_neg_ll:.4f}")
-    objective.call_count = 0 # Reset counter for the actual optimization
+    logger.info(f"  Initial objective: {initial_neg_ll:.4f}")
+    objective.call_count = 0  # 重置计数
 
     try:
         result = minimize(
             objective.function,
-            initial_param_values,
+            x0=initial_param_values,
             args=(param_names,),
             method='L-BFGS-B',
-            bounds=param_bounds,  # **关键修复**: 添加边界约束
+            bounds=param_bounds,
             options={
                 'disp': False,
                 'maxiter': lbfgsb_maxiter,
-                'gtol': 1e-4,      # 降低梯度容忍度以增加敏感性
-                'ftol': 1e-4,      # 降低函数值容忍度
-                'eps': 1e-7        # 增加数值微分精度
+                'gtol': 1e-5,
+                'ftol': 1e-6,
+                'eps': 1e-8,
             }
         )
 
         final_neg_ll = result.fun
-        logger.info(f"  L-BFGS-B result: success={result.success}, nit={result.nit}")
-        logger.info(f"  Objective change: {initial_neg_ll:.4f} -> {final_neg_ll:.4f} "
-                   f"(Δ {initial_neg_ll - final_neg_ll:.4f})")
-        
-        # **调试增强**: 输出优化结果的详细信息
-        if hasattr(result, 'nit') and result.nit > 0:
-            logger.debug(f"  Optimization details - nit: {result.nit}, nfev: {getattr(result, 'nfev', 'N/A')}, njev: {getattr(result, 'njev', 'N/A')}")
-        
+        logger.info(f"  Optimization finished: success={result.success}, nit={result.nit}, "
+                    f"ΔNegLL={initial_neg_ll - final_neg_ll:+.4f}")
+
         if result.success or result.nit > 0:
             updated_params = _unpack_params(result.x, param_names, initial_params['n_choices'])
-            
-            # **调试增强**: 输出参数变化
-            param_changes = {}
-            for i, param_name in enumerate(param_names):
-                initial_val = initial_param_values[i]
-                final_val = result.x[i]
-                if abs(final_val - initial_val) > 1e-6:
-                    param_changes[param_name] = (initial_val, final_val, final_val - initial_val)
-            
-            if param_changes:
-                logger.debug(f"  Significant parameter changes:")
-                for param_name, (initial, final, change) in list(param_changes.items())[:5]:
-                    logger.debug(f"    {param_name}: {initial:.6f} -> {final:.6f} (Δ {change:.6f})")
-            else:
-                logger.debug(f"  No significant parameter changes detected")
         else:
-            logger.warning(f"  M-step optimization did not converge, using initial params")
+            logger.warning("  Optimization failed to converge, keeping initial params")
             updated_params = initial_params
 
     except Exception as e:
-        logger.error(f"  Error in M-step optimization: {e}", exc_info=True)
+        logger.error(f"  Optimization error: {e}", exc_info=True)
         updated_params = initial_params
 
-    # 更新类型概率 π_k
-    # π_k^(k+1) = (1/N) Σ_i Σ_ω p(τ, ω | D_i)
+    # --- 更新类型概率 π_k ---
     updated_pi_k = np.zeros(K)
     for individual_id in unique_individuals:
-        posterior_matrix = individual_posteriors[individual_id]  # (n_omega, K)
-        # 边缘化ω
-        marginal_type_prob = np.sum(posterior_matrix, axis=0)  # (K,)
+        posterior_matrix = individual_posteriors[individual_id]
+        marginal_type_prob = np.sum(posterior_matrix, axis=0)  # 边缘化ω
         updated_pi_k += marginal_type_prob
+    updated_pi_k /= N
+    updated_pi_k = np.clip(updated_pi_k, 0.01, None)
+    updated_pi_k /= updated_pi_k.sum()
 
-    updated_pi_k = updated_pi_k / N
-    updated_pi_k = np.maximum(updated_pi_k, 0.01)  # 最小概率
-    updated_pi_k = updated_pi_k / np.sum(updated_pi_k)
-
-    logger.info(f"  M-step completed. Updated type probabilities: {updated_pi_k}")
-
+    logger.info(f"  M-step completed. π_k = {np.round(updated_pi_k, 4)}")
     return updated_params, updated_pi_k
-
 
 def _prepare_numpy_region_data(regions_df: pd.DataFrame, prov_to_idx: Dict[int, int]) -> Dict[str, np.ndarray]:
     """

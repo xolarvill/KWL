@@ -20,7 +20,7 @@ from src.estimation.inference import (
     bootstrap_standard_errors,
     estimate_mixture_model_standard_errors
 )
-from src.estimation.em_nfxp import run_em_algorithm
+
 from src.estimation.em_with_omega import run_em_algorithm_with_omega
 from src.model.discrete_support import DiscreteSupportGenerator
 from src.model.likelihood import calculate_log_likelihood
@@ -102,7 +102,8 @@ def run_estimation_workflow(
         "tolerance": config.em_tolerance,
         "n_choices": config.n_choices,
         "initial_params": initial_params,
-        "initial_pi_k": data_driven_pi_k
+        "initial_pi_k": data_driven_pi_k,
+        "prov_to_idx": data_loader.prov_to_idx  # 添加缺失的prov_to_idx参数
     }
 
     # 4. 根据配置选择EM算法
@@ -131,8 +132,7 @@ def run_estimation_workflow(
 
         results = run_em_algorithm_with_omega(**estimation_params)
     else:
-        print("\n使用原始EM算法（不使用离散支撑点）...")
-        results = run_em_algorithm(**estimation_params)
+        print("\n旧版本已被清除...")
 
     print("\n估计完成。")
     
