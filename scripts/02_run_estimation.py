@@ -9,11 +9,19 @@ import os
 import numpy as np
 import pandas as pd
 from typing import Dict, Any
+import logging
 
 # 添加项目根目录到Python路径
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+# 设置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 from src.estimation.inference import (
     compute_information_criteria,
@@ -39,7 +47,7 @@ def run_estimation_workflow(
     封装了模型估计、推断和输出的完整工作流
     
     Args:
-        sample_size (int, optional): 如果提供，则只使用前N个个体进行调试.
+        sample_size (int, optional): 如果提供，则只使用前N个个体的样本.
         use_bootstrap (bool): 是否使用Bootstrap计算标准误.
         n_bootstrap (int): Bootstrap的重复次数.
         bootstrap_jobs (int): Bootstrap并行任务数.
@@ -48,7 +56,7 @@ def run_estimation_workflow(
     config = ModelConfig()
     
     # --- 2. Data Loading and Preparation ---
-    print("加载和准备数据...")
+    logger.info("加载和准备数据...")
     data_loader = DataLoader(config)
     distance_matrix = data_loader.load_distance_matrix()
     adjacency_matrix = data_loader.load_adjacency_matrix()
@@ -56,15 +64,15 @@ def run_estimation_workflow(
         data_loader.create_estimation_dataset_and_state_space(simplified_state=True)
 
     if sample_size:
-        print(f"\n--- 调试模式：使用 {sample_size} 个个体的样本 ---")
+        logger.info(f"\n--- 调试模式：使用 {sample_size} 个个体的样本 ---")
         unique_ids = df_individual['individual_id'].unique()[:sample_size]
         df_individual = df_individual[df_individual['individual_id'].isin(unique_ids)]
-        print(f"样本数据量: {len(df_individual)} 条观测")
+        logger.info(f"样本数据量: {len(df_individual)} 条观测")
 
-    print("\n数据准备完成。")
+    logger.info("\n数据准备完成。")
 
     # --- 3. Model Estimation ---
-    print("\n开始模型估计...")
+    logger.info("\n开始模型估计...")
     # 从ModelConfig获取初始参数
     initial_params = config.get_initial_params(use_type_specific=True)
 
@@ -74,7 +82,7 @@ def run_estimation_workflow(
     stayer_ids = df_individual.groupby('individual_id')['moved'].sum() == 0
     stayer_proportion = stayer_ids.mean()
     mover_proportion = 1 - stayer_proportion
-    print(f"数据分析: 稳定者比例 = {stayer_proportion:.2%}, 迁移者比例 = {mover_proportion:.2%}")
+    logger.info(f"数据分析: 稳定者比例 = {stayer_proportion:.2%}, 迁移者比例 = {mover_proportion:.2%}")
 
     # 2. 创建数据驱动的初始类型概率
     # 假设Type 1是稳定型，Type 0和2是两种迁移型
@@ -86,7 +94,7 @@ def run_estimation_workflow(
     # 确保概率和为1且不为0
     data_driven_pi_k = np.maximum(data_driven_pi_k, 1e-6)
     data_driven_pi_k /= data_driven_pi_k.sum()
-    print(f"使用数据驱动的初始类型概率: {data_driven_pi_k}")
+    logger.info(f"使用数据驱动的初始类型概率: {data_driven_pi_k}")
 
     # 3. 准备共同参数
     estimation_params = {
@@ -108,7 +116,7 @@ def run_estimation_workflow(
 
     # 4. 根据配置选择EM算法
     if config.use_discrete_support:
-        print("\n使用EM-with-ω算法（带离散支撑点）...")
+        logger.info("\n使用EM-with-ω算法（带离散支撑点）...")
         # 创建支撑点生成器
         support_config = config.get_discrete_support_config()
         support_gen = DiscreteSupportGenerator(
@@ -132,9 +140,9 @@ def run_estimation_workflow(
 
         results = run_em_algorithm_with_omega(**estimation_params)
     else:
-        print("\n旧版本已被清除...")
+        logger.info("\n旧版本已被清除...")
 
-    print("\n估计完成。")
+    logger.info("\n估计完成。")
     
     estimated_params = results["structural_params"]
     final_log_likelihood = results["final_log_likelihood"]
@@ -144,7 +152,7 @@ def run_estimation_workflow(
 
     # --- 4. 统计推断 ---
     if use_bootstrap:
-        print(f"\n计算参数标准误（Bootstrap方法，{n_bootstrap}次重复）...")
+        logger.info(f"\n计算参数标准误（Bootstrap方法，{n_bootstrap}次重复）...")
         std_errors, _, t_stats, p_values = bootstrap_standard_errors(
             estimated_params=estimated_params,
             posterior_probs=posterior_probs,
@@ -165,9 +173,9 @@ def run_estimation_workflow(
             n_jobs=bootstrap_jobs,
             verbose=True
         )
-        print("Bootstrap 标准误计算完成。")
+        logger.info("Bootstrap 标准误计算完成。")
     else:
-        print("\n计算参数标准误（数值Hessian方法）...")
+        logger.info("\n计算参数标准误（数值Hessian方法）...")
         try:
             std_errors, t_stats, p_values = estimate_mixture_model_standard_errors(
                 estimated_params=estimated_params,
@@ -181,9 +189,9 @@ def run_estimation_workflow(
                 n_types=config.em_n_types,
                 method="type_0_only"
             )
-            print("数值Hessian 标准误计算完成。")
+            logger.info("数值Hessian 标准误计算完成。")
         except Exception as e:
-            print(f"Hessian方法计算标准误失败: {e}")
+            logger.error(f"Hessian方法计算标准误失败: {e}")
             param_keys = [k for k in estimated_params.keys() if k != 'n_choices']
             std_errors = {k: np.nan for k in param_keys}
             t_stats = {k: np.nan for k in param_keys}
@@ -197,7 +205,7 @@ def run_estimation_workflow(
     model_fit_metrics = {"hit_rate": 0.25, "cross_entropy": 2.1, "brier_score": 0.18}
 
     # --- 6. 结果输出 ---
-    print("输出估计结果...")
+    logger.info("输出估计结果...")
     os.makedirs("results/tables", exist_ok=True)
     output_estimation_results(
         params={k: v for k, v in estimated_params.items() if k != 'n_choices'},
@@ -210,7 +218,7 @@ def run_estimation_workflow(
         title="结构参数估计结果"
     )
     output_model_fit_results(model_fit_metrics, "results/tables/model_fit_metrics.tex")
-    print("所有结果已保存到 results/tables/ 目录下。")
+    logger.info("所有结果已保存到 results/tables/ 目录下。")
 
 def main():
     parser = argparse.ArgumentParser(description="运行结构模型估计")
@@ -222,7 +230,7 @@ def main():
     args = parser.parse_args()
 
     if args.profile:
-        print("性能分析已启用。结果将保存到 'estimation_profile.prof'")
+        logger.info("性能分析已启用。结果将保存到 'estimation_profile.prof'")
         profiler = cProfile.Profile()
         profiler.enable()
         run_estimation_workflow(
@@ -234,7 +242,7 @@ def main():
         profiler.disable()
         stats = pstats.Stats(profiler).sort_stats('cumulative')
         stats.dump_stats('estimation_profile.prof')
-        print("\n性能分析报告已生成。使用 snakeviz estimation_profile.prof 查看可视化结果。")
+        logger.info("\n性能分析报告已生成。使用 snakeviz estimation_profile.prof 查看可视化结果。")
     else:
         run_estimation_workflow(
             sample_size=args.debug_sample_size,
