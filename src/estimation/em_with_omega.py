@@ -472,6 +472,12 @@ def m_step_with_omega(
                                     logger.warning(f"{log_msg_header} Bellman did not converge for ind={individual_id}, omega_idx={omega_idx}, type={k}")
                                     n_failed_computations += 1
                                     continue
+                                
+                                # 增加调试：检查收敛后的V值
+                                if np.any(np.isnan(converged_v_individual)) or np.any(np.isinf(converged_v_individual)):
+                                    logger.warning(f"{log_msg_header} Bellman converged but V contains NaN/inf for ind={individual_id}, omega_idx={omega_idx}, type={k}")
+                                    n_failed_computations += 1
+                                    continue
 
                                 # --- OPTIMIZATION: Use individual likelihood calculator ---
                                 log_lik_obs = calculate_likelihood_from_v_individual(
