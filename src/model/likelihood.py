@@ -46,7 +46,7 @@ class LRUCache:
             self.cache.popitem(last=False)
         self.cache[key] = value
 
-_BELLMAN_CACHE = LRUCache(capacity=50)  # 保留最近50组参数
+_BELLMAN_CACHE = LRUCache(capacity=100)  # 保留最近100组参数
 
 def _make_cache_key(params: Dict[str, Any], agent_type: int) -> Tuple:
     """
@@ -57,8 +57,9 @@ def _make_cache_key(params: Dict[str, Any], agent_type: int) -> Tuple:
     """
     # Only include structural parameters, exclude n_choices
     # Round to 6 decimal places to avoid excessive cache misses from tiny perturbations
-    param_items = [(k, round(v, 6)) for k, v in sorted(params.items()) if k != 'n_choices']
-    return (agent_type, tuple(param_items))
+    # Use sorted items for consistent ordering
+    param_items = tuple((k, round(v, 6)) for k, v in sorted(params.items()) if k != 'n_choices')
+    return (agent_type, param_items)
 
 def clear_bellman_cache():
     """
