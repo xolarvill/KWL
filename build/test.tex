@@ -145,7 +145,7 @@ Here is the english version of abstract
 \textbf{1970年代} & \textcite{rosenHedonicPricesImplicit1974}建立了享乐定价模型，通过工资和租金等观察到的价格来评估区位属性（例如便利设施），能够量化区位选择中的非金钱因素，为移民研究奠定了基础。 \\
 \textbf{1980年代} & \textcite{robackWagesRentsAmenities1988}正式建立了一个一般均衡模型，其中工资、租金和便利设施使不同地点的效用均衡，从而解释了移民模式。成为研究移民的基石，将经济激励与区位决策联系起来。\\
 \textbf{1980-1990年代} & \textcite{glaeserWealthCitiesAgglomeration2009}将住房供应弹性、非贸易商品和异质性主体纳入模型。通过解决住房动态和不同的移民偏好增强了现实性。\\
-\textbf{2010年代} & \cite{reddingQuantitativeSpatialEconomics2017}整合市场准入和贸易成本，扩展 Rosen-Roback 模型，使用对数线性方程对工资和人口进行建模。改进了基础设施和贸易对移民影响的政策分析。\\
+\textbf{2010年代} & \textcite{reddingQuantitativeSpatialEconomics2017}整合市场准入和贸易成本，扩展 Rosen-Roback 模型，使用对数线性方程对工资和人口进行建模。改进了基础设施和贸易对移民影响的政策分析。\\
 \textbf{近期} & 拓展：国际移民、信息约束、多部门和异构代理模型 \\
 \bottomrule
 \end{tabularx}
@@ -711,8 +711,6 @@ $\varepsilon$ & 工资的暂态效应\\
 我们将所有通过离散化近似的未观测属性集合记为：
 $$\omega_i = \{\eta_i, \{\nu_{ij}\}_{j \in \mathcal{C}}, \{\xi_{ij}\}_{j \in \mathcal{C}}, \sigma_{\varepsilon,i}\}$$
 
-
-
 \subsection{有限混合}
 
 除了上述个体属性的连续性异质性外，本文还假设劳动力群体中存在 $K$ 个离散的、具有异质行为模式的潜在类别，避免了硬性分组（如通过地区、行业、性别等显式变量进行分组）的局限。
@@ -755,7 +753,7 @@ $$\omega_i = \{\eta_i, \{\nu_{ij}\}_{j \in \mathcal{C}}, \{\xi_{ij}\}_{j \in \ma
 
 \section{结合EM算法的NFXP估计策略}
 
-本文将未观测的异质性视为缺失数据，通过EM算法的迭代框架来处理，在EM算法的每一步最大化（M步）中，将NFXP算法作为核心计算引擎，用于求解给定参数下的动态规划问题。这种方法能够在处理复杂异质性的同时，保证结构模型参数估计的一致性。整个估计过程在一个迭代循环中完成，每一次迭代包含E步和M步。
+本文将未观测的异质性视为缺失数据，通过EM算法（Expectation-Maximization algorithm）进行迭代处理，并在每一步最大化（M步）中引入固定嵌套点（Nested Fixed Points, NFXP）算法作为核心用于求解给定参数下的动态规划问题。这种方法能够在处理复杂异质性的同时，保证结构模型参数估计的一致性。
 
 \subsection{EM框架}
 
@@ -763,14 +761,9 @@ $$\omega_i = \{\eta_i, \{\nu_{ij}\}_{j \in \mathcal{C}}, \{\xi_{ij}\}_{j \in \ma
 $$
 \Theta \equiv \big(\theta, \{\pi_\tau\}_{\tau=1}^K, \text{支撑点位置与概率}\big)
 $$
-其中：
-\begin{itemize}
-    \item $\theta$：理论模型中的结构参数向量。
-    \item $\pi_\tau$：有限混合模型中各类型 $\tau$ 的人口占比，$\sum_{\tau=1}^K \pi_\tau = 1$。
-    \item 支撑点位置与概率：对应未观测异质性组合 $\omega = \{\eta_i, \{\nu_{ij}\}, \{\xi_{ij}\}, \sigma_{\varepsilon,i}\}$ 的离散化近似。
-\end{itemize}
+其中$\theta$为理论模型中的结构参数向量；$\pi_\tau$为有限混合模型中各类型 $\tau$ 的人口占比，$\sum_{\tau=1}^K \pi_\tau = 1$；支撑点位置与概率是对应未观测异质性组合 $\omega = \{\eta_i, \{\nu_{ij}\}, \{\xi_{ij}\}, \sigma_{\varepsilon,i}\}$ 的离散化近似。
 
-在E步，我们给定当前对参数向量$\Theta^{(k)}$的一组猜测值，需要计算每个个体$i$属于特定潜在类别$\tau$，并拥有特定未观测属性组合$\omega_i$的后验概率。根据贝叶斯法则，该后验概率为：
+在E步，我们给定当前对参数向量$\Theta^{(k)}$的一组猜测值\footnote{此处$ \theta^{(t)} $的上标表示在第 $ t $ 次迭代开始时使用的参数，用于E步计算。$ \theta^{(t+1)} $ 是在第 $ t $ 次迭代的M步后得到的参数，用于下一轮E步。}，需要计算每个个体$i$属于特定潜在类别$\tau$，并拥有特定未观测属性组合$\omega_i$的后验概率。根据贝叶斯法则，该后验概率为：
 \begin{equation}
     p_{i}(\tau, \omega_i | \mathcal{D}_i, \Theta^{(k)}) = \frac{\pi_\tau^{(k)} P(\omega_i) \mathcal{L}_i(\mathcal{D}_i | \tau, \omega_i, \Theta^{(k)})}{\sum_{\tau'=1}^K \pi_{\tau'}^{(k)} \sum_{\omega'_i \in \Omega} P(\omega'_i) \mathcal{L}_i(\mathcal{D}_i | \tau', \omega'_i, \Theta^{(k)})}
 \end{equation}
@@ -803,9 +796,6 @@ M步的目标是寻找一组新的参数$\Theta^{(k+1)}$，以最大化期望对
 \end{enumerate}
 
 EM算法从一个初始参数猜测$\Theta^{(0)}$开始，不断交替执行E步和M步，直至参数$\Theta$和对数似然函数值收敛，从而得到最终的参数估计量$\hat{\Theta}$。
-然而，标准的EM算法在每次迭代时都需要为全样本重新计算后验概率，当样本量巨大且潜在类别众多时，这一过程可能非常耗时。
-
-为了显著提升收敛速度，我们引入了摊销E步方法（Amortized E-step）来优化。该方法通过训练一个辅助的机器学习分类器，让它学习从个体的观测历史（如部分迁移轨迹和工资序列）到其潜在类别后验概率的映射关系。在EM算法的E步中，使用这个训练好的分类器进行快速的“热启动”预测，并在此基础上进行微调，可以将计算密集型的概率推断过程摊销到一个高效的预测任务中，实现在尽可能不损失精度的前提下缩短了估计时间。
 
 \subsection{似然函数的构建}
 \label{sec:likelihood_derivation}
@@ -1139,6 +1129,27 @@ CMDS 采用分层、多阶段、与流动人口规模成比例的PPS抽样方法
 
 经过NFXP算法估计得到的参数值如下表格\ref{tab:结构参数估计结果}所示。（附带标准误和显著性星号标记）
 
+由于模型中存在潜在类别与未观测异质性$(\tau, \omega_i)$，这些变量在估计时被视为缺失数据，从而使得观测样本的对数似然函数成为对潜变量分布积分后的边际似然。对于此类模型，直接基于观测数据对数似然函数的海塞矩阵计算渐近方差在理论上复杂、在计算上几乎不可行，这是因为每一次似然评估都需要通过NFXP求解完整的动态规划问题，参见\textcite{arcidiaconoConditionalChoiceProbability2011}。
+
+为了在理论一致性的前提下降低计算负担，本文采用\textcite{louisFindingObservedInformation1982}提出的基于 EM 算法的观察信息矩阵分解方法。该方法指出，EM算法下的观测信息矩阵可以表示为完全数据信息的期望与缺失数据引致的不确定性之差：
+\begin{equation}
+I(\Theta) = - \mathbb{E} \left[ \frac{\partial^2 \ln f(\mathcal{D}, Z | \Theta)}{\partial \Theta \partial \Theta'} \Big| \mathcal{D}, \Theta \right] - \mathrm{Var}\left( \frac{\partial \ln f(\mathcal{D}, Z | \Theta)}{\partial \Theta} \Big| \mathcal{D}, \Theta \right),
+\end{equation}
+
+其中$\mathcal{D}$为观测数据，$Z=(\tau, \omega_i)$为潜在变量。前一项代表在完全信息下的期望信息量，后一项则衡量了因潜变量未观测而产生的信息损失。值得注意的是，这两个量都可以利用E步中已经计算得到的后验概率$p_i(\tau, \omega_i|\mathcal{D}_i, \Theta^{(k)})$进行估计，因此无需在每次方差计算中重复执行动态规划求解。
+
+基于此，结构参数的渐近协方差矩阵可表示为：
+\begin{equation}
+	\mathrm{Var}(\hat{\Theta}) = I(\hat{\Theta})^{-1}
+\end{equation}
+并在常规极大似然估计的正则条件下保证一致性与渐近正态性。计算上，Louis 方法仅依赖于E步输出的中间量即可完成，无需多次调用NFXP内层循环，可以显著减少计算时间。
+
+在应用实践中，Louis方法已被广泛用于含未观测异质性的结构模型估计，如\textcite{arcidiaconoFiniteMixtureDistributions2003,kasaharaNonparametricIdentificationFinite2009}关于latent class动态离散选择模型，以及\textcite{aguirregabiriaDynamicDiscreteChoice2010,arcidiaconoConditionalChoiceProbability2011}涉及有限混合分布的随机参数动态规划模型2010。这些文献的经验表明，Louis方法在保持理论严谨性的同时，能够在高维参数空间下显著提高计算可行性。
+
+为了验证本研究的稳健性，本文还在若干子样本上实施有限次数的bootstrap抽样，并对比两种方法所得参数标准误的数量级与相对比值。结果显示，Louis方法计算得到的标准误与bootstrap结果在统计意义上高度一致，进一步支持了该方法的可靠性与有效性。
+
+
+
 % 表5.2
 % 结构参数估计结果 (Structural Parameter Estimates)
 % 目的: 这是您论文的核心结果。需要清晰、有逻辑地展示。
@@ -1152,6 +1163,7 @@ CMDS 采用分层、多阶段、与流动人口规模成比例的PPS抽样方法
 
 % 列: (1) 参数名, (2) 估计系数, (3) Bootstrap标准误, (4) t-统计量/p-值, (5) 经济学含义/边际效应解释。
 % 极其重要的一列: “经济学含义”。例如，对于$\alpha_{home}$，不要只写系数是1.0。要解释：“家乡溢价的效用值为1.0，相当于每年XX元的等价收入，或抵消XX公里的迁移距离成本。” 对于$\lambda$，解释为：“收入损失带来的负效用是等量收入收益带来的正效用的2倍，证实了显著的损失厌恶。”
+
 
 \begin{table}[!ht]
 \centering
