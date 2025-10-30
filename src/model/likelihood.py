@@ -33,18 +33,29 @@ from collections import OrderedDict
 class LRUCache:
     def __init__(self, capacity=100):
         self.cache = OrderedDict()
+        self.frequency = {}  # 添加频率统计
         self.capacity = capacity
 
     def get(self, key):
         if key not in self.cache:
             return None
         self.cache.move_to_end(key)
+        self.frequency[key] = self.frequency.get(key, 0) + 1  # 增加访问计数
         return self.cache[key]
 
     def put(self, key, value):
         if len(self.cache) >= self.capacity:
-            self.cache.popitem(last=False)
+            # 优先淘汰访问频率低的项
+            self._remove_lfu()
         self.cache[key] = value
+        self.frequency[key] = self.frequency.get(key, 0) + 1
+
+    def _remove_lfu(self):
+        """移除最少使用的项（LFU策略）"""
+        if self.frequency:
+            lfu_key = min(self.frequency.keys(), key=lambda k: self.frequency[k])
+            del self.cache[lfu_key]
+            del self.frequency[lfu_key]
 
 _BELLMAN_CACHE = LRUCache(capacity=100)  # 保留最近100组参数
 

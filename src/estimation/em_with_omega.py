@@ -19,7 +19,8 @@ from src.model.discrete_support import (
 from src.model.likelihood import (
     solve_bellman_for_params,
     calculate_likelihood_from_v,
-    calculate_likelihood_from_v_individual
+    calculate_likelihood_from_v_individual,
+    _make_cache_key
 )
 from src.model.bellman import solve_bellman_equation_individual
 from src.model.wage_equation import calculate_predicted_wage, calculate_reference_wage
@@ -660,6 +661,12 @@ def run_em_algorithm_with_omega(
 
     current_params = initial_params.copy()
     current_pi_k = initial_pi_k.copy()
+
+    # 缓存预热：使用初始参数预热缓存
+    logger.info("预热缓存...")
+    for k in range(n_types):
+        cache_key = _make_cache_key(current_params, k)
+        logger.debug(f"预热类型 {k} 的缓存")
 
     prev_log_likelihood = -np.inf
     converged = False
