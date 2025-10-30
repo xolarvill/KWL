@@ -9,6 +9,8 @@ from typing import Dict, Any, Tuple
 import warnings
 import logging
 from joblib import Parallel, delayed
+from src.estimation.louis_method import louis_method_standard_errors # 导入Louis方法
+
 
 def compute_hessian_numerical(
     log_likelihood_func,
@@ -226,6 +228,8 @@ def compute_information_criteria(
     return {"AIC": aic, "BIC": bic}
 
 
+
+
 def estimate_mixture_model_standard_errors(
     estimated_params: Dict[str, Any],
     observed_data: pd.DataFrame,
@@ -236,7 +240,12 @@ def estimate_mixture_model_standard_errors(
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
     n_types: int = 3,
-    method: str = "shared_only"
+    method: str = "louis", # default: "louis"; other: "shared_only", "all_numerical"
+    individual_posteriors: Dict[Any, np.ndarray] = None, # Louis方法需要
+    support_generator: Any = None, # Louis方法需要
+    max_omega_per_individual: int = 1000, # Louis方法需要
+    use_simplified_omega: bool = True, # Louis方法需要
+    h_step: float = 1e-4 # Louis方法需要
 ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
     """
     估计混合模型参数的标准误
@@ -252,18 +261,53 @@ def estimate_mixture_model_standard_errors(
         adjacency_matrix: 邻接矩阵
         n_types: 类型数量
         method: 计算方法
-            - "shared_only": 只计算共享参数的标准误（推荐，快速）
-            - "type_0_only": 只计算Type 0的所有参数（包括type-specific）
-            - "all_numerical": 计算所有参数（非常耗时，不推荐）
+            - "louis": 使用Louis (1982)方法 (推荐)
+            - "shared_only": 只计算共享参数的标准误（快速）
+            - "all_numerical": 计算所有参数（非常耗时）
+        individual_posteriors: E-step计算得到的个体后验概率 p(τ, ω | D_i) (Louis方法需要)
+        support_generator: 离散支撑点生成器 (DiscreteSupportGenerator) (Louis方法需要)
+        max_omega_per_individual: 每个个体的最大ω组合数 (Louis方法需要)
+        use_simplified_omega: 是否使用简化ω策略 (Louis方法需要)
+        h_step: 数值微分步长 (Louis方法需要)
 
     Returns:
         Tuple[Dict, Dict, Dict]: (标准误, t统计量, p值)
     """
     from src.model.likelihood import calculate_log_likelihood
+    from src.estimation.em_with_omega import _prepare_numpy_region_data # 导入预处理函数
 
     std_errors, t_stats, p_values = {}, {}, {}
 
-    if method == "shared_only":
+    # 预处理regions_df为NumPy数组，以兼容Louis方法
+    prov_to_idx = {prov_id: idx for idx, prov_id in enumerate(regions_df['provcd'].unique())}
+    regions_df_np = _prepare_numpy_region_data(regions_df, prov_to_idx)
+
+
+    if method == "louis":
+        if individual_posteriors is None or support_generator is None:
+            raise ValueError("使用Louis方法时，必须提供individual_posteriors和support_generator。")
+        
+        # 确保regions_df是NumPy版本
+        return louis_method_standard_errors(
+            estimated_params=estimated_params,
+            type_probabilities=None, # Louis方法中不需要，但为了兼容性保留
+            individual_posteriors=individual_posteriors,
+            observed_data=observed_data,
+            state_space=state_space,
+            transition_matrices=transition_matrices,
+            beta=beta,
+            regions_df=regions_df_np, # 传入NumPy版本
+            distance_matrix=distance_matrix,
+            adjacency_matrix=adjacency_matrix,
+            support_generator=support_generator,
+            n_types=n_types,
+            prov_to_idx=prov_to_idx,
+            max_omega_per_individual=max_omega_per_individual,
+            use_simplified_omega=use_simplified_omega,
+            h_step=h_step
+        )
+
+    elif method == "shared_only":
         # 提取共享参数（不包含type_后缀的参数）
         shared_params = {
             k: v for k, v in estimated_params.items()
@@ -272,8 +316,7 @@ def estimate_mixture_model_standard_errors(
 
         if len(shared_params) == 0:
             warnings.warn("没有找到共享参数，所有参数都是type-specific")
-            # Fallback to type_0_only
-            method = "type_0_only"
+            method = "louis" # Fallback 
         else:
             print(f"计算 {len(shared_params)} 个共享参数的标准误...")
 
@@ -321,86 +364,21 @@ def estimate_mixture_model_standard_errors(
                         p_values[k] = 1.0
                 return std_errors, t_stats, p_values
 
-    if method == "type_0_only":
-        # 提取Type 0相关的参数
-        type_0_params = {}
-        for k, v in estimated_params.items():
-            if k == 'n_choices':
-                continue
-            # 包含不带type后缀的参数，以及带type_0后缀的参数
-            if 'type_' not in k:
-                type_0_params[k] = v
-            elif 'type_0' in k:
-                # 将type_0后缀的参数转换为基础名称
-                base_name = k.replace('_type_0', '')
-                type_0_params[base_name] = v
-
-        type_0_params['n_choices'] = estimated_params['n_choices']
-
-        print(f"计算 Type 0 的 {len(type_0_params)-1} 个参数的标准误...")
-
-        try:
-            se, ts, pv = estimate_standard_errors(
-                log_likelihood_func=calculate_log_likelihood,
-                params=type_0_params,
-                observed_data=observed_data,
-                state_space=state_space,
-                transition_matrices=transition_matrices,
-                agent_type=0,
-                beta=beta,
-                regions_df=regions_df,
-                distance_matrix=distance_matrix,
-                adjacency_matrix=adjacency_matrix
-            )
-
-            # 映射回原始参数名
-            for original_name in estimated_params:
-                if original_name == 'n_choices':
-                    continue
-
-                if 'type_0' in original_name:
-                    base_name = original_name.replace('_type_0', '')
-                    if base_name in se:
-                        std_errors[original_name] = se[base_name]
-                        t_stats[original_name] = ts[base_name]
-                        p_values[original_name] = pv[base_name]
-                elif 'type_' not in original_name:
-                    if original_name in se:
-                        std_errors[original_name] = se[original_name]
-                        t_stats[original_name] = ts[original_name]
-                        p_values[original_name] = pv[original_name]
-                else:
-                    # 其他类型的参数使用占位符
-                    std_errors[original_name] = np.nan
-                    t_stats[original_name] = np.nan
-                    p_values[original_name] = np.nan
-
-            print("Type 0 标准误计算完成。")
-            return std_errors, t_stats, p_values
-
-        except Exception as e:
-            print(f"Type 0 标准误计算失败: {e}")
-            for k in estimated_params:
-                if k != 'n_choices':
-                    std_errors[k] = 0.1
-                    t_stats[k] = 0.0
-                    p_values[k] = 1.0
-            return std_errors, t_stats, p_values
-
-    # method == "all_numerical" - 不推荐，仅作为最后手段
-    warnings.warn("all_numerical 方法计算量极大，不推荐使用")
-    for k in estimated_params:
-        if k != 'n_choices':
-            std_errors[k] = 0.1
-            t_stats[k] = 0.0
-            p_values[k] = 1.0
-    return std_errors, t_stats, p_values
+    elif method == "all_numerical":
+        warnings.warn("all_numerical 方法计算量极大，不推荐使用")
+        for k in estimated_params:
+            if k != 'n_choices':
+                std_errors[k] = 0.1
+                t_stats[k] = 0.0
+                p_values[k] = 1.0
+        return std_errors, t_stats, p_values
+    else:
+        raise ValueError(f"未知或不支持的标准误计算方法: {method}")
 
 
 def bootstrap_standard_errors(
     estimated_params: Dict[str, Any],
     posterior_probs: np.ndarray,
-    log_likelihood_matrix: np.ndarray,
     type_probabilities: np.ndarray,
     observed_data: pd.DataFrame,
     state_space: pd.DataFrame,
@@ -422,11 +400,12 @@ def bootstrap_standard_errors(
 
     该方法基于估计的参数和后验概率生成bootstrap样本，然后重新估计模型。
     参数估计值的标准差即为标准误，分位数即为置信区间。
+    
+    注意：此方法使用个体后验概率p(τ|D_i)进行重采样，适用于EM-with-ω算法的结果。
 
     Args:
         estimated_params: 原始估计的参数
         posterior_probs: 个体级别的类型后验概率 (N × K)
-        log_likelihood_matrix: 个体级别的对数似然矩阵 (N × K)
         type_probabilities: 类型概率 π_k
         observed_data: 原始观测数据
         state_space: 状态空间
@@ -515,11 +494,11 @@ def bootstrap_standard_errors(
             print(f"Bootstrap样本生成完成: {n_individuals}个体, {n_obs}条观测", flush=True)
 
             # 运行EM算法（使用原始参数作为初始值以加快收敛）
-            from src.estimation.em_nfxp import run_em_algorithm
+            from src.estimation.em_with_omega import run_em_algorithm_with_omega
             
             print(f"开始EM估计（最大{max_em_iterations}轮迭代）...", flush=True)
 
-            results = run_em_algorithm(
+            results = run_em_algorithm_with_omega(
                 observed_data=bootstrap_data,
                 state_space=state_space,
                 transition_matrices=transition_matrices,

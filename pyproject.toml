@@ -23,6 +23,7 @@ dependencies = [
     "torch>=2.7.1",
     "Flask>=2.0.0",
     "numba>=0.62.1",
+    "numdifftools>=0.9.41",
 ]
 
 [[tool.uv.index]]
