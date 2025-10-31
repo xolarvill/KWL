@@ -173,7 +173,7 @@ def run_estimation_workflow(
             support_generator=support_gen,
             max_omega_per_individual=config.max_omega_per_individual,
             use_simplified_omega=config.use_simplified_omega,
-            h_step=config.lbfgsb_gtol # 使用M-step的梯度容忍度作为数值微分步长
+            h_step=1e-5 # 使用更小的数值微分步长，提高精度并减少计算时间
         )
         logger.info("Louis 方法标准误计算完成。" )
         

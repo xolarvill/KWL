@@ -257,11 +257,26 @@ def e_step_with_omega(
                                 hot_start_successes += 1
                             else:
                                 # 寻找形状匹配的最近解
-                                for key, cached_solution in bellman_cache.items():
-                                    if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
-                                        initial_v = cached_solution
-                                        hot_start_successes += 1
-                                        break
+                                try:
+                                    # 对于LRU缓存，我们需要遍历其内容
+                                    if hasattr(bellman_cache, '_cache'):
+                                        # 访问LRU缓存的内部字典
+                                        for key, cached_solution in bellman_cache._cache.items():
+                                            if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
+                                                initial_v = cached_solution
+                                                hot_start_successes += 1
+                                                break
+                                    else:
+                                        # 尝试直接遍历（可能不适用所有缓存实现）
+                                        for key in list(bellman_cache._cache.keys())[:10]:  # 限制搜索范围
+                                            cached_solution = bellman_cache.get(key)
+                                            if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
+                                                initial_v = cached_solution
+                                                hot_start_successes += 1
+                                                break
+                                except Exception:
+                                    # 如果缓存遍历失败，直接跳过
+                                    pass
                         
                         # 求解Bellman方程（此处可能需要传入ω相关值到效用函数）
                         # 简化实现：先不传ω到Bellman求解中
@@ -462,6 +477,7 @@ def m_step_with_omega(
             self.hot_start_successes = 0
             
             # 确保是LRU缓存实例
+            log_msg_header = "  [M-step]"
             if isinstance(self.bellman_cache, dict) and len(self.bellman_cache) > 0:
                 # 如果是普通dict且不为空，发出警告
                 logger.warning(f"{log_msg_header} 使用普通dict作为缓存，建议改用LRUCache")
@@ -565,13 +581,26 @@ def m_step_with_omega(
                                     self.hot_start_successes += 1
                                 else:
                                     # 寻找形状匹配的最近解
-                                    if hasattr(self.bellman_cache, 'items'):
-                                        # LRU缓存
-                                        for key, cached_solution in self.bellman_cache.items():
-                                            if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
-                                                initial_v = cached_solution
-                                                self.hot_start_successes += 1
-                                                break
+                                    try:
+                                        # 对于LRU缓存，我们需要遍历其内容
+                                        if hasattr(self.bellman_cache, '_cache'):
+                                            # 访问LRU缓存的内部字典
+                                            for key, cached_solution in self.bellman_cache._cache.items():
+                                                if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
+                                                    initial_v = cached_solution
+                                                    self.hot_start_successes += 1
+                                                    break
+                                        else:
+                                            # 尝试直接遍历（可能不适用所有缓存实现）
+                                            for key in list(self.bellman_cache._cache.keys())[:10]:  # 限制搜索范围
+                                                cached_solution = self.bellman_cache.get(key)
+                                                if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
+                                                    initial_v = cached_solution
+                                                    self.hot_start_successes += 1
+                                                    break
+                                    except Exception:
+                                        # 如果缓存遍历失败，直接跳过
+                                        pass
                                     else:
                                         # 普通dict
                                         for key in reversed(list(self.bellman_cache.keys())):

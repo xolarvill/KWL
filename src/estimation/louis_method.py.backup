@@ -68,6 +68,9 @@ def _individual_log_likelihood_for_louis(
     float
         该个体在该类型和omega组合下的对数似然
     """
+    import time
+    start_time = time.time()
+    
     params = _unpack_params(packed_params, param_names, n_choices)
 
     # 提取omega相关参数
@@ -109,12 +112,102 @@ def _individual_log_likelihood_for_louis(
             adjacency_matrix=adjacency_matrix,
             prov_to_idx=prov_to_idx
         )
-        return np.sum(log_lik_obs)
+        total_likelihood = np.sum(log_lik_obs)
+        
+        elapsed = time.time() - start_time
+        if elapsed > 1.0:  # 如果计算时间超过1秒，记录警告
+            logger.debug(f"个体似然计算耗时: {elapsed:.2f}s, 类型: {agent_type}, omega: {omega_values}, 似然: {total_likelihood:.4f}")
+        
+        return total_likelihood
     except Exception as e:
-        logger.debug(f"Error in _individual_log_likelihood_for_louis: {e}")
+        elapsed = time.time() - start_time
+        logger.debug(f"个体似然计算失败: {e}, 耗时: {elapsed:.2f}s, 类型: {agent_type}, omega: {omega_values}")
         return -1e10 # 返回一个非常小的数表示计算失败
 
-def louis_method_standard_errors(
+def _compute_gradient_and_hessian_analytical(
+    packed_params: np.ndarray,
+    param_names: List[str],
+    n_choices: int,
+    individual_data: pd.DataFrame,
+    agent_type: int,
+    omega_values: Dict[str, float],
+    beta: float,
+    transition_matrices: Dict[str, np.ndarray],
+    regions_df: Dict[str, np.ndarray],
+    distance_matrix: np.ndarray,
+    adjacency_matrix: np.ndarray,
+    prov_to_idx: Dict[int, int],
+    h_step: float = 1e-5
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    使用混合策略计算梯度和Hessian：
+    1. 对重要参数使用高精度数值微分
+    2. 对次要参数使用解析近似或低精度数值微分
+    3. 利用参数间的结构关系减少计算量
+    """
+    n_params = len(packed_params)
+    
+    # 参数分类：重要参数 vs 次要参数
+    important_params = ['gamma_0', 'sigma_epsilon', 'eta']  # 对似然影响大的参数
+    
+    # 初始化梯度和Hessian
+    gradient = np.zeros(n_params)
+    hessian = np.zeros((n_params, n_params))
+    
+    # 计算当前点的基准似然
+    base_likelihood = _individual_log_likelihood_for_louis(
+        packed_params, param_names, n_choices, individual_data, agent_type, 
+        omega_values, beta, transition_matrices, regions_df, distance_matrix, 
+        adjacency_matrix, prov_to_idx
+    )
+    
+    # 对每个参数计算梯度
+    for i, param_name in enumerate(param_names):
+        # 确定步长：重要参数用小步长，次要参数用大步长
+        is_important = any(imp in param_name for imp in important_params)
+        step_size = h_step if is_important else h_step * 10  # 次要参数用大步长
+        
+        # 前向差分计算梯度
+        params_plus = packed_params.copy()
+        params_plus[i] += step_size
+        
+        likelihood_plus = _individual_log_likelihood_for_louis(
+            params_plus, param_names, n_choices, individual_data, agent_type, 
+            omega_values, beta, transition_matrices, regions_df, distance_matrix, 
+            adjacency_matrix, prov_to_idx
+        )
+        
+        gradient[i] = (likelihood_plus - base_likelihood) / step_size
+        
+        # 只对重要参数计算Hessian的对角元素
+        if is_important:
+            # 后向差分计算二阶导数
+            params_minus = packed_params.copy()
+            params_minus[i] -= step_size
+            
+            likelihood_minus = _individual_log_likelihood_for_louis(
+                params_minus, param_names, n_choices, individual_data, agent_type, 
+                omega_values, beta, transition_matrices, regions_df, distance_matrix, 
+                adjacency_matrix, prov_to_idx
+            )
+            
+            hessian[i, i] = (likelihood_plus - 2 * base_likelihood + likelihood_minus) / (step_size ** 2)
+    
+    # 对Hessian的非对角元素使用近似：假设参数间相关性较小
+    # 使用BHHH近似：H ≈ -G'G
+    if np.all(np.isfinite(gradient)):
+        hessian_approx = -np.outer(gradient, gradient)
+        # 保持对角元素不变，只更新非对角元素
+        for i in range(n_params):
+            for j in range(n_params):
+                if i != j and hessian[i, i] != 0 and hessian[j, j] != 0:
+                    # 使用相关系数缩放非对角元素
+                    correlation = hessian_approx[i, j] / np.sqrt(hessian_approx[i, i] * hessian_approx[j, j])
+                    hessian[i, j] = correlation * np.sqrt(abs(hessian[i, i] * hessian[j, j])) * 0.1  # 缩小相关性
+    
+    return gradient, hessian
+
+
     estimated_params: Dict[str, Any],
     type_probabilities: np.ndarray,
     individual_posteriors: Dict[Any, np.ndarray],
@@ -200,11 +293,11 @@ def louis_method_standard_errors(
     start_time = pd.Timestamp.now()
     
     # 根据样本大小调整max_omega_per_individual
-    adjusted_max_omega = min(max_omega_per_individual, max(20, 100 - N))  # 小样本用更少的omega
+    adjusted_max_omega = min(max_omega_per_individual, max(50, 200 - N))  # 小样本用更少的omega
     logger.info(f"  调整后max_omega_per_individual: {adjusted_max_omega} (原始: {max_omega_per_individual})")
     
     for i, individual_id in enumerate(unique_individuals):
-        if (i + 1) % max(1, N // 5) == 0 or i < 3:  # 显示前3个和每20%的进度
+        if (i + 1) % max(1, N // 10) == 0 or i < 5:  # 显示前5个和每10%的进度
             elapsed = (pd.Timestamp.now() - start_time).total_seconds()
             logger.info(f"    预枚举进度: {i+1}/{N} 个体, 用时: {elapsed:.1f}s")
         
@@ -226,7 +319,7 @@ def louis_method_standard_errors(
     
     start_time = pd.Timestamp.now()
     last_log_time = start_time
-    max_individuals_to_process = min(N, 50)  # 限制处理的最大个体数
+    max_individuals_to_process = min(N, 100)  # 限制处理的最大个体数，小样本用全部，大样本用前100个
     
     if N > max_individuals_to_process:
         logger.warning(f"  样本量较大({N}个个体)，只处理前{max_individuals_to_process}个个体进行标准误估计")
@@ -236,12 +329,16 @@ def louis_method_standard_errors(
     for i_idx, individual_id in enumerate(unique_individuals):
         # 更频繁的日志输出
         current_time = pd.Timestamp.now()
-        if (i_idx + 1) % max(1, N // 10) == 0 or (current_time - last_log_time).total_seconds() > 5:  # 每10%或每5秒
+        if (i_idx + 1) % 1 == 0 or (current_time - last_log_time).total_seconds() > 10:  # 每1个个体或每10秒输出一次
             elapsed = (current_time - start_time).total_seconds()
             progress = (i_idx + 1) / N
             eta = elapsed / progress - elapsed if progress > 0 else 0
             logger.info(f"    处理个体 {i_idx+1}/{N} ({progress*100:.1f}%), 用时: {elapsed:.1f}s, 预计剩余: {eta:.1f}s")
             last_log_time = current_time
+            
+        # 早期停止检查：如果单个个体处理时间超过30秒，给出警告
+        if (current_time - last_log_time).total_seconds() > 30:
+            logger.warning(f"  警告：个体 {individual_id} 处理时间超过30秒，可能存在性能问题")
 
         individual_data = observed_data[observed_data['individual_id'] == individual_id]
         posterior_matrix = individual_posteriors[individual_id] # (n_omega, K)
@@ -288,25 +385,21 @@ def louis_method_standard_errors(
                     grad_calculator = Gradient(func_to_diff, step=h_step)
                     score_vector = grad_calculator(packed_estimated_params)
                     if not np.all(np.isfinite(score_vector)):
-                        logger.debug(f"  个体 {individual_id}, ω_idx {omega_idx}, 类型 {k}: Score包含非有限值，跳过。weight={weight:.2e}")
-                        skipped_combinations += 1
+                        logger.debug(f"  个体 {individual_id}, ω_idx {omega_idx}, 类型 {k}: Score包含非有限值，跳过。")
                         continue
                 except Exception as e:
-                    logger.debug(f"  个体 {individual_id}, ω_idx {omega_idx}, 类型 {k}: 计算Score失败: {e}, weight={weight:.2e}")
-                    skipped_combinations += 1
+                    logger.debug(f"  个体 {individual_id}, ω_idx {omega_idx}, 类型 {k}: 计算Score失败: {e}")
                     continue
 
                 # 计算Hessian
                 try:
                     hess_calculator = Hessian(func_to_diff, step=h_step)
-                    hessian_matrix = hessian_calculator(packed_estimated_params)
+                    hessian_matrix = hess_calculator(packed_estimated_params)
                     if not np.all(np.isfinite(hessian_matrix)):
-                        logger.debug(f"  个体 {individual_id}, ω_idx {omega_idx}, 类型 {k}: Hessian包含非有限值，跳过。weight={weight:.2e}")
-                        skipped_combinations += 1
+                        logger.debug(f"  个体 {individual_id}, ω_idx {omega_idx}, 类型 {k}: Hessian包含非有限值，跳过。")
                         continue
                 except Exception as e:
-                    logger.debug(f"  个体 {individual_id}, ω_idx {omega_idx}, 类型 {k}: 计算Hessian失败: {e}, weight={weight:.2e}")
-                    skipped_combinations += 1
+                    logger.debug(f"  个体 {individual_id}, ω_idx {omega_idx}, 类型 {k}: 计算Hessian失败: {e}")
                     continue
 
                 # 累加到期望完全信息矩阵
@@ -314,17 +407,12 @@ def louis_method_standard_errors(
 
                 # 累加到个体Score和
                 individual_score_sum += weight * score_vector
-                processed_combinations += 1
-        
-        # 记录当前个体的处理统计
-        if processed_combinations > 0:
-            logger.debug(f"  个体 {individual_id}: 处理 {processed_combinations}/{total_combinations} 组合, 跳过 {skipped_combinations} 组合")
 
         # 累加到Score协方差矩阵
         sum_of_individual_scores_outer_product += np.outer(individual_score_sum, individual_score_sum)
         
         # 记录当前个体的处理统计
-        if (i_idx + 1) % max(1, N // 10) == 0:  # 每10%输出一次统计
+        if (i_idx + 1) % max(1, N // 20) == 0:  # 每5%输出一次统计
             elapsed = (pd.Timestamp.now() - start_time).total_seconds()
             logger.info(f"    进度: {i_idx+1}/{N} 个体, 总用时: {elapsed:.1f}s")
 
