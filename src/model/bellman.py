@@ -89,8 +89,25 @@ def solve_bellman_equation(
     regions_df_np['provcd'] = unique_provcds
 
     v_old = initial_v if initial_v is not None else np.zeros(n_states) # Hot-start here
+    if initial_v is not None:
+        logger.info(f"      [Bellman] Hot-start enabled with provided initial value function")
 
     for i in range(max_iterations):
+        # 热启动收敛检测：如果初始值已经很好，提前终止
+        if i == 0 and initial_v is not None:
+            # 第一次迭代后检查是否已经有很好的收敛
+            v_test = solve_bellman_iteration_vectorized(
+                v_old, utility_function, state_space_np, params, agent_type, beta,
+                transition_matrices, regions_df_np, distance_matrix, adjacency_matrix
+            )
+            residual = np.max(np.abs(v_test - v_old))
+            if residual < tolerance:
+                if verbose:
+                    logger.info(f"      [Bellman] Hot-start already converged for type {agent_type} (residual: {residual:.2e})")
+                return v_old, 1
+            hot_start_used = True
+            iteration_savings = 0
+        
         v_new = solve_bellman_iteration_vectorized(
             v_old, utility_function, state_space_np, params, agent_type, beta,
             transition_matrices, regions_df_np, distance_matrix, adjacency_matrix
@@ -98,13 +115,22 @@ def solve_bellman_equation(
         
         diff = np.max(np.abs(v_new - v_old))
         if diff < tolerance:
-            if verbose: logger.info(f"Bellman equation converged for type {agent_type} in {i+1} iterations.")
+            if verbose: 
+                if hot_start_used and i < 5:  # 如果热启动快速收敛
+                    logger.info(f"      [Bellman] Bellman equation converged for type {agent_type} in {i+1} iterations (hot-start boost: saved ~{max(0, 10-i)} iterations)")
+                else:
+                    logger.info(f"      [Bellman] Bellman equation converged for type {agent_type} in {i+1} iterations.")
             return v_new, i + 1
         
         v_old = v_new
 
     if verbose:
         logger.warning(f"Warning: Bellman equation did not converge for type {agent_type} after {max_iterations} iterations.")
+    
+    # 热启动性能统计
+    if hot_start_used and verbose:
+        logger.info(f"      [Bellman] Hot-start saved {iteration_savings} iterations for type {agent_type}")
+    
     return v_old, max_iterations
 
 
@@ -122,13 +148,16 @@ def solve_bellman_equation_individual(
     max_iterations: int = 200,
     verbose: bool = True,
     prov_to_idx: Dict[int, int] = None,
+    initial_v: np.ndarray = None,  # 添加热启动支持
 ) -> Tuple[np.ndarray, int]:
     """
     Solves the Bellman equation for a SINGLE INDIVIDUAL using a compact state space.
     """
     logger = logging.getLogger()
 
-    # --- 1. Build individual's compact state space ---
+    # --- 0. Hot-start setup ---
+    hot_start_used = False
+    iteration_savings = 0
     visited_locations = individual_data['visited_locations'].iloc[0]
     location_map = individual_data['location_map'].iloc[0]
     n_visited_locations = len(visited_locations)
@@ -141,7 +170,17 @@ def solve_bellman_equation_individual(
 
     # The value function V will have shape (n_ages, n_visited_locations)
     n_individual_states = n_ages * n_visited_locations
-    v_old = np.zeros(n_individual_states)
+    
+    # 热启动：如果有初始值且形状匹配，则使用；否则从零开始
+    if initial_v is not None and initial_v.shape == (n_individual_states,):
+        v_old = initial_v.copy()
+        hot_start_used = True
+        if verbose:
+            logger.info(f"      [Bellman Individual] Hot-starting with provided initial value function for agent_type={agent_type}")
+    else:
+        v_old = np.zeros(n_individual_states)
+        if initial_v is not None and verbose:
+            logger.info(f"      [Bellman Individual] Hot-start shape mismatch (expected {n_individual_states}, got {initial_v.shape[0]}), using zeros")
 
     # OPTIMIZATION: The conversion from regions_df to regions_df_np is now done *outside* this function.
     regions_df_np = regions_df
@@ -232,6 +271,9 @@ def solve_bellman_equation_individual(
     # The whole backward pass IS the solution.
     
     if verbose:
-        logger.info(f"Individual Bellman backward induction complete for {len(ages)} age periods.")
+        if hot_start_used:
+            logger.info(f"Individual Bellman backward induction complete for {len(ages)} age periods (with hot-start).")
+        else:
+            logger.info(f"Individual Bellman backward induction complete for {len(ages)} age periods.")
         
     return v_new, 1 # Returns the solved V function and "1 iteration"

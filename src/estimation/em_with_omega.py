@@ -27,6 +27,17 @@ from src.model.bellman import solve_bellman_equation_individual
 from src.model.wage_equation import calculate_predicted_wage, calculate_reference_wage
 
 
+def _calculate_individual_state_space_size(individual_data: pd.DataFrame) -> int:
+    """
+    计算个体状态空间大小，用于热启动验证
+    """
+    visited_locations = individual_data['visited_locations'].iloc[0]
+    n_visited_locations = len(visited_locations)
+    ages = sorted(individual_data['age_t'].unique())
+    n_ages = len(ages)
+    return n_ages * n_visited_locations
+
+
 def _pack_params(params: Dict[str, Any]) -> Tuple[np.ndarray, List[str]]:
     """
     将参数字典打包为数组和名称列表
@@ -139,6 +150,8 @@ def e_step_with_omega(
         bellman_cache = {}
     cache_hits = 0
     cache_misses = 0
+    hot_start_attempts = 0
+    hot_start_successes = 0
 
     # 初始化结果容器
     individual_posteriors = {}
@@ -193,6 +206,9 @@ def e_step_with_omega(
         omega_list, omega_probs = individual_omega_dict[individual_id]
 
         n_omega = len(omega_list)
+        
+        # 计算个体状态数量（用于热启动验证）
+        n_individual_states = _calculate_individual_state_space_size(individual_data)
 
         # 3. 计算每个(τ, ω)组合的似然
         # 结构: posterior_matrix[omega_idx, type_idx]
@@ -219,9 +235,26 @@ def e_step_with_omega(
                         converged_v = bellman_cache[cache_key]
                         cache_hits += 1
                     else:
+                        # 热启动：尝试使用相似参数的解作为初始值
+                        initial_v = None
+                        hot_start_attempts += 1
+                        if len(bellman_cache) > 0:
+                            # 优先使用完全匹配的缓存
+                            if cache_key in bellman_cache:
+                                initial_v = bellman_cache[cache_key]
+                                hot_start_successes += 1
+                            else:
+                                # 寻找形状匹配的最近解
+                                for key in reversed(list(bellman_cache.keys())):
+                                    cached_solution = bellman_cache[key]
+                                    if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
+                                        initial_v = cached_solution
+                                        hot_start_successes += 1
+                                        break
+                        
                         # 求解Bellman方程（此处可能需要传入ω相关值到效用函数）
                         # 简化实现：先不传ω到Bellman求解中
-                        converged_v, _ = solve_bellman_equation_individual(
+                        converged_v, n_iter = solve_bellman_equation_individual(
                             utility_function=None,
                             individual_data=individual_data,
                             params=type_params,
@@ -232,7 +265,8 @@ def e_step_with_omega(
                             distance_matrix=distance_matrix,
                             adjacency_matrix=adjacency_matrix,
                             verbose=False,
-                            prov_to_idx=prov_to_idx
+                            prov_to_idx=prov_to_idx,
+                            initial_v=initial_v  # 热启动
                         )
                         bellman_cache[cache_key] = converged_v
                         cache_misses += 1
@@ -288,9 +322,11 @@ def e_step_with_omega(
 
     total_time = time.time() - start_time
     cache_hit_rate = cache_hits / (cache_hits + cache_misses) if (cache_hits + cache_misses) > 0 else 0
+    hot_start_rate = hot_start_successes / hot_start_attempts if hot_start_attempts > 0 else 0
     logger.info(f"  [E-step with ω] Completed. Total time: {total_time:.1f}s, "
                 f"Rate: {N/total_time:.1f} individuals/second")
     logger.info(f"  [E-step with ω] Cache hit rate: {cache_hit_rate:.1%} ({cache_hits}/{cache_hits + cache_misses})")
+    logger.info(f"  [E-step with ω] Hot-start success rate: {hot_start_rate:.1%} ({hot_start_successes}/{hot_start_attempts})")
 
     return individual_posteriors, log_likelihood_matrix
 
@@ -394,6 +430,8 @@ def m_step_with_omega(
             self.bellman_cache = shared_bellman_cache if shared_bellman_cache is not None else {}
             self.cache_hits = 0
             self.cache_misses = 0
+            self.hot_start_attempts = 0
+            self.hot_start_successes = 0
 
         def function(self, param_values: np.ndarray, param_names: List[str]) -> float:
             self.call_count += 1
@@ -422,6 +460,10 @@ def m_step_with_omega(
             processed_individuals = 0
             
             for i_idx, individual_id in enumerate(unique_individuals):
+                # 计算个体状态数量（用于热启动验证）
+                individual_data = observed_data[observed_data['individual_id'] == individual_id]
+                n_individual_states = _calculate_individual_state_space_size(individual_data)
+                
                 # 添加进度提示（每100个个体或开始/结束时）
                 if (i_idx + 1) % 100 == 0 or i_idx == 0 or i_idx == total_individuals - 1:
                     current_time = time.time()
@@ -474,6 +516,23 @@ def m_step_with_omega(
                             converged = True
                             self.cache_hits += 1
                         else:
+                            # 热启动：尝试使用相似参数的解作为初始值
+                            initial_v = None
+                            self.hot_start_attempts += 1
+                            if len(self.bellman_cache) > 0:
+                                # 优先使用完全匹配的缓存
+                                if cache_key in self.bellman_cache:
+                                    initial_v = self.bellman_cache[cache_key]
+                                    self.hot_start_successes += 1
+                                else:
+                                    # 寻找形状匹配的最近解
+                                    for key in reversed(list(self.bellman_cache.keys())):
+                                        cached_solution = self.bellman_cache[key]
+                                        if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
+                                            initial_v = cached_solution
+                                            self.hot_start_successes += 1
+                                            break
+                            
                             # 求解 Bellman 方程
                             converged_v_individual, converged = solve_bellman_equation_individual(
                                 utility_function=None,
@@ -486,7 +545,8 @@ def m_step_with_omega(
                                 distance_matrix=distance_matrix,
                                 adjacency_matrix=adjacency_matrix,
                                 verbose=False,
-                                prov_to_idx=prov_to_idx
+                                prov_to_idx=prov_to_idx,
+                                initial_v=initial_v  # 热启动
                             )
                             if converged:
                                 self.bellman_cache[cache_key] = converged_v_individual
@@ -555,6 +615,14 @@ def m_step_with_omega(
                           f"Min: {np.min(individual_log_liks):.4f}, Max: {np.max(individual_log_liks):.4f}")
             logger.info(f"{log_msg_header} Processing rate: {processed_individuals/duration:.1f} individuals/second, "
                         f"Cache hit rate: {cache_hit_rate:.1%} ({self.cache_hits}/{self.cache_hits + self.cache_misses})")
+            
+            # 首次调用时添加热启动统计
+            if self.call_count == 1:
+                logger.info(f"{log_msg_header} Hot-start enabled: Using previous solutions as initial values for Bellman iteration")
+            
+            # 添加热启动统计
+            hot_start_rate = self.hot_start_successes / self.hot_start_attempts if self.hot_start_attempts > 0 else 0
+            logger.info(f"{log_msg_header} Hot-start success rate: {hot_start_rate:.1%} ({self.hot_start_successes}/{self.hot_start_attempts})")
 
             if n_valid_computations == 0:
                 logger.error(f"{log_msg_header} All computations failed!")
