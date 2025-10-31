@@ -7,8 +7,6 @@ import argparse
 import sys
 import os
 import numpy as np
-import pandas as pd
-from typing import Dict, Any
 import logging
 
 # 添加项目根目录到Python路径
@@ -31,7 +29,6 @@ from src.estimation.inference import (
 
 from src.estimation.em_with_omega import run_em_algorithm_with_omega
 from src.model.discrete_support import DiscreteSupportGenerator
-from src.model.likelihood import calculate_log_likelihood
 from src.utils.outreg2 import output_estimation_results, output_model_fit_results
 from src.config.model_config import ModelConfig
 from src.data_handler.data_loader import DataLoader
@@ -274,7 +271,7 @@ def main():
     parser.add_argument('--bootstrap-jobs', type=int, default=-1, help='Bootstrap并行任务数，-1表示使用所有CPU核心')
     parser.add_argument('--stderr-method', type=str, default="louis",
                         choices=["louis", "bootstrap", "shared_only", "type_0_only", "all_numerical"],
-                        help='标准误计算方法: "louis", "bootstrap", "shared_only", "type_0_only", "all_numerical"')
+                        help='标准误计算方法: "louis", "bootstrap", 其他方法是旧版本遗留现在被移出了"')
     args = parser.parse_args()
 
     if args.profile:

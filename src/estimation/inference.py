@@ -94,7 +94,6 @@ def compute_hessian_numerical(
                 verbose=False
             )
 
-            # calculate_log_likelihood returns a vector, sum to get scalar
             ll_plus = np.sum(ll_plus_vector)
             ll_minus = np.sum(ll_minus_vector)
             
@@ -273,7 +272,6 @@ def estimate_mixture_model_standard_errors(
     Returns:
         Tuple[Dict, Dict, Dict]: (标准误, t统计量, p值)
     """
-    from src.model.likelihood import calculate_log_likelihood
     from src.estimation.em_with_omega import _prepare_numpy_region_data # 导入预处理函数
 
     std_errors, t_stats, p_values = {}, {}, {}
@@ -306,72 +304,7 @@ def estimate_mixture_model_standard_errors(
             use_simplified_omega=use_simplified_omega,
             h_step=h_step
         )
-
-    elif method == "shared_only":
-        # 提取共享参数（不包含type_后缀的参数）
-        shared_params = {
-            k: v for k, v in estimated_params.items()
-            if not any(f'type_{i}' in k for i in range(n_types)) and k != 'n_choices'
-        }
-
-        if len(shared_params) == 0:
-            warnings.warn("没有找到共享参数，所有参数都是type-specific")
-            method = "louis" # Fallback 
-        else:
-            print(f"计算 {len(shared_params)} 个共享参数的标准误...")
-
-            # 使用Type 0的数据计算（作为代表）
-            type_0_full_params = estimated_params.copy()
-
-            try:
-                se, ts, pv = estimate_standard_errors(
-                    log_likelihood_func=calculate_log_likelihood,
-                    params=type_0_full_params,
-                    observed_data=observed_data,
-                    state_space=state_space,
-                    transition_matrices=transition_matrices,
-                    agent_type=0,
-                    beta=beta,
-                    regions_df=regions_df,
-                    distance_matrix=distance_matrix,
-                    adjacency_matrix=adjacency_matrix
-                )
-
-                # 只保留共享参数的结果
-                for param_name in shared_params.keys():
-                    if param_name in se:
-                        std_errors[param_name] = se[param_name]
-                        t_stats[param_name] = ts[param_name]
-                        p_values[param_name] = pv[param_name]
-
-                # 为type-specific参数填充占位符
-                for k in estimated_params:
-                    if k not in std_errors and k != 'n_choices':
-                        std_errors[k] = 'N/A (type-specific)'
-                        t_stats[k] = 'N/A'
-                        p_values[k] = 'N/A'
-
-                print(f"共享参数标准误计算完成。")
-                return std_errors, t_stats, p_values
-
-            except Exception as e:
-                print(f"共享参数标准误计算失败: {e}")
-                # Fallback to placeholder
-                for k in estimated_params:
-                    if k != 'n_choices':
-                        std_errors[k] = 0.1
-                        t_stats[k] = 0.0
-                        p_values[k] = 1.0
-                return std_errors, t_stats, p_values
-
-    elif method == "all_numerical":
-        warnings.warn("all_numerical 方法计算量极大，不推荐使用")
-        for k in estimated_params:
-            if k != 'n_choices':
-                std_errors[k] = 0.1
-                t_stats[k] = 0.0
-                p_values[k] = 1.0
-        return std_errors, t_stats, p_values
+        
     else:
         raise ValueError(f"未知或不支持的标准误计算方法: {method}")
 
