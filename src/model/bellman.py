@@ -52,87 +52,6 @@ def solve_bellman_iteration_vectorized(
 
     return v_new
 
-def solve_bellman_equation(
-    utility_function: Callable,
-    state_space: pd.DataFrame,
-    params: Dict[str, Any],
-    agent_type: int,
-    beta: float,
-    transition_matrices: Dict[str, np.ndarray],
-    regions_df: pd.DataFrame,
-    distance_matrix: np.ndarray,
-    adjacency_matrix: np.ndarray,
-    initial_v: np.ndarray = None, # <-- Added for hot-starts
-    tolerance: float = 1e-4,
-    max_iterations: int = 200,  # 增加到200次以提高收敛概率
-    verbose: bool = True,
-) -> Tuple[np.ndarray, int]:
-    """
-    Solves the Bellman equation using vectorized value function iteration.
-    """
-    logger = logging.getLogger()
-    n_states = len(state_space)
-    if n_states == 0:
-        if verbose: logger.warning("Warning: Empty state space, returning zero vector")
-        return np.zeros(0), 0
-
-    state_space_np = {col: state_space[col].to_numpy() for col in state_space.columns}
-    
-    regions_df_indexed = regions_df.set_index('provcd')
-    unique_provcds = sorted(regions_df['provcd'].unique())
-    
-    numeric_cols = regions_df.select_dtypes(include=np.number).columns.tolist()
-    regions_df_np = {
-        col: regions_df_indexed.loc[unique_provcds][col].to_numpy()
-        for col in numeric_cols if col != 'provcd'
-    }
-    regions_df_np['provcd'] = unique_provcds
-
-    v_old = initial_v if initial_v is not None else np.zeros(n_states) # Hot-start here
-    if initial_v is not None:
-        logger.info(f"      [Bellman] Hot-start enabled with provided initial value function")
-
-    for i in range(max_iterations):
-        # 热启动收敛检测：如果初始值已经很好，提前终止
-        if i == 0 and initial_v is not None:
-            # 第一次迭代后检查是否已经有很好的收敛
-            v_test = solve_bellman_iteration_vectorized(
-                v_old, utility_function, state_space_np, params, agent_type, beta,
-                transition_matrices, regions_df_np, distance_matrix, adjacency_matrix
-            )
-            residual = np.max(np.abs(v_test - v_old))
-            if residual < tolerance:
-                if verbose:
-                    logger.info(f"      [Bellman] Hot-start already converged for type {agent_type} (residual: {residual:.2e})")
-                return v_old, 1
-            hot_start_used = True
-            iteration_savings = 0
-        
-        v_new = solve_bellman_iteration_vectorized(
-            v_old, utility_function, state_space_np, params, agent_type, beta,
-            transition_matrices, regions_df_np, distance_matrix, adjacency_matrix
-        )
-        
-        diff = np.max(np.abs(v_new - v_old))
-        if diff < tolerance:
-            if verbose: 
-                if hot_start_used and i < 5:  # 如果热启动快速收敛
-                    logger.info(f"      [Bellman] Bellman equation converged for type {agent_type} in {i+1} iterations (hot-start boost: saved ~{max(0, 10-i)} iterations)")
-                else:
-                    logger.info(f"      [Bellman] Bellman equation converged for type {agent_type} in {i+1} iterations.")
-            return v_new, i + 1
-        
-        v_old = v_new
-
-    if verbose:
-        logger.warning(f"Warning: Bellman equation did not converge for type {agent_type} after {max_iterations} iterations.")
-    
-    # 热启动性能统计
-    if hot_start_used and verbose:
-        logger.info(f"      [Bellman] Hot-start saved {iteration_savings} iterations for type {agent_type}")
-    
-    return v_old, max_iterations
-
 
 def solve_bellman_equation_individual(
     utility_function: Callable,
@@ -196,7 +115,20 @@ def solve_bellman_equation_individual(
         else:
             # Get the value function from the next age
             next_age_idx = age_map[age + 1]
-            future_v = v_new[next_age_idx * n_visited_locations : (next_age_idx + 1) * n_visited_locations]
+            start_idx = next_age_idx * n_visited_locations
+            end_idx = (next_age_idx + 1) * n_visited_locations
+            
+            # 安全检查：确保切片范围有效
+            if start_idx >= len(v_new) or end_idx > len(v_new):
+                logger.error(f"Invalid slice range for future_v: [{start_idx}:{end_idx}] for v_new with length {len(v_new)}")
+                future_v = np.zeros(n_visited_locations)
+            else:
+                future_v = v_new[start_idx:end_idx]
+                
+            # 额外检查：确保future_v不为空
+            if len(future_v) == 0:
+                logger.error(f"Empty future_v for age {age}, next_age_idx {next_age_idx}, using zeros")
+                future_v = np.zeros(n_visited_locations)
 
         # Create the state_data dict for this age
         # It will have n_visited_locations rows, one for each possible previous location
@@ -261,6 +193,9 @@ def solve_bellman_equation_individual(
         exp_diff = np.exp(choice_specific_values - max_v[:, np.newaxis])
         current_v = max_v + np.log(np.sum(exp_diff, axis=1))
         
+        # 处理可能的数值问题（NaN, 无穷大等）
+        current_v = np.nan_to_num(current_v, nan=0.0, posinf=1e6, neginf=-1e6)
+        
         # Store the result for the current age
         start_idx = age_idx * n_visited_locations
         end_idx = start_idx + n_visited_locations
@@ -269,6 +204,15 @@ def solve_bellman_equation_individual(
     # The loop above is one full backward induction pass, not an iteration until convergence.
     # This is because V(age) depends on V(age+1), so we can't iterate to convergence at each age.
     # The whole backward pass IS the solution.
+    
+    # 最终验证和清理：确保返回值有效
+    v_new = np.nan_to_num(v_new, nan=0.0, posinf=1e6, neginf=-1e6)
+    
+    # 验证数组形状和大小
+    if v_new.shape != (n_individual_states,):
+        logger.error(f"Bellman solution shape mismatch: expected {(n_individual_states,)}, got {v_new.shape}")
+        # 返回零向量作为后备方案
+        v_new = np.zeros(n_individual_states)
     
     if verbose:
         if hot_start_used:

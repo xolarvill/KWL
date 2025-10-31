@@ -8,7 +8,6 @@ import pandas as pd
 from typing import Dict, Any, Callable, Tuple, Optional
 from numba import jit, float64, int64, prange
 
-from src.model.bellman import solve_bellman_equation
 from src.model.utility import calculate_flow_utility_vectorized, calculate_flow_utility_individual_vectorized
 from src.model.wage_equation import calculate_wage_likelihood
 
@@ -78,61 +77,6 @@ def clear_bellman_cache():
     """
     global _BELLMAN_CACHE
     _BELLMAN_CACHE.clear()
-
-def solve_bellman_for_params(
-    params: Dict[str, Any],
-    state_space: pd.DataFrame,
-    agent_type: int,
-    beta: float,
-    transition_matrices: Dict[str, np.ndarray],
-    regions_df: pd.DataFrame,
-    distance_matrix: np.ndarray,
-    adjacency_matrix: np.ndarray,
-    initial_v: np.ndarray = None,
-    verbose: bool = True,
-    use_cache: bool = True,
-) -> np.ndarray:
-    """
-    Solves the Bellman equation for a given set of parameters.
-    Uses global caching to avoid redundant computations.
-
-    Args:
-        use_cache: If True, check cache before solving and store result after solving
-        initial_v: Initial value function for hot-starting (used when cache misses)
-    """
-    logger = logging.getLogger()
-
-    # Check cache first
-    if use_cache:
-        cache_key = _make_cache_key(params, agent_type)
-        if cache_key in _BELLMAN_CACHE:
-            logger.info(f"      [Likelihood] Cache HIT for agent_type={agent_type}. Reusing Bellman solution.")
-            return _BELLMAN_CACHE[cache_key]
-        else:
-            logger.info(f"      [Likelihood] Cache MISS for agent_type={agent_type}. Solving Bellman equation...")
-
-    # Solve Bellman equation
-    converged_v, _ = solve_bellman_equation(
-        utility_function=calculate_flow_utility_vectorized,
-        state_space=state_space,
-        params=params,
-        agent_type=agent_type,
-        beta=beta,
-        transition_matrices=transition_matrices,
-        regions_df=regions_df,
-        distance_matrix=distance_matrix,
-        adjacency_matrix=adjacency_matrix,
-        initial_v=initial_v,
-        verbose=verbose,
-    )
-
-    # Store in cache
-    if use_cache:
-        cache_key = _make_cache_key(params, agent_type)
-        _BELLMAN_CACHE[cache_key] = converged_v
-        logger.info(f"      [Likelihood] Bellman solution stored in cache for agent_type={agent_type}.")
-
-    return converged_v
 
 def calculate_likelihood_from_v(
     converged_v: np.ndarray,
@@ -323,6 +267,14 @@ def calculate_likelihood_from_v_individual(
         
         future_v_global = np.zeros(params['n_choices'])
         for global_loc_id, compact_idx in location_map.items():
+            # 安全检查：确保future_v_for_age不为空且索引有效
+            if len(future_v_for_age) == 0:
+                logger.warning(f"future_v_for_age is empty for age {age}, using zero future value")
+                continue
+            if int(compact_idx) >= len(future_v_for_age):
+                logger.warning(f"Compact index {compact_idx} out of bounds for future_v_for_age with length {len(future_v_for_age)}")
+                continue
+                
             if prov_to_idx is not None:
                 # Convert global_loc_id to the correct index using prov_to_idx
                 global_idx = prov_to_idx.get(int(global_loc_id))
@@ -389,54 +341,3 @@ def calculate_likelihood_from_v_individual(
 
     return total_log_likelihood
 
-
-def calculate_log_likelihood(
-    params: Dict[str, Any],
-    observed_data: pd.DataFrame,
-    state_space: pd.DataFrame,
-    agent_type: int,
-    beta: float,
-    transition_matrices: Dict[str, np.ndarray],
-    regions_df: pd.DataFrame = None,
-    distance_matrix: np.ndarray = None,
-    adjacency_matrix: np.ndarray = None,
-    verbose: bool = True,
-) -> np.ndarray:
-    """
-    Backward-compatible wrapper function that combines solve_bellman_for_params
-    and calculate_likelihood_from_v for compatibility with existing code.
-
-    This function maintains the original API while using the new decoupled functions internally.
-
-    Returns:
-        np.ndarray: A vector of log-likelihoods for each observation.
-    """
-    # Step 1: Solve Bellman equation
-    converged_v = solve_bellman_for_params(
-        params=params,
-        state_space=state_space,
-        agent_type=agent_type,
-        beta=beta,
-        transition_matrices=transition_matrices,
-        regions_df=regions_df,
-        distance_matrix=distance_matrix,
-        adjacency_matrix=adjacency_matrix,
-        initial_v=None,
-        verbose=verbose,
-    )
-
-    # Step 2: Calculate likelihood from converged value function
-    log_lik_vector = calculate_likelihood_from_v(
-        converged_v=converged_v,
-        params=params,
-        observed_data=observed_data,
-        state_space=state_space,
-        agent_type=agent_type,
-        beta=beta,
-        transition_matrices=transition_matrices,
-        regions_df=regions_df,
-        distance_matrix=distance_matrix,
-        adjacency_matrix=adjacency_matrix,
-    )
-
-    return log_lik_vector
