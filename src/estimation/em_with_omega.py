@@ -20,7 +20,8 @@ from src.model.likelihood import (
     calculate_likelihood_from_v,
     calculate_likelihood_from_v_individual,
     _make_cache_key,
-    clear_bellman_cache
+    clear_bellman_cache,
+    _BELLMAN_CACHE as GLOBAL_BELLMAN_CACHE
 )
 from src.model.bellman import solve_bellman_equation_individual
 from src.model.wage_equation import calculate_predicted_wage, calculate_reference_wage
@@ -144,9 +145,20 @@ def e_step_with_omega(
     logger.info(f"  [E-step with ω] Processing {N} individuals across {K} types...")
     start_time = time.time()
     
-    # 初始化缓存
+    # 初始化缓存 - 使用LRU缓存
     if bellman_cache is None:
-        bellman_cache = {}
+        # 创建新的LRU缓存实例，避免与全局缓存冲突
+        from src.model.likelihood import LRUCache
+        bellman_cache = LRUCache(capacity=500, max_memory_mb=1000)  # EM步骤专用缓存
+    elif isinstance(bellman_cache, dict):
+        # 向后兼容：如果是普通dict，转换为LRU缓存
+        from src.model.likelihood import LRUCache
+        old_cache = bellman_cache
+        bellman_cache = LRUCache(capacity=500, max_memory_mb=1000)
+        # 迁移现有数据
+        for key, value in old_cache.items():
+            bellman_cache.put(key, value)
+    
     cache_hits = 0
     cache_misses = 0
     hot_start_attempts = 0
@@ -228,10 +240,10 @@ def e_step_with_omega(
 
                     type_params['sigma_epsilon'] = sigma_epsilon
 
-                    # 检查缓存
+                    # 检查缓存 - 使用LRU缓存
                     cache_key = (tuple(sorted(type_params.items())), int(k))
-                    if cache_key in bellman_cache:
-                        converged_v = bellman_cache[cache_key]
+                    converged_v = bellman_cache.get(cache_key)
+                    if converged_v is not None:
                         cache_hits += 1
                     else:
                         # 热启动：尝试使用相似参数的解作为初始值
@@ -239,13 +251,13 @@ def e_step_with_omega(
                         hot_start_attempts += 1
                         if len(bellman_cache) > 0:
                             # 优先使用完全匹配的缓存
-                            if cache_key in bellman_cache:
-                                initial_v = bellman_cache[cache_key]
+                            cached_value = bellman_cache.get(cache_key)
+                            if cached_value is not None:
+                                initial_v = cached_value
                                 hot_start_successes += 1
                             else:
                                 # 寻找形状匹配的最近解
-                                for key in reversed(list(bellman_cache.keys())):
-                                    cached_solution = bellman_cache[key]
+                                for key, cached_solution in bellman_cache.items():
                                     if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
                                         initial_v = cached_solution
                                         hot_start_successes += 1
@@ -267,7 +279,7 @@ def e_step_with_omega(
                             prov_to_idx=prov_to_idx,
                             initial_v=initial_v  # 热启动
                         )
-                        bellman_cache[cache_key] = converged_v
+                        bellman_cache.put(cache_key, converged_v)  # 使用LRU缓存的put方法
                         cache_misses += 1
 
                     # 计算似然（包含工资似然）
@@ -326,6 +338,13 @@ def e_step_with_omega(
                 f"Rate: {N/total_time:.1f} individuals/second")
     logger.info(f"  [E-step with ω] Cache hit rate: {cache_hit_rate:.1%} ({cache_hits}/{cache_hits + cache_misses})")
     logger.info(f"  [E-step with ω] Hot-start success rate: {hot_start_rate:.1%} ({hot_start_successes}/{hot_start_attempts})")
+    
+    # 添加LRU缓存统计信息
+    if hasattr(bellman_cache, 'get_stats'):
+        cache_stats = bellman_cache.get_stats()
+        logger.info(f"  [E-step with ω] LRU缓存状态: {cache_stats['size']}/{cache_stats['max_size']}条目, "
+                   f"{cache_stats['memory_mb']:.1f}/{cache_stats['max_memory_mb']:.1f}MB, "
+                   f"淘汰: {cache_stats['eviction_count']}次, 命中率: {cache_stats['hit_rate']:.1%}")
 
     return individual_posteriors, log_likelihood_matrix
 
@@ -396,9 +415,19 @@ def m_step_with_omega(
     from scipy.optimize import minimize
     from src.config.model_config import ModelConfig
     
-    # 传递缓存给目标函数
+    # 传递缓存给目标函数 - 使用LRU缓存
     if bellman_cache is None:
-        bellman_cache = {}
+        # 创建新的LRU缓存实例
+        from src.model.likelihood import LRUCache
+        bellman_cache = LRUCache(capacity=500, max_memory_mb=1000)  # M步专用缓存
+    elif isinstance(bellman_cache, dict):
+        # 向后兼容：如果是普通dict，转换为LRU缓存
+        from src.model.likelihood import LRUCache
+        old_cache = bellman_cache
+        bellman_cache = LRUCache(capacity=500, max_memory_mb=1000)
+        # 迁移现有数据
+        for key, value in old_cache.items():
+            bellman_cache.put(key, value)
 
     config = ModelConfig()
     unique_individuals = list(individual_posteriors.keys())
@@ -431,6 +460,16 @@ def m_step_with_omega(
             self.cache_misses = 0
             self.hot_start_attempts = 0
             self.hot_start_successes = 0
+            
+            # 确保是LRU缓存实例
+            if isinstance(self.bellman_cache, dict) and len(self.bellman_cache) > 0:
+                # 如果是普通dict且不为空，发出警告
+                logger.warning(f"{log_msg_header} 使用普通dict作为缓存，建议改用LRUCache")
+            elif hasattr(self.bellman_cache, 'get_stats'):
+                # LRU缓存，记录初始统计
+                initial_stats = self.bellman_cache.get_stats()
+                logger.info(f"{log_msg_header} 使用LRU缓存，初始状态: {initial_stats['size']}条目, "
+                           f"{initial_stats['memory_mb']:.1f}MB内存")
 
         def function(self, param_values: np.ndarray, param_names: List[str]) -> float:
             self.call_count += 1
@@ -508,10 +547,10 @@ def m_step_with_omega(
                         continue
 
                     try:
-                        # 检查本地缓存
+                        # 检查本地缓存 - 使用LRU缓存
                         cache_key = (tuple(sorted(type_params.items())), int(k))
-                        if cache_key in self.bellman_cache:
-                            converged_v_individual = self.bellman_cache[cache_key]
+                        converged_v_individual = self.bellman_cache.get(cache_key) if hasattr(self.bellman_cache, 'get') else self.bellman_cache.get(cache_key)
+                        if converged_v_individual is not None:
                             converged = True
                             self.cache_hits += 1
                         else:
@@ -520,17 +559,27 @@ def m_step_with_omega(
                             self.hot_start_attempts += 1
                             if len(self.bellman_cache) > 0:
                                 # 优先使用完全匹配的缓存
-                                if cache_key in self.bellman_cache:
-                                    initial_v = self.bellman_cache[cache_key]
+                                cached_value = self.bellman_cache.get(cache_key) if hasattr(self.bellman_cache, 'get') else self.bellman_cache.get(cache_key)
+                                if cached_value is not None:
+                                    initial_v = cached_value
                                     self.hot_start_successes += 1
                                 else:
                                     # 寻找形状匹配的最近解
-                                    for key in reversed(list(self.bellman_cache.keys())):
-                                        cached_solution = self.bellman_cache[key]
-                                        if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
-                                            initial_v = cached_solution
-                                            self.hot_start_successes += 1
-                                            break
+                                    if hasattr(self.bellman_cache, 'items'):
+                                        # LRU缓存
+                                        for key, cached_solution in self.bellman_cache.items():
+                                            if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
+                                                initial_v = cached_solution
+                                                self.hot_start_successes += 1
+                                                break
+                                    else:
+                                        # 普通dict
+                                        for key in reversed(list(self.bellman_cache.keys())):
+                                            cached_solution = self.bellman_cache[key]
+                                            if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
+                                                initial_v = cached_solution
+                                                self.hot_start_successes += 1
+                                                break
                             
                             # 求解 Bellman 方程
                             converged_v_individual, converged = solve_bellman_equation_individual(
@@ -548,7 +597,11 @@ def m_step_with_omega(
                                 initial_v=initial_v  # 热启动
                             )
                             if converged:
-                                self.bellman_cache[cache_key] = converged_v_individual
+                                # 使用LRU缓存的put方法或普通字典赋值
+                                if hasattr(self.bellman_cache, 'put'):
+                                    self.bellman_cache.put(cache_key, converged_v_individual)
+                                else:
+                                    self.bellman_cache[cache_key] = converged_v_individual
                                 self.cache_misses += 1
 
                         if not converged:
@@ -614,6 +667,13 @@ def m_step_with_omega(
                           f"Min: {np.min(individual_log_liks):.4f}, Max: {np.max(individual_log_liks):.4f}")
             logger.info(f"{log_msg_header} Processing rate: {processed_individuals/duration:.1f} individuals/second, "
                         f"Cache hit rate: {cache_hit_rate:.1%} ({self.cache_hits}/{self.cache_hits + self.cache_misses})")
+            
+            # 添加LRU缓存统计信息
+            if hasattr(self.bellman_cache, 'get_stats'):
+                cache_stats = self.bellman_cache.get_stats()
+                logger.info(f"{log_msg_header} LRU缓存状态: {cache_stats['size']}/{cache_stats['max_size']}条目, "
+                           f"{cache_stats['memory_mb']:.1f}/{cache_stats['max_memory_mb']:.1f}MB, "
+                           f"淘汰: {cache_stats['eviction_count']}次")
             
             # 首次调用时添加热启动统计
             if self.call_count == 1:
@@ -818,7 +878,9 @@ def run_em_algorithm_with_omega(
 
         # E-step
         logger.info("\n[E-step with ω]")
-        bellman_cache = {}  # 为这次EM迭代创建共享缓存
+        # 创建LRU缓存 - 为这次EM迭代创建共享缓存，具有内存管理功能
+        from src.model.likelihood import LRUCache
+        bellman_cache = LRUCache(capacity=500, max_memory_mb=1000)  # EM迭代专用缓存
         individual_posteriors, log_likelihood_matrix = e_step_with_omega(
             bellman_cache=bellman_cache,
             params=current_params,

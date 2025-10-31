@@ -30,33 +30,127 @@ def _compute_ccp_jit(choice_specific_values):
 from collections import OrderedDict
 
 class LRUCache:
-    def __init__(self, capacity=100):
+    def __init__(self, capacity=100, max_memory_mb: int = 500):
         self.cache = OrderedDict()
         self.frequency = {}  # 添加频率统计
         self.capacity = capacity
+        self.max_memory_bytes = max_memory_mb * 1024 * 1024
+        self.current_memory_bytes = 0
+        self.access_count = 0
+        self.hit_count = 0
+        self.miss_count = 0
+        self.eviction_count = 0
+        self.logger = logging.getLogger(__name__)
+
+    def _estimate_memory_usage(self, key, value) -> int:
+        """估算键值对的内存使用"""
+        import sys
+        # 键的内存使用（元组 + 内容）
+        key_memory = sys.getsizeof(key)
+        if isinstance(key, tuple):
+            for item in key:
+                key_memory += sys.getsizeof(item)
+                if isinstance(item, tuple):
+                    for sub_item in item:
+                        key_memory += sys.getsizeof(sub_item)
+        
+        # 值的内存使用（numpy数组或普通值）
+        if isinstance(value, np.ndarray):
+            value_memory = value.nbytes
+        else:
+            value_memory = sys.getsizeof(value)
+            
+        return key_memory + value_memory
 
     def get(self, key):
+        self.access_count += 1
         if key not in self.cache:
+            self.miss_count += 1
             return None
+        
+        # 移动到末尾（LRU）并更新频率
         self.cache.move_to_end(key)
-        self.frequency[key] = self.frequency.get(key, 0) + 1  # 增加访问计数
+        self.frequency[key] = self.frequency.get(key, 0) + 1
+        self.hit_count += 1
         return self.cache[key]
 
     def put(self, key, value):
-        if len(self.cache) >= self.capacity:
-            # 优先淘汰访问频率低的项
+        # 估算新条目的内存使用
+        new_memory = self._estimate_memory_usage(key, value)
+        
+        # 如果键已存在，先删除旧的
+        if key in self.cache:
+            old_value = self.cache.pop(key)
+            old_memory = self._estimate_memory_usage(key, old_value)
+            self.current_memory_bytes -= old_memory
+            # 保留频率信息
+        
+        # 检查是否需要淘汰条目（大小或内存限制）
+        while (len(self.cache) >= self.capacity or 
+               self.current_memory_bytes + new_memory > self.max_memory_bytes):
+            if not self.cache:
+                break  # 缓存为空，无法继续淘汰
             self._remove_lfu()
+        
+        # 添加新条目
         self.cache[key] = value
+        self.cache.move_to_end(key)  # 移到末尾（最近使用）
         self.frequency[key] = self.frequency.get(key, 0) + 1
+        self.current_memory_bytes += new_memory
+        
+        self.logger.debug(f"缓存添加: {key}, 内存使用: {new_memory / 1024 / 1024:.2f} MB, "
+                         f"总内存: {self.current_memory_bytes / 1024 / 1024:.2f} MB")
 
     def _remove_lfu(self):
         """移除最少使用的项（LFU策略）"""
         if self.frequency:
+            # 找到访问频率最低的键
             lfu_key = min(self.frequency.keys(), key=lambda k: self.frequency[k])
+            
+            # 更新内存统计
+            old_memory = self._estimate_memory_usage(lfu_key, self.cache[lfu_key])
+            self.current_memory_bytes -= old_memory
+            self.eviction_count += 1
+            
+            # 删除键
             del self.cache[lfu_key]
             del self.frequency[lfu_key]
+            
+            self.logger.debug(f"LFU淘汰: {lfu_key}, 释放内存: {old_memory / 1024 / 1024:.2f} MB")
 
-_BELLMAN_CACHE = LRUCache(capacity=100)  # 保留最近100组参数
+    def get_stats(self):
+        """获取缓存统计信息"""
+        hit_rate = self.hit_count / self.access_count if self.access_count > 0 else 0
+        return {
+            'size': len(self.cache),
+            'max_size': self.capacity,
+            'memory_mb': self.current_memory_bytes / 1024 / 1024,
+            'max_memory_mb': self.max_memory_bytes / 1024 / 1024,
+            'access_count': self.access_count,
+            'hit_count': self.hit_count,
+            'miss_count': self.miss_count,
+            'hit_rate': hit_rate,
+            'eviction_count': self.eviction_count
+        }
+
+    def clear(self):
+        """清空缓存"""
+        self.cache.clear()
+        self.frequency.clear()
+        self.current_memory_bytes = 0
+        self.access_count = 0
+        self.hit_count = 0
+        self.miss_count = 0
+        self.eviction_count = 0
+        self.logger.info("缓存已清空")
+
+    def __len__(self):
+        return len(self.cache)
+
+    def __contains__(self, key):
+        return key in self.cache
+
+_BELLMAN_CACHE = LRUCache(capacity=100, max_memory_mb=500)  # 保留最近100组参数，最大500MB内存
 
 def _make_cache_key(params: Dict[str, Any], agent_type: int) -> Tuple:
     """
