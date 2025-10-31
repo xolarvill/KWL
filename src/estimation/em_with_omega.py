@@ -20,7 +20,8 @@ from src.model.likelihood import (
     solve_bellman_for_params,
     calculate_likelihood_from_v,
     calculate_likelihood_from_v_individual,
-    _make_cache_key
+    _make_cache_key,
+    clear_bellman_cache
 )
 from src.model.bellman import solve_bellman_equation_individual
 from src.model.wage_equation import calculate_predicted_wage, calculate_reference_wage
@@ -87,7 +88,8 @@ def e_step_with_omega(
     n_types: int,
     prov_to_idx: Dict[int, int],
     max_omega_per_individual: int = 1000,
-    use_simplified_omega: bool = True
+    use_simplified_omega: bool = True,
+    bellman_cache: Dict = None
 ) -> Tuple[Dict[Any, np.ndarray], np.ndarray]:
     """
     扩展的E-step：计算p(τ, ω_i | D_i)后验概率
@@ -130,6 +132,13 @@ def e_step_with_omega(
     K = n_types
 
     logger.info(f"  [E-step with ω] Processing {N} individuals across {K} types...")
+    start_time = time.time()
+    
+    # 初始化缓存
+    if bellman_cache is None:
+        bellman_cache = {}
+    cache_hits = 0
+    cache_misses = 0
 
     # 初始化结果容器
     individual_posteriors = {}
@@ -169,7 +178,15 @@ def e_step_with_omega(
 
     for i_idx, individual_id in enumerate(unique_individuals):
         if (i_idx + 1) % 100 == 0:
-            logger.info(f"    Processing individual {i_idx+1}/{N}")
+            current_time = time.time()
+            if i_idx > 0:
+                elapsed = current_time - start_time
+                rate = (i_idx + 1) / elapsed
+                remaining = (N - i_idx - 1) / rate
+                logger.info(f"    Processing individual {i_idx+1}/{N} "
+                          f"(rate: {rate:.1f} ind/s, est. remaining: {remaining:.1f}s)")
+            else:
+                logger.info(f"    Processing individual {i_idx+1}/{N}")
 
         # 1. 提取该个体的数据和ω
         individual_data = observed_data[observed_data['individual_id'] == individual_id]
@@ -196,21 +213,29 @@ def e_step_with_omega(
 
                     type_params['sigma_epsilon'] = sigma_epsilon
 
-                    # 求解Bellman方程（此处可能需要传入ω相关值到效用函数）
-                    # 简化实现：先不传ω到Bellman求解中
-                    converged_v, _ = solve_bellman_equation_individual(
-                        utility_function=None,
-                        individual_data=individual_data,
-                        params=type_params,
-                        agent_type=int(k),
-                        beta=beta,
-                        transition_matrices=transition_matrices,
-                        regions_df=regions_df,
-                        distance_matrix=distance_matrix,
-                        adjacency_matrix=adjacency_matrix,
-                        verbose=False,
-                        prov_to_idx=prov_to_idx
-                    )
+                    # 检查缓存
+                    cache_key = (tuple(sorted(type_params.items())), int(k))
+                    if cache_key in bellman_cache:
+                        converged_v = bellman_cache[cache_key]
+                        cache_hits += 1
+                    else:
+                        # 求解Bellman方程（此处可能需要传入ω相关值到效用函数）
+                        # 简化实现：先不传ω到Bellman求解中
+                        converged_v, _ = solve_bellman_equation_individual(
+                            utility_function=None,
+                            individual_data=individual_data,
+                            params=type_params,
+                            agent_type=int(k),
+                            beta=beta,
+                            transition_matrices=transition_matrices,
+                            regions_df=regions_df,
+                            distance_matrix=distance_matrix,
+                            adjacency_matrix=adjacency_matrix,
+                            verbose=False,
+                            prov_to_idx=prov_to_idx
+                        )
+                        bellman_cache[cache_key] = converged_v
+                        cache_misses += 1
 
                     # 计算似然（包含工资似然）
                     log_lik_obs = calculate_likelihood_from_v_individual(
@@ -261,7 +286,11 @@ def e_step_with_omega(
         marginal_type_likelihood = np.sum(np.exp(log_lik_matrix), axis=0)
         log_likelihood_matrix[i_idx, :] = marginal_type_likelihood
 
-    logger.info(f"  [E-step with ω] Completed.")
+    total_time = time.time() - start_time
+    cache_hit_rate = cache_hits / (cache_hits + cache_misses) if (cache_hits + cache_misses) > 0 else 0
+    logger.info(f"  [E-step with ω] Completed. Total time: {total_time:.1f}s, "
+                f"Rate: {N/total_time:.1f} individuals/second")
+    logger.info(f"  [E-step with ω] Cache hit rate: {cache_hit_rate:.1%} ({cache_hits}/{cache_hits + cache_misses})")
 
     return individual_posteriors, log_likelihood_matrix
 
@@ -320,7 +349,8 @@ def m_step_with_omega(
     n_types: int,
     prov_to_idx: Dict[int, int],
     max_omega_per_individual: int = 1000,
-    lbfgsb_maxiter: int = 15
+    lbfgsb_maxiter: int = 15,
+    bellman_cache: Dict = None
 ) -> Tuple[Dict[str, Any], np.ndarray]:
     """
     扩展的M-step：对ω进行加权求和来更新参数
@@ -330,6 +360,10 @@ def m_step_with_omega(
 
     from scipy.optimize import minimize
     from src.config.model_config import ModelConfig
+    
+    # 传递缓存给目标函数
+    if bellman_cache is None:
+        bellman_cache = {}
 
     config = ModelConfig()
     unique_individuals = list(individual_posteriors.keys())
@@ -353,15 +387,22 @@ def m_step_with_omega(
 
     # --- 目标函数类 ---
     class Objective:
-        def __init__(self):
+        def __init__(self, shared_bellman_cache=None):
             self.call_count = 0
             self.last_call_end_time = time.time()
+            # 在目标函数调用之间缓存Bellman解
+            self.bellman_cache = shared_bellman_cache if shared_bellman_cache is not None else {}
+            self.cache_hits = 0
+            self.cache_misses = 0
 
         def function(self, param_values: np.ndarray, param_names: List[str]) -> float:
             self.call_count += 1
             start_time = time.time()
             log_msg_header = f"    [M-step Objective Call #{self.call_count}]"
             logger.info(f"{log_msg_header} Starting...")
+            
+            # 记录开始处理的时间
+            individual_start_time = time.time()
 
             # 解包参数
             params = _unpack_params(param_values, param_names, initial_params['n_choices'])
@@ -377,7 +418,23 @@ def m_step_with_omega(
             weight_threshold = 1e-10
 
             # 主循环：遍历每个个体
+            total_individuals = len(unique_individuals)
+            processed_individuals = 0
+            
             for i_idx, individual_id in enumerate(unique_individuals):
+                # 添加进度提示（每100个个体或开始/结束时）
+                if (i_idx + 1) % 100 == 0 or i_idx == 0 or i_idx == total_individuals - 1:
+                    current_time = time.time()
+                    elapsed = current_time - start_time
+                    if processed_individuals > 0:
+                        avg_time_per_individual = elapsed / processed_individuals
+                        remaining_individuals = total_individuals - processed_individuals
+                        estimated_remaining = avg_time_per_individual * remaining_individuals
+                        logger.info(f"{log_msg_header} Processing individual {i_idx+1}/{total_individuals} "
+                                  f"(elapsed: {elapsed:.1f}s, est. remaining: {estimated_remaining:.1f}s)")
+                    else:
+                        logger.info(f"{log_msg_header} Processing individual {i_idx+1}/{total_individuals}")
+                
                 individual_data = observed_data[observed_data['individual_id'] == individual_id]
                 posterior_matrix = individual_posteriors[individual_id]  # (n_omega, K)
                 omega_list = individual_omega_lists[individual_id]
@@ -410,20 +467,30 @@ def m_step_with_omega(
                         continue
 
                     try:
-                        # 求解 Bellman 方程
-                        converged_v_individual, converged = solve_bellman_equation_individual(
-                            utility_function=None,
-                            individual_data=individual_data,
-                            params=type_params,
-                            agent_type=int(k),
-                            beta=beta,
-                            transition_matrices=transition_matrices,
-                            regions_df=regions_df,
-                            distance_matrix=distance_matrix,
-                            adjacency_matrix=adjacency_matrix,
-                            verbose=False,
-                            prov_to_idx=prov_to_idx
-                        )
+                        # 检查本地缓存
+                        cache_key = (tuple(sorted(type_params.items())), int(k))
+                        if cache_key in self.bellman_cache:
+                            converged_v_individual = self.bellman_cache[cache_key]
+                            converged = True
+                            self.cache_hits += 1
+                        else:
+                            # 求解 Bellman 方程
+                            converged_v_individual, converged = solve_bellman_equation_individual(
+                                utility_function=None,
+                                individual_data=individual_data,
+                                params=type_params,
+                                agent_type=int(k),
+                                beta=beta,
+                                transition_matrices=transition_matrices,
+                                regions_df=regions_df,
+                                distance_matrix=distance_matrix,
+                                adjacency_matrix=adjacency_matrix,
+                                verbose=False,
+                                prov_to_idx=prov_to_idx
+                            )
+                            if converged:
+                                self.bellman_cache[cache_key] = converged_v_individual
+                                self.cache_misses += 1
 
                         if not converged:
                             n_failed_computations += 1
@@ -470,6 +537,7 @@ def m_step_with_omega(
                 # 累加该个体总贡献
                 total_weighted_log_lik += individual_contribution
                 individual_log_liks.append(individual_contribution)
+                processed_individuals += 1
 
             # 计算负对数似然
             neg_ll = -total_weighted_log_lik
@@ -478,11 +546,15 @@ def m_step_with_omega(
             self.last_call_end_time = time.time()
 
             # 日志输出
+            cache_hit_rate = self.cache_hits / (self.cache_hits + self.cache_misses) if (self.cache_hits + self.cache_misses) > 0 else 0
             logger.info(f"{log_msg_header} Finished. Duration: {duration:.2f}s, "
                         f"Since last: {time_since_last:.2f}s, NegLL: {neg_ll:.4f}")
             logger.info(f"{log_msg_header} Valid: {n_valid_computations}, Failed: {n_failed_computations}")
             if individual_log_liks:
-                logger.info(f"{log_msg_header} Mean ind loglik: {np.mean(individual_log_liks):.4f}")
+                logger.info(f"{log_msg_header} Mean ind loglik: {np.mean(individual_log_liks):.4f}, "
+                          f"Min: {np.min(individual_log_liks):.4f}, Max: {np.max(individual_log_liks):.4f}")
+            logger.info(f"{log_msg_header} Processing rate: {processed_individuals/duration:.1f} individuals/second, "
+                        f"Cache hit rate: {cache_hit_rate:.1%} ({self.cache_hits}/{self.cache_hits + self.cache_misses})")
 
             if n_valid_computations == 0:
                 logger.error(f"{log_msg_header} All computations failed!")
@@ -500,7 +572,7 @@ def m_step_with_omega(
             return neg_ll
 
     # --- 优化执行 ---
-    objective = Objective()
+    objective = Objective(shared_bellman_cache=bellman_cache)
     initial_param_values, param_names = _pack_params(initial_params)
     param_bounds = config.get_parameter_bounds(param_names)
 
@@ -679,7 +751,9 @@ def run_em_algorithm_with_omega(
 
         # E-step
         logger.info("\n[E-step with ω]")
+        bellman_cache = {}  # 为这次EM迭代创建共享缓存
         individual_posteriors, log_likelihood_matrix = e_step_with_omega(
+            bellman_cache=bellman_cache,
             params=current_params,
             pi_k=current_pi_k,
             observed_data=observed_data,
@@ -737,7 +811,8 @@ def run_em_algorithm_with_omega(
             n_types=n_types,
             prov_to_idx=prov_to_idx,
             max_omega_per_individual=max_omega_per_individual,
-            lbfgsb_maxiter=lbfgsb_maxiter
+            lbfgsb_maxiter=lbfgsb_maxiter,
+            bellman_cache=bellman_cache  # 传递E步的缓存给M步
         )
 
     # 汇总结果
