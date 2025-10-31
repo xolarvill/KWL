@@ -9,7 +9,7 @@ from typing import Dict, Any, Tuple
 import warnings
 import logging
 from joblib import Parallel, delayed
-from src.estimation.louis_method import louis_method_standard_errors # 导入Louis方法
+from src.estimation.louis_method import louis_method_standard_errors, louis_method_standard_errors_safe # 导入Louis方法
 
 
 def compute_hessian_numerical(
@@ -286,7 +286,8 @@ def estimate_mixture_model_standard_errors(
             raise ValueError("使用Louis方法时，必须提供individual_posteriors和support_generator。")
         
         # 确保regions_df是NumPy版本
-        return louis_method_standard_errors(
+        # 使用安全版本处理大样本内存问题
+        return louis_method_standard_errors_safe(
             estimated_params=estimated_params,
             type_probabilities=None, # Louis方法中不需要，但为了兼容性保留
             individual_posteriors=individual_posteriors,

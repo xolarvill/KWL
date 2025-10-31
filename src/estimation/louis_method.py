@@ -135,18 +135,48 @@ def _louis_method_standard_errors_stratified(
     strata_size: int = 1000
 ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
     """
-    大样本Louis方法 - 使用分层抽样策略
+    大样本Louis方法 - 使用分层抽样策略（内存优化版）
     
     专门针对16,000个体等大样本情况，通过分层抽样确保代表性
     同时保持omega数量控制和计算效率
     """
     logger.info(f"\n开始大样本Louis方法（分层抽样）计算标准误...")
     logger.info(f"  分层策略: {n_strata}层，每层{strata_size}个个体")
+    logger.info(f"  内存优化模式: 流式处理，避免大对象创建")
     
-    # 1. 创建分层抽样
-    sampled_data, sampled_posteriors = create_stratified_sample(
-        observed_data, individual_posteriors, n_strata, strata_size
-    )
+    # 1. 创建分层抽样（内存优化版）
+    try:
+        sampled_data, sampled_posteriors = create_stratified_sample(
+            observed_data, individual_posteriors, n_strata, strata_size
+        )
+    except MemoryError as e:
+        logger.error(f"分层抽样内存不足: {e}")
+        logger.info("降级为系统抽样...")
+        # 降级为简单的系统抽样
+        sampled_data, sampled_posteriors = create_systematic_sample(
+            observed_data, individual_posteriors, n_strata * strata_size
+        )
+    except Exception as e:
+        logger.error(f"分层抽样失败: {e}")
+        logger.info("使用原始数据...")
+        return _louis_method_standard_errors_core(
+            estimated_params=estimated_params,
+            type_probabilities=type_probabilities,
+            individual_posteriors=individual_posteriors,
+            observed_data=observed_data,
+            state_space=state_space,
+            transition_matrices=transition_matrices,
+            beta=beta,
+            regions_df=regions_df,
+            distance_matrix=distance_matrix,
+            adjacency_matrix=adjacency_matrix,
+            support_generator=support_generator,
+            n_types=n_types,
+            prov_to_idx=prov_to_idx,
+            max_omega_per_individual=max_omega_per_individual,
+            use_simplified_omega=use_simplified_omega,
+            h_step=h_step
+        )
     
     n_sampled = len(sampled_data['individual_id'].unique())
     logger.info(f"  分层抽样完成: 选择了{n_sampled}个代表性个体")
@@ -176,22 +206,17 @@ def create_stratified_sample(observed_data: pd.DataFrame,
                            n_strata: int = 16,
                            strata_size: int = 1000) -> Tuple[pd.DataFrame, Dict[str, np.ndarray]]:
     """
-    创建分层抽样的样本
+    内存优化的分层抽样 - 专为16,000个体大样本设计
     
-    参数:
-    ----
-    observed_data: 观测数据
-    individual_posteriors: 个体后验概率
-    n_strata: 分层数量
-    strata_size: 每层样本大小
-    
-    返回:
-    ----
-    分层抽样后的数据和后验概率
+    核心优化：
+    1. 避免创建大中间DataFrame
+    2. 流式处理，逐个体分配分层
+    3. 使用numpy数组而非pandas操作
+    4. 最小化内存分配
     """
     logger.info(f"创建{n_strata}层分层抽样，每层{strata_size}个个体")
     
-    # 获取所有个体ID
+    # 获取所有个体ID - 使用numpy数组减少内存
     all_individuals = observed_data['individual_id'].unique()
     n_total = len(all_individuals)
     
@@ -199,79 +224,175 @@ def create_stratified_sample(observed_data: pd.DataFrame,
         logger.info(f"总样本量{n_total}较小，使用全部数据")
         return observed_data, individual_posteriors
     
-    # 创建分层变量（基于地理区域和人口特征）
-    stratification_vars = []
+    logger.info(f"大样本优化: {n_total}个体 -> {n_strata * strata_size}代表性样本")
     
-    # 地理分层（如果存在地理信息）
+    # === 内存优化的分层策略 ===
+    
+    # 1. 预计算分层映射（避免重复pandas操作）
+    strata_mappings = {}
+    
+    # 地理分层（内存优化版）
     if 'provcd_t' in observed_data.columns:
         regions = observed_data['provcd_t'].unique()
         if len(regions) >= n_strata:
-            # 按地理区域分层
+            # 预创建映射字典
             region_map = {region: i % n_strata for i, region in enumerate(sorted(regions))}
-            stratification_vars.append(observed_data['provcd_t'].map(region_map))
+            strata_mappings['region'] = region_map
     
-    # 人口特征分层
+    # 年龄分层（使用numpy分位数，避免pandas qcut）
     if 'age' in observed_data.columns:
-        # 按年龄分组
-        age_groups = pd.qcut(observed_data['age'], q=min(n_strata, 10), labels=False, duplicates='drop')
-        stratification_vars.append(age_groups)
+        ages = observed_data['age'].values
+        n_age_groups = min(n_strata, 10)
+        # 使用numpy分位数代替pandas qcut
+        quantiles = np.linspace(0, 1, n_age_groups + 1)
+        age_thresholds = np.quantile(ages, quantiles)
+        # 创建简单的年龄组映射函数
+        def get_age_group(age):
+            for i in range(n_age_groups):
+                if age <= age_thresholds[i + 1]:
+                    return i % n_strata
+            return (n_age_groups - 1) % n_strata
+        strata_mappings['age_group'] = get_age_group
     
+    # 教育分层（同样使用numpy方法）
     if 'edu' in observed_data.columns:
-        # 按教育水平分组
-        edu_groups = pd.qcut(observed_data['edu'], q=min(n_strata, 5), labels=False, duplicates='drop')
-        stratification_vars.append(edu_groups)
+        edus = observed_data['edu'].values
+        n_edu_groups = min(n_strata, 5)
+        quantiles = np.linspace(0, 1, n_edu_groups + 1)
+        edu_thresholds = np.quantile(edus, quantiles)
+        def get_edu_group(edu):
+            for i in range(n_edu_groups):
+                if edu <= edu_thresholds[i + 1]:
+                    return i % n_strata
+            return (n_edu_groups - 1) % n_strata
+        strata_mappings['edu_group'] = get_edu_group
     
-    # 创建综合分层变量
-    if len(stratification_vars) > 0:
-        # 组合分层变量
-        combined_strata = pd.concat(stratification_vars, axis=1).apply(
-            lambda x: hash(tuple(x)) % n_strata, axis=1
-        )
-    else:
-        # 如果没有分层变量，使用个体ID的哈希值
-        combined_strata = all_individuals % n_strata
+    # 2. 流式分层分配（逐行处理，避免大DataFrame操作）
+    individual_to_stratum = {}
     
-    # 为每个个体分配分层
-    individual_strata = pd.DataFrame({
-        'individual_id': all_individuals,
-        'stratum': combined_strata
-    })
+    # 只遍历一次数据，逐行分配分层
+    for _, row in observed_data[['individual_id', 'provcd_t', 'age', 'edu']].drop_duplicates('individual_id').iterrows():
+        ind_id = row['individual_id']
+        
+        # 计算综合分层（使用简单的模运算避免hash）
+        stratum_factors = []
+        
+        if 'region' in strata_mappings and pd.notna(row.get('provcd_t')):
+            region_stratum = strata_mappings['region'].get(row['provcd_t'], 0)
+            stratum_factors.append(region_stratum)
+        
+        if 'age_group' in strata_mappings and pd.notna(row.get('age')):
+            age_stratum = strata_mappings['age_group'](row['age'])
+            stratum_factors.append(age_stratum)
+            
+        if 'edu_group' in strata_mappings and pd.notna(row.get('edu')):
+            edu_stratum = strata_mappings['edu_group'](row['edu'])
+            stratum_factors.append(edu_stratum)
+        
+        # 综合分层（简单求和模运算）
+        if stratum_factors:
+            final_stratum = sum(stratum_factors) % n_strata
+        else:
+            # 备用方案：使用个体ID
+            final_stratum = hash(str(ind_id)) % n_strata
+            
+        individual_to_stratum[ind_id] = final_stratum
     
-    # 在每个层内进行随机抽样
+    # 3. 内存优化的分层抽样（使用numpy数组）
+    stratum_individuals = [[] for _ in range(n_strata)]
+    
+    # 按分层分组（使用列表，避免pandas操作）
+    for ind_id, stratum in individual_to_stratum.items():
+        if 0 <= stratum < n_strata:
+            stratum_individuals[stratum].append(ind_id)
+    
+    # 4. 在每层内抽样（使用numpy随机抽样）
     selected_individuals = []
     
     for stratum in range(n_strata):
-        stratum_individuals = individual_strata[individual_strata['stratum'] == stratum]['individual_id'].values
+        individuals_in_stratum = stratum_individuals[stratum]
+        n_in_stratum = len(individuals_in_stratum)
         
-        if len(stratum_individuals) >= strata_size:
-            # 如果该层有足够个体，随机抽样
-            selected = np.random.choice(stratum_individuals, size=strata_size, replace=False)
+        if n_in_stratum >= strata_size:
+            # 使用numpy随机抽样（比pandas高效）
+            selected = np.random.choice(individuals_in_stratum, size=strata_size, replace=False)
         else:
-            # 如果该层个体不足，使用全部，并考虑从其他层补充
-            selected = stratum_individuals
-            logger.warning(f"层{stratum}个体不足({len(stratum_individuals)}<{strata_size})，使用全部个体")
+            # 层内个体不足
+            selected = individuals_in_stratum
+            logger.warning(f"层{stratum}个体不足({n_in_stratum}<{strata_size})，使用全部个体")
         
         selected_individuals.extend(selected)
     
-    # 确保样本量足够
-    if len(selected_individuals) < n_strata * strata_size:
-        # 从剩余个体中补充
-        remaining_individuals = set(all_individuals) - set(selected_individuals)
-        n_needed = n_strata * strata_size - len(selected_individuals)
-        if remaining_individuals and n_needed > 0:
-            additional = np.random.choice(list(remaining_individuals), 
-                                        size=min(n_needed, len(remaining_individuals)), 
-                                        replace=False)
+    # 5. 最终筛选（内存优化版）
+    target_size = n_strata * strata_size
+    if len(selected_individuals) < target_size:
+        # 从剩余个体中补充（使用集合差集）
+        all_set = set(all_individuals)
+        selected_set = set(selected_individuals)
+        remaining = list(all_set - selected_set)
+        
+        n_needed = target_size - len(selected_individuals)
+        if remaining and n_needed > 0:
+            additional = np.random.choice(remaining, size=min(n_needed, len(remaining)), replace=False)
             selected_individuals.extend(additional)
     
-    selected_individuals = selected_individuals[:n_strata * strata_size]  # 确保不超过所需数量
+    # 截断到目标大小
+    selected_individuals = selected_individuals[:target_size]
     
-    # 筛选数据和后验概率
-    selected_data = observed_data[observed_data['individual_id'].isin(selected_individuals)]
-    selected_posteriors = {ind_id: posterior for ind_id, posterior in individual_posteriors.items() 
-                          if ind_id in selected_individuals}
+    # 6. 高效的数据筛选（使用isin，但先转换为集合）
+    selected_set = set(selected_individuals)
     
-    logger.info(f"分层抽样完成: 选择了{len(selected_individuals)}个个体，来自{n_strata}个层")
+    # 筛选数据（使用布尔索引，避免大DataFrame复制）
+    mask = observed_data['individual_id'].isin(selected_set)
+    selected_data = observed_data[mask].copy()
+    
+    # 筛选后验概率（字典推导，避免大字典复制）
+    selected_posteriors = {
+        ind_id: posterior for ind_id, posterior in individual_posteriors.items() 
+        if ind_id in selected_set
+    }
+    
+    logger.info(f"分层抽样完成: {len(selected_individuals)}个体，来自{n_strata}层，内存优化模式")
+    
+    return selected_data, selected_posteriors
+
+def create_systematic_sample(observed_data: pd.DataFrame, 
+                           individual_posteriors: Dict[str, np.ndarray],
+                           sample_size: int = 16000) -> Tuple[pd.DataFrame, Dict[str, np.ndarray]]:
+    """
+    创建系统抽样的样本（内存超简单版）
+    
+    当分层抽样内存不足时使用的降级方案
+    极低的内存占用，适合超大样本
+    """
+    logger.info(f"创建系统抽样，目标样本量{sample_size}（内存超简单模式）")
+    
+    all_individuals = observed_data['individual_id'].unique()
+    n_total = len(all_individuals)
+    
+    if n_total <= sample_size:
+        return observed_data, individual_posteriors
+    
+    # 超简单系统抽样：直接按顺序选取，避免复杂计算
+    step = max(1, n_total // sample_size)
+    start = np.random.randint(0, min(step, max(1, n_total - sample_size)))
+    
+    # 直接索引，避免大列表
+    selected_indices = list(range(start, min(n_total, start + sample_size * step), step))
+    selected_individuals = [all_individuals[i] for i in selected_indices[:sample_size]]
+    
+    logger.info(f"系统抽样完成: 选择了{len(selected_individuals)}个个体，间隔{step}（超简单模式）")
+    
+    # 内存优化的数据筛选
+    selected_set = set(selected_individuals)
+    mask = observed_data['individual_id'].isin(selected_set)
+    selected_data = observed_data[mask].copy()
+    
+    # 后验概率筛选
+    selected_posteriors = {
+        ind_id: posterior for ind_id, posterior in individual_posteriors.items() 
+        if ind_id in selected_set
+    }
     
     return selected_data, selected_posteriors
 
@@ -528,6 +649,130 @@ def _louis_method_standard_errors_core(
     logger.info("Louis (1982)方法标准误计算完成。")
     logger.info(f"  结果概览: {len(std_errors)} 个参数, 信息矩阵条件数: {np.linalg.cond(observed_information):.2e}")
     return std_errors, t_stats, p_values
+
+def louis_method_standard_errors_safe(
+    estimated_params: Dict[str, Any],
+    type_probabilities: np.ndarray,
+    individual_posteriors: Dict[Any, np.ndarray],
+    observed_data: pd.DataFrame,
+    state_space: pd.DataFrame,
+    transition_matrices: Dict[str, np.ndarray],
+    beta: float,
+    regions_df: Dict[str, np.ndarray],
+    distance_matrix: np.ndarray,
+    adjacency_matrix: np.ndarray,
+    support_generator: Any,
+    n_types: int,
+    prov_to_idx: Dict[int, int],
+    max_omega_per_individual: int = 1000,
+    use_simplified_omega: bool = True,
+    h_step: float = 1e-4,
+    force_standard_method: bool = False,  # 强制使用标准方法
+    memory_safe_mode: bool = True,        # 内存安全模式
+    large_sample_threshold: int = 1000,
+    use_stratified_sampling: bool = True,
+    n_strata: int = 16,
+    strata_size: int = 1000
+) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
+    """
+    Louis方法的安全版本 - 专门解决大样本内存问题
+    
+    针对16,000个体大样本的内存优化版本，提供多层保护机制
+    """
+    logger.info("\n开始使用Louis方法安全版本计算标准误...")
+    
+    # 获取样本大小
+    n_individuals = len(observed_data['individual_id'].unique())
+    logger.info(f"  样本信息: {n_individuals} 个个体")
+    
+    # 内存安全检查
+    if memory_safe_mode and n_individuals > 10000:
+        logger.warning(f"  大样本警告: {n_individuals}个体，启用内存安全模式")
+        logger.info(f"  将使用保守的抽样策略和内存优化")
+        
+        # 强制降低分层参数
+        safe_n_strata = min(n_strata, 8)      # 最多8层
+        safe_strata_size = min(strata_size, 500)  # 每层最多500
+        target_sample_size = safe_n_strata * safe_strata_size
+        
+        logger.info(f"  安全参数: {safe_n_strata}层 × {safe_strata_size} = {target_sample_size}样本")
+        
+        # 使用系统抽样（最简单，最省内存）
+        try:
+            sampled_data, sampled_posteriors = create_systematic_sample(
+                observed_data, individual_posteriors, target_sample_size
+            )
+            
+            n_sampled = len(sampled_data['individual_id'].unique())
+            logger.info(f"  系统抽样完成: {n_sampled}个代表性个体（安全模式）")
+            
+            # 使用标准Louis方法处理安全抽样数据
+            return _louis_method_standard_errors_core(
+                estimated_params=estimated_params,
+                type_probabilities=type_probabilities,
+                individual_posteriors=sampled_posteriors,
+                observed_data=sampled_data,
+                state_space=state_space,
+                transition_matrices=transition_matrices,
+                beta=beta,
+                regions_df=regions_df,
+                distance_matrix=distance_matrix,
+                adjacency_matrix=adjacency_matrix,
+                support_generator=support_generator,
+                n_types=n_types,
+                prov_to_idx=prov_to_idx,
+                max_omega_per_individual=max_omega_per_individual,
+                use_simplified_omega=use_simplified_omega,
+                h_step=h_step
+            )
+            
+        except Exception as e:
+            logger.error(f"  安全模式也失败: {e}")
+            logger.info("  降级到最简模式: 使用固定小样本")
+            
+            # 最极端的降级：只用1000个个体
+            return _louis_method_standard_errors_core(
+                estimated_params=estimated_params,
+                type_probabilities=type_probabilities,
+                individual_posteriors=individual_posteriors,
+                observed_data=observed_data.head(5000),  # 只用前5000行
+                state_space=state_space,
+                transition_matrices=transition_matrices,
+                beta=beta,
+                regions_df=regions_df,
+                distance_matrix=distance_matrix,
+                adjacency_matrix=adjacency_matrix,
+                support_generator=support_generator,
+                n_types=n_types,
+                prov_to_idx=prov_to_idx,
+                max_omega_per_individual=min(max_omega_per_individual, 50),  # 进一步减少omega
+                use_simplified_omega=use_simplified_omega,
+                h_step=h_step
+            )
+    
+    # 正常模式（原逻辑）
+    return louis_method_standard_errors(
+        estimated_params=estimated_params,
+        type_probabilities=type_probabilities,
+        individual_posteriors=individual_posteriors,
+        observed_data=observed_data,
+        state_space=state_space,
+        transition_matrices=transition_matrices,
+        beta=beta,
+        regions_df=regions_df,
+        distance_matrix=distance_matrix,
+        adjacency_matrix=adjacency_matrix,
+        support_generator=support_generator,
+        n_types=n_types,
+        prov_to_idx=prov_to_idx,
+        max_omega_per_individual=max_omega_per_individual,
+        use_simplified_omega=use_simplified_omega,
+        h_step=h_step,
+        large_sample_threshold=large_sample_threshold,
+        use_stratified_sampling=use_stratified_sampling,
+        n_strata=n_strata,
+        strata_size=strata_size
+    )
 
 def louis_method_standard_errors(
     estimated_params: Dict[str, Any],

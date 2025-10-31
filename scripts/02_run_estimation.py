@@ -272,6 +272,10 @@ def main():
     parser.add_argument('--stderr-method', type=str, default="louis",
                         choices=["louis", "bootstrap", "shared_only", "type_0_only", "all_numerical"],
                         help='标准误计算方法: "louis", "bootstrap", 其他方法是旧版本遗留现在被移出了"')
+    parser.add_argument('--memory-safe', action='store_true', 
+                        help='启用内存安全模式（大样本时自动启用）')
+    parser.add_argument('--max-sample-size', type=int, default=None,
+                        help='最大样本大小限制（如16000）')
     args = parser.parse_args()
 
     if args.profile:
