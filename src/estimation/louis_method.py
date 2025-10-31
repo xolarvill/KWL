@@ -68,6 +68,9 @@ def _individual_log_likelihood_for_louis(
     float
         该个体在该类型和omega组合下的对数似然
     """
+    import time
+    start_time = time.time()
+    
     params = _unpack_params(packed_params, param_names, n_choices)
 
     # 提取omega相关参数
@@ -109,9 +112,16 @@ def _individual_log_likelihood_for_louis(
             adjacency_matrix=adjacency_matrix,
             prov_to_idx=prov_to_idx
         )
-        return np.sum(log_lik_obs)
+        total_likelihood = np.sum(log_lik_obs)
+        
+        elapsed = time.time() - start_time
+        if elapsed > 1.0:  # 如果计算时间超过1秒，记录警告
+            logger.debug(f"个体似然计算耗时: {elapsed:.2f}s, 类型: {agent_type}, omega: {omega_values}, 似然: {total_likelihood:.4f}")
+        
+        return total_likelihood
     except Exception as e:
-        logger.debug(f"Error in _individual_log_likelihood_for_louis: {e}")
+        elapsed = time.time() - start_time
+        logger.debug(f"个体似然计算失败: {e}, 耗时: {elapsed:.2f}s, 类型: {agent_type}, omega: {omega_values}")
         return -1e10 # 返回一个非常小的数表示计算失败
 
 def louis_method_standard_errors(
@@ -175,6 +185,7 @@ def louis_method_standard_errors(
     Tuple[Dict, Dict, Dict]: (标准误字典, t统计量字典, p值字典)
     """
     logger.info("\n开始使用Louis (1982)方法计算标准误...")
+    logger.info(f"  参数配置: h_step={h_step}, max_omega_per_individual={max_omega_per_individual}")
 
     # 1. 准备参数
     packed_estimated_params, param_names = _pack_params(estimated_params)
@@ -182,6 +193,8 @@ def louis_method_standard_errors(
     n_choices = estimated_params['n_choices']
     unique_individuals = observed_data['individual_id'].unique()
     N = len(unique_individuals)
+    
+    logger.info(f"  样本信息: {N} 个个体, {n_params} 个参数, {n_types} 种类型")
 
     # 2. 初始化信息矩阵和Score矩阵
     expected_complete_information = np.zeros((n_params, n_params))
@@ -194,7 +207,12 @@ def louis_method_standard_errors(
     individual_omega_probs = {}
 
     logger.info("  预枚举所有个体的omega...")
-    for individual_id in unique_individuals:
+    start_time = pd.Timestamp.now()
+    for i, individual_id in enumerate(unique_individuals):
+        if (i + 1) % max(1, N // 10) == 0 or i < 5:  # 显示前5个和每10%的进度
+            elapsed = (pd.Timestamp.now() - start_time).total_seconds()
+            logger.info(f"    预枚举进度: {i+1}/{N} 个体, 用时: {elapsed:.1f}s")
+        
         individual_data = observed_data[observed_data['individual_id'] == individual_id]
         omega_list, omega_probs = enumerator.enumerate_omega_for_individual(
             individual_data,
@@ -202,11 +220,27 @@ def louis_method_standard_errors(
         )
         individual_omega_lists[individual_id] = omega_list
         individual_omega_probs[individual_id] = omega_probs
+    
+    enum_time = (pd.Timestamp.now() - start_time).total_seconds()
+    logger.info(f"  预枚举完成: 用时 {enum_time:.1f}s, 平均每个个体 {enum_time/N:.2f}s")
 
     # 3. 遍历每个个体，计算其对信息矩阵和Score矩阵的贡献
+    logger.info(f"  开始计算信息矩阵和Score矩阵...")
+    total_omega_combinations = sum(len(individual_omega_lists[ind_id]) for ind_id in unique_individuals)
+    logger.info(f"  总omega组合数: {total_omega_combinations}, 平均每个个体: {total_omega_combinations/N:.1f}")
+    
+    start_time = pd.Timestamp.now()
+    last_log_time = start_time
+    
     for i_idx, individual_id in enumerate(unique_individuals):
-        if (i_idx + 1) % 100 == 0:
-            logger.info(f"    处理个体 {i_idx+1}/{N}...")
+        # 更频繁的日志输出
+        current_time = pd.Timestamp.now()
+        if (i_idx + 1) % 1 == 0 or (current_time - last_log_time).total_seconds() > 10:  # 每1个个体或每10秒输出一次
+            elapsed = (current_time - start_time).total_seconds()
+            progress = (i_idx + 1) / N
+            eta = elapsed / progress - elapsed if progress > 0 else 0
+            logger.info(f"    处理个体 {i_idx+1}/{N} ({progress*100:.1f}%), 用时: {elapsed:.1f}s, 预计剩余: {eta:.1f}s")
+            last_log_time = current_time
 
         individual_data = observed_data[observed_data['individual_id'] == individual_id]
         posterior_matrix = individual_posteriors[individual_id] # (n_omega, K)
@@ -259,6 +293,15 @@ def louis_method_standard_errors(
 
         # 累加到Score协方差矩阵
         sum_of_individual_scores_outer_product += np.outer(individual_score_sum, individual_score_sum)
+        
+        # 记录当前个体的处理统计
+        if (i_idx + 1) % max(1, N // 20) == 0:  # 每5%输出一次统计
+            elapsed = (pd.Timestamp.now() - start_time).total_seconds()
+            logger.info(f"    进度: {i_idx+1}/{N} 个体, 总用时: {elapsed:.1f}s")
+
+    # 计算完成统计
+    total_time = (pd.Timestamp.now() - start_time).total_seconds()
+    logger.info(f"  信息矩阵计算完成: 总用时 {total_time:.1f}s, 平均每个个体 {total_time/N:.2f}s")
 
     # 4. 计算观测信息矩阵
     observed_information = expected_complete_information - sum_of_individual_scores_outer_product
@@ -293,4 +336,5 @@ def louis_method_standard_errors(
             p_values[name] = np.nan
 
     logger.info("Louis (1982)方法标准误计算完成。")
+    logger.info(f"  结果概览: {len(std_errors)} 个参数, 信息矩阵条件数: {np.linalg.cond(observed_information):.2e}")
     return std_errors, t_stats, p_values
