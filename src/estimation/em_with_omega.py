@@ -214,6 +214,12 @@ def e_step_with_omega(
 
         # 1. 提取该个体的数据和ω
         individual_data = observed_data[observed_data['individual_id'] == individual_id]
+        
+        if individual_data.empty:
+            logger.warning(f"  Skipping individual {individual_id} as their data is empty.")
+            log_likelihood_matrix[i_idx, :] = -1e10
+            continue
+            
         omega_list, omega_probs = individual_omega_dict[individual_id]
 
         n_omega = len(omega_list)
@@ -241,7 +247,7 @@ def e_step_with_omega(
                     type_params['sigma_epsilon'] = sigma_epsilon
 
                     # 检查缓存 - 使用LRU缓存
-                    cache_key = (tuple(sorted(type_params.items())), int(k))
+                    cache_key = (individual_id, tuple(sorted(type_params.items())), int(k))
                     converged_v = bellman_cache.get(cache_key)
                     if converged_v is not None:
                         cache_hits += 1
