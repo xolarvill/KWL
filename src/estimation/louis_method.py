@@ -18,72 +18,40 @@ from src.estimation.em_with_omega import _pack_params, _unpack_params # 导入�
 
 logger = logging.getLogger(__name__)
 
-def _individual_log_likelihood_for_louis(
+def _compute_individual_contribution_streaming(
     packed_params: np.ndarray,
     param_names: List[str],
     n_choices: int,
     individual_data: pd.DataFrame,
     agent_type: int,
     omega_values: Dict[str, float],
+    omega_prob: float,
     beta: float,
     transition_matrices: Dict[str, np.ndarray],
     regions_df: Dict[str, np.ndarray],
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
-    prov_to_idx: Dict[int, int]
-) -> float:
+    prov_to_idx: Dict[int, int],
+    h_step: float
+) -> Tuple[np.ndarray, np.ndarray]:
     """
-    计算单个个体在给定类型和omega下的对数似然。
-    此函数用于数值微分以获取梯度和Hessian。
-
-    参数:
-    ----
-    packed_params : np.ndarray
-        打包后的参数数组
-    param_names : List[str]
-        参数名称列表
-    n_choices : int
-        选择数量
-    individual_data : pd.DataFrame
-        单个个体的观测数据
-    agent_type : int
-        个体类型 (τ)
-    omega_values : Dict[str, float]
-        当前omega组合的eta和sigma值
-    beta : float
-        贴现因子
-    transition_matrices : Dict[str, np.ndarray]
-        转移矩阵
-    regions_df : Dict[str, np.ndarray]
-        地区数据 (NumPy版本)
-    distance_matrix : np.ndarray
-        距离矩阵
-    adjacency_matrix : np.ndarray
-        邻接矩阵
-    prov_to_idx : Dict[int, int]
-        省份ID到矩阵索引的映射
-
+    流式计算单个个体在特定(omega, type)组合下的统计贡献
+    
     返回:
-    ----
-    float
-        该个体在该类型和omega组合下的对数似然
+        information_matrix: 信息矩阵贡献 (p×p)
+        score_vector: 分数向量贡献 (p,)
     """
-    params = _unpack_params(packed_params, param_names, n_choices)
-
-    # 提取omega相关参数
-    eta_i = omega_values['eta']
-    sigma_epsilon = omega_values['sigma']
-
-    # 构建type-specific参数
-    type_params = params.copy()
-    if f'gamma_0_type_{agent_type}' in params:
-        type_params['gamma_0'] = params[f'gamma_0_type_{agent_type}']
-    type_params['sigma_epsilon'] = sigma_epsilon # 将sigma_epsilon作为参数传入
-
     try:
+        # 构建type-specific参数
+        params = _unpack_params(packed_params, param_names, n_choices)
+        type_params = params.copy()
+        if f'gamma_0_type_{agent_type}' in params:
+            type_params['gamma_0'] = params[f'gamma_0_type_{agent_type}']
+        type_params['sigma_epsilon'] = omega_values['sigma']
+
         # 求解Bellman方程
         converged_v, _ = solve_bellman_equation_individual(
-            utility_function=None, # 效用函数在内部构建
+            utility_function=None,
             individual_data=individual_data,
             params=type_params,
             agent_type=agent_type,
@@ -96,25 +64,212 @@ def _individual_log_likelihood_for_louis(
             prov_to_idx=prov_to_idx
         )
 
-        # 计算似然（包含工资似然）
-        log_lik_obs = calculate_likelihood_from_v_individual(
-            converged_v_individual=converged_v,
-            params=type_params,
-            individual_data=individual_data,
-            agent_type=agent_type,
-            beta=beta,
-            transition_matrices=transition_matrices,
-            regions_df=regions_df,
-            distance_matrix=distance_matrix,
-            adjacency_matrix=adjacency_matrix,
-            prov_to_idx=prov_to_idx
-        )
-        return np.sum(log_lik_obs)
-    except Exception as e:
-        logger.debug(f"Error in _individual_log_likelihood_for_louis: {e}")
-        return -1e10 # 返回一个非常小的数表示计算失败
+        # 定义似然函数用于数值微分
+        def likelihood_func(p):
+            temp_params = _unpack_params(p, param_names, n_choices)
+            temp_type_params = temp_params.copy()
+            if f'gamma_0_type_{agent_type}' in temp_params:
+                temp_type_params['gamma_0'] = temp_params[f'gamma_0_type_{agent_type}']
+            temp_type_params['sigma_epsilon'] = omega_values['sigma']
+            
+            log_lik_obs = calculate_likelihood_from_v_individual(
+                converged_v_individual=converged_v,
+                params=temp_type_params,
+                individual_data=individual_data,
+                agent_type=agent_type,
+                beta=beta,
+                transition_matrices=transition_matrices,
+                regions_df=regions_df,
+                distance_matrix=distance_matrix,
+                adjacency_matrix=adjacency_matrix,
+                prov_to_idx=prov_to_idx
+            )
+            return np.sum(log_lik_obs)
 
-def _louis_method_standard_errors_stratified(
+        # 计算梯度和Hessian
+        grad_calculator = Gradient(likelihood_func, step=h_step)
+        score_vector = grad_calculator(packed_params)
+        
+        hessian_calculator = Hessian(likelihood_func, step=h_step)
+        hessian_matrix = hessian_calculator(packed_params)
+        
+        # 检查数值稳定性
+        if not np.all(np.isfinite(score_vector)) or not np.all(np.isfinite(hessian_matrix)):
+            logger.debug(f"数值不稳定: agent_type={agent_type}, omega_prob={omega_prob}")
+            return np.zeros((len(packed_params), len(packed_params))), np.zeros(len(packed_params))
+        
+        return -hessian_matrix, score_vector  # 信息矩阵 = -E[Hessian]
+        
+    except Exception as e:
+        logger.debug(f"计算个体贡献失败: {e}")
+        n_params = len(packed_params)
+        return np.zeros((n_params, n_params)), np.zeros(n_params)
+
+
+def louis_method_standard_errors_streaming(
+    estimated_params: Dict[str, Any],
+    type_probabilities: np.ndarray,
+    individual_posteriors: Dict[Any, np.ndarray],
+    observed_data: pd.DataFrame,
+    state_space: pd.DataFrame,
+    transition_matrices: Dict[str, np.ndarray],
+    beta: float,
+    regions_df: Dict[str, np.ndarray],
+    distance_matrix: np.ndarray,
+    adjacency_matrix: np.ndarray,
+    support_generator: Any,
+    n_types: int,
+    prov_to_idx: Dict[int, int],
+    max_omega_per_individual: int = 1000,  # 保持完整数量！
+    use_simplified_omega: bool = True,
+    h_step: float = 1e-4
+) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
+    """
+    流式Louis方法 - 保持统计完整性的内存优化版本
+    
+    核心思想：
+    1. 不存储所有个体的omega数据
+    2. 逐个体计算，累积统计量矩阵
+    3. 保持完整的omega枚举数量
+    """
+    logger.info("\n开始流式Louis方法计算标准误（保持统计完整性）...")
+    logger.info(f"  内存优化: 流式处理，保持完整omega枚举 ({max_omega_per_individual} per individual)")
+    
+    # 1. 准备参数
+    packed_estimated_params, param_names = _pack_params(estimated_params)
+    n_params = len(packed_estimated_params)
+    n_choices = estimated_params['n_choices']
+    unique_individuals = observed_data['individual_id'].unique()
+    N = len(unique_individuals)
+    
+    logger.info(f"  样本信息: {N} 个个体, {n_params} 个参数, {n_types} 种类型")
+    logger.info(f"  内存使用: O(p²) = {n_params*n_params*8/1024/1024:.1f}MB (仅统计量矩阵)")
+    
+    # 2. 初始化累积矩阵（只占O(p²)内存）
+    expected_complete_information = np.zeros((n_params, n_params))
+    sum_of_individual_scores_outer_product = np.zeros((n_params, n_params))
+    
+    # 3. 创建omega枚举器
+    from src.model.discrete_support import SimplifiedOmegaEnumerator
+    enumerator = SimplifiedOmegaEnumerator(support_generator)
+    
+    # 4. 流式处理每个个体
+    start_time = pd.Timestamp.now()
+    processed_combinations = 0
+    skipped_combinations = 0
+    
+    for i_idx, individual_id in enumerate(unique_individuals):
+        if (i_idx + 1) % max(1, N // 10) == 0:
+            elapsed = (pd.Timestamp.now() - start_time).total_seconds()
+            logger.info(f"    进度: {i_idx+1}/{N} ({(i_idx+1)/N*100:.1f}%), 用时: {elapsed:.1f}s")
+        
+        # 获取个体数据
+        individual_data = observed_data[observed_data['individual_id'] == individual_id]
+        posterior_matrix = individual_posteriors[individual_id]  # (n_omega, K)
+        
+        # 关键：按需枚举omega，保持完整数量但不存储！
+        omega_list, omega_probs = enumerator.enumerate_omega_for_individual(
+            individual_data,
+            max_combinations=max_omega_per_individual  # 保持完整数量！
+        )
+        
+        # 初始化个体级累积变量
+        individual_info_sum = np.zeros((n_params, n_params))
+        individual_score_sum = np.zeros(n_params)
+        individual_total_weight = 0.0
+        
+        # 检查posterior_matrix的维度是否匹配
+        if posterior_matrix.shape[0] != len(omega_list):
+            logger.warning(f"个体 {individual_id}: posterior矩阵维度不匹配 {posterior_matrix.shape[0]} vs {len(omega_list)}，调整posterior矩阵")
+            # 重新构建posterior矩阵以匹配实际的omega列表
+            actual_posterior = np.zeros((len(omega_list), n_types))
+            min_size = min(posterior_matrix.shape[0], len(omega_list))
+            actual_posterior[:min_size, :] = posterior_matrix[:min_size, :]
+            posterior_matrix = actual_posterior
+        
+        # 遍历每个(omega, type)组合
+        for omega_idx, omega in enumerate(omega_list):
+            for k in range(n_types):
+                weight = posterior_matrix[omega_idx, k]  # p(τ, ω | D_i)
+                
+                if weight < 1e-10:  # 忽略极小权重
+                    skipped_combinations += 1
+                    continue
+                
+                # 流式计算该组合的统计贡献
+                info_contrib, score_contrib = _compute_individual_contribution_streaming(
+                    packed_params=packed_estimated_params,
+                    param_names=param_names,
+                    n_choices=n_choices,
+                    individual_data=individual_data,
+                    agent_type=k,
+                    omega_values=omega,
+                    omega_prob=weight,
+                    beta=beta,
+                    transition_matrices=transition_matrices,
+                    regions_df=regions_df,
+                    distance_matrix=distance_matrix,
+                    adjacency_matrix=adjacency_matrix,
+                    prov_to_idx=prov_to_idx,
+                    h_step=h_step
+                )
+                
+                # 加权累积
+                individual_info_sum += weight * info_contrib
+                individual_score_sum += weight * score_contrib
+                individual_total_weight += weight
+                processed_combinations += 1
+        
+        # 检查权重总和（应该接近1）
+        if abs(individual_total_weight - 1.0) > 0.1:
+            logger.warning(f"  个体 {individual_id} 权重总和异常: {individual_total_weight:.3f}")
+        
+        # 累积到总矩阵
+        expected_complete_information += individual_info_sum
+        sum_of_individual_scores_outer_product += np.outer(individual_score_sum, individual_score_sum)
+    
+    # 计算完成统计
+    total_time = (pd.Timestamp.now() - start_time).total_seconds()
+    logger.info(f"  流式计算完成: 总用时 {total_time:.1f}s, 平均每个个体 {total_time/N:.2f}s")
+    logger.info(f"  处理组合数: {processed_combinations}, 跳过组合数: {skipped_combinations}")
+    
+    # 5. 最终计算（标准Louis公式）
+    observed_information = expected_complete_information - sum_of_individual_scores_outer_product
+    
+    try:
+        cov_matrix = np.linalg.inv(observed_information)
+    except np.linalg.LinAlgError:
+        logger.warning("观测信息矩阵奇异，使用伪逆计算协方差矩阵。")
+        cov_matrix = np.linalg.pinv(observed_information)
+    
+    # 6. 提取标准误、t统计量和p值
+    std_errors = {}
+    t_stats = {}
+    p_values = {}
+    
+    for i, name in enumerate(param_names):
+        if i < cov_matrix.shape[0] and i < cov_matrix.shape[1]:
+            std_err = np.sqrt(max(0, cov_matrix[i, i]))
+            std_errors[name] = std_err
+            
+            if std_err > 1e-10:
+                t_stat = packed_estimated_params[i] / std_err
+                t_stats[name] = t_stat
+                p_values[name] = 2 * (1 - norm.cdf(abs(t_stat)))
+            else:
+                t_stats[name] = np.nan
+                p_values[name] = np.nan
+        else:
+            std_errors[name] = np.nan
+            t_stats[name] = np.nan
+            p_values[name] = np.nan
+    
+    logger.info("流式Louis方法标准误计算完成。")
+    logger.info(f"  结果概览: {len(std_errors)} 个参数, 信息矩阵条件数: {np.linalg.cond(observed_information):.2e}")
+    
+    return std_errors, t_stats, p_values
+
+def _louis_method_standard_errors_stratified_deprecated(
     estimated_params: Dict[str, Any],
     type_probabilities: np.ndarray,
     individual_posteriors: Dict[Any, np.ndarray],
@@ -135,25 +290,32 @@ def _louis_method_standard_errors_stratified(
     strata_size: int = 1000
 ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
     """
-    大样本Louis方法 - 使用分层抽样策略（内存优化版）
+    [已弃用] 分层抽样Louis方法
     
-    专门针对16,000个体等大样本情况，通过分层抽样确保代表性
-    同时保持omega数量控制和计算效率
+    警告：此方法已被流式Louis方法取代，仅保留用于向后兼容。
+    建议使用louis_method_standard_errors_streaming()获得更好的性能和统计完整性。
     """
+    import warnings
+    warnings.warn(
+        "_louis_method_standard_errors_stratified_deprecated已弃用，"
+        "请使用louis_method_standard_errors_streaming()代替，"
+        "后者提供更好的性能和统计完整性",
+        DeprecationWarning, stacklevel=2
+    )
     logger.info(f"\n开始大样本Louis方法（分层抽样）计算标准误...")
     logger.info(f"  分层策略: {n_strata}层，每层{strata_size}个个体")
     logger.info(f"  内存优化模式: 流式处理，避免大对象创建")
     
     # 1. 创建分层抽样（内存优化版）
     try:
-        sampled_data, sampled_posteriors = create_stratified_sample(
+        sampled_data, sampled_posteriors = create_stratified_sample_deprecated(
             observed_data, individual_posteriors, n_strata, strata_size
         )
     except MemoryError as e:
         logger.error(f"分层抽样内存不足: {e}")
         logger.info("降级为系统抽样...")
         # 降级为简单的系统抽样
-        sampled_data, sampled_posteriors = create_systematic_sample(
+        sampled_data, sampled_posteriors = create_systematic_sample_deprecated(
             observed_data, individual_posteriors, n_strata * strata_size
         )
     except Exception as e:
@@ -201,19 +363,22 @@ def _louis_method_standard_errors_stratified(
         h_step=h_step
     )
 
-def create_stratified_sample(observed_data: pd.DataFrame, 
+def create_stratified_sample_deprecated(observed_data: pd.DataFrame, 
                            individual_posteriors: Dict[str, np.ndarray],
                            n_strata: int = 16,
                            strata_size: int = 1000) -> Tuple[pd.DataFrame, Dict[str, np.ndarray]]:
     """
-    内存优化的分层抽样 - 专为16,000个体大样本设计
+    [已弃用] 分层抽样函数
     
-    核心优化：
-    1. 避免创建大中间DataFrame
-    2. 流式处理，逐个体分配分层
-    3. 使用numpy数组而非pandas操作
-    4. 最小化内存分配
+    警告：此方法已被流式方法取代，仅保留用于向后兼容。
+    流式方法提供了更好的内存效率和统计完整性。
     """
+    import warnings
+    warnings.warn(
+        "create_stratified_sample_deprecated已弃用，"
+        "流式方法提供了更好的内存效率和统计完整性",
+        DeprecationWarning, stacklevel=2
+    )
     logger.info(f"创建{n_strata}层分层抽样，每层{strata_size}个个体")
     
     # 获取所有个体ID - 使用numpy数组减少内存
@@ -356,15 +521,21 @@ def create_stratified_sample(observed_data: pd.DataFrame,
     
     return selected_data, selected_posteriors
 
-def create_systematic_sample(observed_data: pd.DataFrame, 
+def create_systematic_sample_deprecated(observed_data: pd.DataFrame, 
                            individual_posteriors: Dict[str, np.ndarray],
                            sample_size: int = 16000) -> Tuple[pd.DataFrame, Dict[str, np.ndarray]]:
     """
-    创建系统抽样的样本（内存超简单版）
+    [已弃用] 系统抽样函数
     
-    当分层抽样内存不足时使用的降级方案
-    极低的内存占用，适合超大样本
+    警告：此方法已被流式方法取代，仅保留用于向后兼容。
+    流式方法可以在不牺牲统计完整性的情况下处理超大样本。
     """
+    import warnings
+    warnings.warn(
+        "create_systematic_sample_deprecated已弃用，"
+        "流式方法可以在不牺牲统计完整性的情况下处理超大样本",
+        DeprecationWarning, stacklevel=2
+    )
     logger.info(f"创建系统抽样，目标样本量{sample_size}（内存超简单模式）")
     
     all_individuals = observed_data['individual_id'].unique()
@@ -481,9 +652,9 @@ def _louis_method_standard_errors_core(
     logger.info("  预枚举所有个体的omega...")
     start_time = pd.Timestamp.now()
     
-    # 根据样本大小调整max_omega_per_individual
-    adjusted_max_omega = min(max_omega_per_individual, max(20, 100 - N))  # 小样本用更少的omega
-    logger.info(f"  调整后max_omega_per_individual: {adjusted_max_omega} (原始: {max_omega_per_individual})")
+    # 流式方法：保持统计完整性，不再减少omega数量！
+    adjusted_max_omega = max_omega_per_individual  # 保持完整omega枚举
+    logger.info(f"  流式方法: 保持完整omega枚举 ({adjusted_max_omega} per individual)")
     
     for i, individual_id in enumerate(unique_individuals):
         if (i + 1) % max(1, N // 5) == 0 or i < 3:  # 显示前3个和每20%的进度
@@ -501,19 +672,12 @@ def _louis_method_standard_errors_core(
     enum_time = (pd.Timestamp.now() - start_time).total_seconds()
     logger.info(f"  预枚举完成: 用时 {enum_time:.1f}s, 平均每个个体 {enum_time/N:.2f}s")
 
-    # 3. 遍历每个个体，计算其对信息矩阵和Score矩阵的贡献
-    logger.info(f"  开始计算信息矩阵和Score矩阵...")
-    total_omega_combinations = sum(len(individual_omega_lists[ind_id]) for ind_id in unique_individuals)
-    logger.info(f"  总omega组合数: {total_omega_combinations}, 平均每个个体: {total_omega_combinations/N:.1f}")
+    # 流式方法：处理所有个体，不再限制数量！
+    logger.info(f"  开始流式计算信息矩阵和Score矩阵...")
+    logger.info(f"  将处理所有 {N} 个个体，保持统计完整性")
     
     start_time = pd.Timestamp.now()
     last_log_time = start_time
-    max_individuals_to_process = min(N, 50)  # 限制处理的最大个体数
-    
-    if N > max_individuals_to_process:
-        logger.warning(f"  样本量较大({N}个个体)，只处理前{max_individuals_to_process}个个体进行标准误估计")
-        unique_individuals = unique_individuals[:max_individuals_to_process]
-        N = max_individuals_to_process
     
     for i_idx, individual_id in enumerate(unique_individuals):
         # 更频繁的日志输出
@@ -525,27 +689,42 @@ def _louis_method_standard_errors_core(
             logger.info(f"    处理个体 {i_idx+1}/{N} ({progress*100:.1f}%), 用时: {elapsed:.1f}s, 预计剩余: {eta:.1f}s")
             last_log_time = current_time
 
+        # 流式方法：按需获取omega数据，不预存储！
         individual_data = observed_data[observed_data['individual_id'] == individual_id]
-        posterior_matrix = individual_posteriors[individual_id] # (n_omega, K)
-        omega_list = individual_omega_lists[individual_id]
-
-        individual_score_sum = np.zeros(n_params) # S_i
-
+        posterior_matrix = individual_posteriors[individual_id]  # (n_omega, K)
+        
+        # 关键：按需枚举omega，保持完整数量！
+        omega_list, omega_probs = enumerator.enumerate_omega_for_individual(
+            individual_data,
+            max_combinations=max_omega_per_individual  # 保持完整数量！
+        )
+        
+        individual_score_sum = np.zeros(n_params)  # S_i
+        
         # 遍历每个(ω, τ)组合
         total_combinations = len(omega_list) * n_types
         processed_combinations = 0
         skipped_combinations = 0
         
+        # 检查posterior_matrix的维度是否匹配
+        if posterior_matrix.shape[0] != len(omega_list):
+            logger.warning(f"个体 {individual_id}: posterior矩阵维度不匹配 {posterior_matrix.shape[0]} vs {len(omega_list)}，调整posterior矩阵")
+            # 重新构建posterior矩阵以匹配实际的omega列表
+            actual_posterior = np.zeros((len(omega_list), n_types))
+            min_size = min(posterior_matrix.shape[0], len(omega_list))
+            actual_posterior[:min_size, :] = posterior_matrix[:min_size, :]
+            posterior_matrix = actual_posterior
+        
         # 先计算所有权重的总和，用于相对权重阈值
         total_weight = np.sum(posterior_matrix)
         cumulative_weight = 0.0
-        weight_threshold = 1e-8  # 提高阈值，减少计算量
+        weight_threshold = 1e-8
         
         for omega_idx, omega in enumerate(omega_list):
             for k in range(n_types):
-                weight = posterior_matrix[omega_idx, k] # p(τ, ω | D_i)
-
-                if weight < weight_threshold: # 忽略权重过小的组合
+                weight = posterior_matrix[omega_idx, k]  # p(τ, ω | D_i)
+                
+                if weight < weight_threshold:  # 忽略权重过小的组合
                     skipped_combinations += 1
                     continue
                     
@@ -558,16 +737,47 @@ def _louis_method_standard_errors_core(
                     skipped_combinations += 1
                     continue
 
-                # 定义一个lambda函数，用于传递给numdifftools
-                # 这里的func只接受一个参数：packed_params
-                func_to_diff = lambda p: _individual_log_likelihood_for_louis(
-                    p, param_names, n_choices, individual_data, k, omega, beta,
-                    transition_matrices, regions_df, distance_matrix, adjacency_matrix, prov_to_idx
-                )
+                # 定义似然函数用于数值微分
+                def likelihood_func(p):
+                    temp_params = _unpack_params(p, param_names, n_choices)
+                    temp_type_params = temp_params.copy()
+                    if f'gamma_0_type_{k}' in temp_params:
+                        temp_type_params['gamma_0'] = temp_params[f'gamma_0_type_{k}']
+                    temp_type_params['sigma_epsilon'] = omega['sigma']
+                    
+                    # 求解Bellman方程
+                    converged_v, _ = solve_bellman_equation_individual(
+                        utility_function=None,
+                        individual_data=individual_data,
+                        params=temp_type_params,
+                        agent_type=k,
+                        beta=beta,
+                        transition_matrices=transition_matrices,
+                        regions_df=regions_df,
+                        distance_matrix=distance_matrix,
+                        adjacency_matrix=adjacency_matrix,
+                        verbose=False,
+                        prov_to_idx=prov_to_idx
+                    )
+                    
+                    # 计算似然
+                    log_lik_obs = calculate_likelihood_from_v_individual(
+                        converged_v_individual=converged_v,
+                        params=temp_type_params,
+                        individual_data=individual_data,
+                        agent_type=k,
+                        beta=beta,
+                        transition_matrices=transition_matrices,
+                        regions_df=regions_df,
+                        distance_matrix=distance_matrix,
+                        adjacency_matrix=adjacency_matrix,
+                        prov_to_idx=prov_to_idx
+                    )
+                    return np.sum(log_lik_obs)
 
                 # 计算梯度 (Score)
                 try:
-                    grad_calculator = Gradient(func_to_diff, step=h_step)
+                    grad_calculator = Gradient(likelihood_func, step=h_step)
                     score_vector = grad_calculator(packed_estimated_params)
                     if not np.all(np.isfinite(score_vector)):
                         logger.debug(f"  个体 {individual_id}, ω_idx {omega_idx}, 类型 {k}: Score包含非有限值，跳过。weight={weight:.2e}")
@@ -580,7 +790,7 @@ def _louis_method_standard_errors_core(
 
                 # 计算Hessian
                 try:
-                    hess_calculator = Hessian(func_to_diff, step=h_step)
+                    hessian_calculator = Hessian(likelihood_func, step=h_step)
                     hessian_matrix = hessian_calculator(packed_estimated_params)
                     if not np.all(np.isfinite(hessian_matrix)):
                         logger.debug(f"  个体 {individual_id}, ω_idx {omega_idx}, 类型 {k}: Hessian包含非有限值，跳过。weight={weight:.2e}")
@@ -706,8 +916,8 @@ def louis_method_standard_errors_safe(
             n_sampled = len(sampled_data['individual_id'].unique())
             logger.info(f"  系统抽样完成: {n_sampled}个代表性个体（安全模式）")
             
-            # 使用标准Louis方法处理安全抽样数据
-            return _louis_method_standard_errors_core(
+            # 使用流式Louis方法处理安全抽样数据，保持统计完整性
+            return louis_method_standard_errors_streaming(
                 estimated_params=estimated_params,
                 type_probabilities=type_probabilities,
                 individual_posteriors=sampled_posteriors,
@@ -721,7 +931,7 @@ def louis_method_standard_errors_safe(
                 support_generator=support_generator,
                 n_types=n_types,
                 prov_to_idx=prov_to_idx,
-                max_omega_per_individual=max_omega_per_individual,
+                max_omega_per_individual=max_omega_per_individual,  # 保持完整数量！
                 use_simplified_omega=use_simplified_omega,
                 h_step=h_step
             )
@@ -730,8 +940,8 @@ def louis_method_standard_errors_safe(
             logger.error(f"  安全模式也失败: {e}")
             logger.info("  降级到最简模式: 使用固定小样本")
             
-            # 最极端的降级：只用1000个个体
-            return _louis_method_standard_errors_core(
+            # 最极端的降级：使用流式方法处理小样本，但保持omega完整性
+            return louis_method_standard_errors_streaming(
                 estimated_params=estimated_params,
                 type_probabilities=type_probabilities,
                 individual_posteriors=individual_posteriors,
@@ -745,7 +955,7 @@ def louis_method_standard_errors_safe(
                 support_generator=support_generator,
                 n_types=n_types,
                 prov_to_idx=prov_to_idx,
-                max_omega_per_individual=min(max_omega_per_individual, 50),  # 进一步减少omega
+                max_omega_per_individual=max_omega_per_individual,  # 保持完整数量！
                 use_simplified_omega=use_simplified_omega,
                 h_step=h_step
             )
@@ -854,12 +1064,12 @@ def louis_method_standard_errors(
     n_individuals = len(observed_data['individual_id'].unique())
     logger.info(f"  样本信息: {n_individuals} 个个体")
     
-    # 根据样本大小选择策略
-    if n_individuals > large_sample_threshold and use_stratified_sampling:
-        logger.info(f"  大样本检测: {n_individuals} > {large_sample_threshold}，使用分层抽样策略")
-        logger.info(f"  分层配置: {n_strata}层，每层{strata_size}个个体，总计{n_strata * strata_size}个代表性样本")
+    # 根据样本大小选择策略 - 统一使用流式方法保持统计完整性
+    if n_individuals > large_sample_threshold:
+        logger.info(f"  大样本检测: {n_individuals} > {large_sample_threshold}，使用流式方法保持统计完整性")
+        logger.info(f"  流式配置: 保持完整omega枚举 ({max_omega_per_individual} per individual)")
         
-        return _louis_method_standard_errors_stratified(
+        return louis_method_standard_errors_streaming(
             estimated_params=estimated_params,
             type_probabilities=type_probabilities,
             individual_posteriors=individual_posteriors,
@@ -873,11 +1083,9 @@ def louis_method_standard_errors(
             support_generator=support_generator,
             n_types=n_types,
             prov_to_idx=prov_to_idx,
-            max_omega_per_individual=max_omega_per_individual,
+            max_omega_per_individual=max_omega_per_individual,  # 保持完整数量！
             use_simplified_omega=use_simplified_omega,
-            h_step=h_step,
-            n_strata=n_strata,
-            strata_size=strata_size
+            h_step=h_step
         )
     else:
         if n_individuals > large_sample_threshold:
