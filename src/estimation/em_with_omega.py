@@ -570,7 +570,7 @@ def m_step_with_omega(
 
                     try:
                         # 检查本地缓存 - 使用LRU缓存
-                        cache_key = (tuple(sorted(type_params.items())), int(k))
+                        cache_key = (individual_id, tuple(sorted(type_params.items())), int(k))
                         converged_v_individual = self.bellman_cache.get(cache_key) if hasattr(self.bellman_cache, 'get') else self.bellman_cache.get(cache_key)
                         if converged_v_individual is not None:
                             converged = True
