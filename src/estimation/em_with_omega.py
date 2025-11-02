@@ -101,7 +101,7 @@ def e_step_with_omega(
     prov_to_idx: Dict[int, int],
     max_omega_per_individual: int = 1000,
     use_simplified_omega: bool = True,
-    bellman_cache: Dict = None
+    bellman_cache=None  # 移除类型注解，支持多种缓存类型
 ) -> Tuple[Dict[Any, np.ndarray], np.ndarray]:
     """
     扩展的E-step：计算p(τ, ω_i | D_i)后验概率
@@ -479,23 +479,33 @@ def m_step_with_omega(
     from scipy.optimize import minimize
     from src.config.model_config import ModelConfig
     
-    # 传递缓存给目标函数 - 使用LRU缓存
+    # 传递缓存给目标函数 - 使用增强版缓存系统
     if bellman_cache is None:
-        # 创建新的LRU缓存实例
-        from src.model.likelihood import LRUCache
-        bellman_cache = LRUCache(capacity=500, max_memory_mb=1000)  # M步专用缓存
+        # 创建增强版缓存实例（与E步保持一致）
+        from src.model.smart_cache import create_enhanced_cache
+        bellman_cache = create_enhanced_cache(capacity=2000, memory_limit_mb=2000)  # M步专用缓存
     elif isinstance(bellman_cache, dict):
-        # 向后兼容：如果是普通dict，转换为LRU缓存
+        # 向后兼容：如果是普通dict，转换为增强版缓存
         from src.model.smart_cache import create_enhanced_cache
         old_cache = bellman_cache
         bellman_cache = create_enhanced_cache(capacity=2000, memory_limit_mb=2000)
         logger.info(f"M-step迁移缓存数据: {len(old_cache)} 个条目")
-        # 迁移现有数据
+        # 迁移现有数据（使用增强版缓存的标准接口）
         for key, value in old_cache.items():
             try:
-                bellman_cache.l1_cache.put(key, value)
+                if hasattr(bellman_cache, 'put'):
+                    # 如果可能，解析旧键格式进行智能迁移
+                    bellman_cache.put(key, value)  # 简化迁移，使用标准接口
+                else:
+                    bellman_cache[key] = value  # 向后兼容
             except Exception as e:
                 logger.debug(f"M-step缓存迁移跳过某个键: {e}")
+    elif not hasattr(bellman_cache, 'get'):  # 如果是旧版LRUCache或其他类型
+        # 转换为增强版缓存
+        from src.model.smart_cache import create_enhanced_cache
+        old_cache = bellman_cache
+        bellman_cache = create_enhanced_cache(capacity=2000, memory_limit_mb=2000)
+        logger.info(f"M-step升级缓存系统: {type(old_cache)} -> 增强版缓存")
 
     config = ModelConfig()
     unique_individuals = list(individual_posteriors.keys())
@@ -531,19 +541,29 @@ def m_step_with_omega(
             
             # 确保是增强版缓存实例
             log_msg_header = "  [M-step]"
+            logger.info(f"{log_msg_header} Objective初始化，缓存类型: {type(self.bellman_cache)}")
+            
             if isinstance(self.bellman_cache, dict) and len(self.bellman_cache) > 0:
                 # 如果是普通dict且不为空，升级为增强版缓存
                 logger.info(f"{log_msg_header} 升级普通dict为增强版缓存系统")
                 from src.model.smart_cache import create_enhanced_cache
                 old_cache = self.bellman_cache
                 self.bellman_cache = create_enhanced_cache(capacity=2000, memory_limit_mb=2000)
-                # 迁移数据
+                # 迁移数据（使用标准接口）
                 for key, value in old_cache.items():
                     try:
-                        self.bellman_cache.l1_cache.put(key, value)
+                        if hasattr(self.bellman_cache, 'put'):
+                            self.bellman_cache.put(key, value)  # 使用标准接口
+                        else:
+                            self.bellman_cache[key] = value  # 向后兼容
                     except Exception as e:
                         logger.debug(f"缓存迁移跳过: {e}")
-            elif hasattr(self.bellman_cache, 'get_stats'):
+            elif str(type(self.bellman_cache)).find('LRUCache') >= 0:  # 如果是旧版LRUCache
+                # 旧版缓存，升级到增强版
+                logger.info(f"{log_msg_header} 升级LRUCache为增强版缓存系统")
+                from src.model.smart_cache import create_enhanced_cache
+                self.bellman_cache = create_enhanced_cache(capacity=2000, memory_limit_mb=2000)
+            elif str(type(self.bellman_cache)).find('EnhancedBellmanCache') >= 0:  # 如果是增强版缓存
                 # 增强版缓存，记录初始统计
                 try:
                     initial_stats = self.bellman_cache.get_stats()
@@ -641,9 +661,13 @@ def m_step_with_omega(
                         initial_v = None
                         converged = False
                         
+                        logger.debug(f"M-step 缓存查询: {individual_id}, ω={omega_idx}, 类型={k}, 缓存类型={type(self.bellman_cache)}")
+                        
                         if hasattr(self.bellman_cache, 'get'):  # 增强版缓存
                             solution_shape = (n_individual_states, 3)  # 假设3个选择
+                            logger.debug(f"M-step 使用增强版缓存查询: individual_id={individual_id}, shape={solution_shape}, 关键参数={ {k:v for k,v in type_params.items() if 'gamma' in k or 'sigma' in k} }")
                             converged_v_individual = self.bellman_cache.get(individual_id, type_params, int(k), solution_shape)
+                            logger.debug(f"M-step 缓存查询结果: converged_v_individual_is_none={converged_v_individual is None}")
                             if converged_v_individual is not None:
                                 converged = True
                                 self.cache_hits += 1
@@ -652,8 +676,19 @@ def m_step_with_omega(
                                 # 增强版缓存会自动处理热启动
                                 self.hot_start_attempts += 1
                                 logger.debug(f"M-step缓存未命中: {individual_id}, ω={omega_idx}, 类型={k}")
+                                
+                                # 检查缓存状态（调试用）
+                                if hasattr(self.bellman_cache, 'get_stats'):
+                                    try:
+                                        cache_stats = self.bellman_cache.get_stats()
+                                        logger.debug(f"M-step 缓存状态: L1大小={cache_stats.get('l1_stats', {}).get('size', 'N/A')}, "
+                                                   f"L2大小={cache_stats.get('l2_cache_size', 'N/A')}, "
+                                                   f"总请求={cache_stats.get('total_requests', 'N/A')}")
+                                    except Exception as e:
+                                        logger.debug(f"M-step 获取缓存状态失败: {e}")
                         else:
                             # 向后兼容：旧版缓存逻辑（保持之前修复的正确逻辑）
+                            logger.debug(f"M-step 使用旧版缓存查询: individual_id={individual_id}")
                             cache_key = (individual_id, tuple(sorted(type_params.items())), int(k))
                             converged_v_individual = self.bellman_cache.get(cache_key)
                             if converged_v_individual is not None:
@@ -682,6 +717,7 @@ def m_step_with_omega(
                                             break
                             
                             # 求解 Bellman 方程
+                            logger.debug(f"M-step 开始求解Bellman方程: {individual_id}, ω={omega_idx}, 类型={k}")
                             converged_v_individual, converged = solve_bellman_equation_individual(
                                 utility_function=None,
                                 individual_data=individual_data,
@@ -697,6 +733,8 @@ def m_step_with_omega(
                                 initial_v=initial_v  # 热启动
                             )
                             
+                            logger.debug(f"M-step Bellman方程求解完成: converged={converged}, v_individual_is_none={converged_v_individual is None}")
+                            
                             # 检查Bellman方程是否成功求解
                             if converged and converged_v_individual is not None:
                                 # 存储到增强版缓存系统或向后兼容
@@ -709,7 +747,7 @@ def m_step_with_omega(
                                     self.bellman_cache[cache_key] = converged_v_individual
                                 self.cache_misses += 1
                             else:
-                                logger.warning(f"Bellman方程求解失败: {individual_id}, ω={omega_idx}, 类型={k}")
+                                logger.warning(f"Bellman方程求解失败: {individual_id}, ω={omega_idx}, 类型={k}, converged={converged}, v_is_none={converged_v_individual is None}")
                                 n_failed_computations += 1
                                 continue
 
@@ -781,10 +819,14 @@ def m_step_with_omega(
             if hasattr(self.bellman_cache, 'get_stats'):
                 try:
                     cache_stats = self.bellman_cache.get_stats()
-                    logger.info(f"{log_msg_header} 增强缓存: L1命中率={cache_stats['l1_hit_rate']:.1%}, "
-                               f"L2相似性命中率={cache_stats['l2_hit_rate']:.1%}, "
-                               f"总命中率={cache_stats['total_hit_rate']:.1%}, "
-                               f"相似性匹配={cache_stats['similarity_hits']}")
+                    # 只在第一次调用或每10次调用时显示详细统计
+                    if self.call_count <= 2 or self.call_count % 10 == 0:
+                        logger.info(f"{log_msg_header} 增强缓存统计: L1命中率={cache_stats['l1_hit_rate']:.1%}, "
+                                   f"L2相似性命中率={cache_stats['l2_hit_rate']:.1%}, "
+                                   f"总命中率={cache_stats['total_hit_rate']:.1%}, "
+                                   f"相似性匹配={cache_stats['similarity_hits']}")
+                    else:
+                        logger.debug(f"{log_msg_header} 缓存命中率: {cache_stats['total_hit_rate']:.1%}")
                 except Exception as e:
                     logger.warning(f"{log_msg_header} 获取增强缓存统计失败: {e}")
                     # 使用基本统计信息
@@ -1027,9 +1069,9 @@ def run_em_algorithm_with_omega(
 
         # E-step
         logger.info("\n[E-step with ω]")
-        # 创建LRU缓存 - 为这次EM迭代创建共享缓存，具有内存管理功能
-        from src.model.likelihood import LRUCache
-        bellman_cache = LRUCache(capacity=500, max_memory_mb=1000)  # EM迭代专用缓存
+        # 创建增强版缓存系统 - 为这次EM迭代创建共享缓存，具有内存管理功能
+        from src.model.smart_cache import create_enhanced_cache
+        bellman_cache = create_enhanced_cache(capacity=2000, memory_limit_mb=2000)  # EM迭代专用增强缓存
         individual_posteriors, log_likelihood_matrix = e_step_with_omega(
             bellman_cache=bellman_cache,
             params=current_params,
@@ -1055,6 +1097,17 @@ def run_em_algorithm_with_omega(
         ) + 1e-300))
 
         logger.info(f"\n  Current log-likelihood: {current_log_likelihood:.4f}")
+        
+        # E步缓存性能汇总（只在第一次或每5次迭代时显示）
+        if iteration == 0 or (iteration + 1) % 5 == 0:
+            if hasattr(bellman_cache, 'get_stats'):
+                try:
+                    e_step_stats = bellman_cache.get_stats()
+                    logger.info(f"  E步缓存性能: 总命中率={e_step_stats['total_hit_rate']:.1%}, "
+                               f"L1命中率={e_step_stats['l1_hit_rate']:.1%}, "
+                               f"L2相似性命中率={e_step_stats['l2_hit_rate']:.1%}")
+                except Exception as e:
+                    logger.debug(f"  获取E步缓存统计失败: {e}")
 
         # 检查收敛
         if iteration > 0:
