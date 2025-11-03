@@ -84,6 +84,52 @@ def _unpack_params(param_values: np.ndarray, param_names: List[str], n_choices: 
     return params_dict
 
 
+def _calculate_logging_interval(total_individuals: int) -> int:
+    """
+    根据总个体数量计算动态日志输出间隔。
+    间隔为总个体数量的5%，然后取最接近的10^N或5*10^N。
+
+    参数:
+    ----
+    total_individuals : int
+        总个体数量。
+
+    返回:
+    ----
+    int
+        计算出的日志输出间隔。
+    """
+    if total_individuals <= 100:
+        return 10  # 对于小样本，保持较频繁的更新
+    
+    target_interval = max(1, int(total_individuals * 0.05))
+    
+    # 寻找最接近的10^N或5*10^N
+    best_interval = 1
+    min_diff = abs(target_interval - 1)
+
+    for power in range(1, 10):  # 考虑足够大的范围
+        val_10 = 10 ** power
+        val_5_10 = 5 * (10 ** power)
+
+        diff_10 = abs(target_interval - val_10)
+        diff_5_10 = abs(target_interval - val_5_10)
+
+        if diff_10 < min_diff:
+            min_diff = diff_10
+            best_interval = val_10
+        
+        if diff_5_10 < min_diff:
+            min_diff = diff_5_10
+            best_interval = val_5_10
+        
+        if val_10 > target_interval * 2 and val_5_10 > target_interval * 2: # 避免过大的间隔
+            break
+
+    # 确保间隔不会超过总个体数的一半，且至少为1
+    return max(1, min(best_interval, total_individuals // 2))
+
+
 
 
 def e_step_with_omega(
@@ -216,8 +262,10 @@ def e_step_with_omega(
         for ind_id, omega_list, omega_probs in omega_results
     }
 
+    logging_interval = _calculate_logging_interval(N)
+
     for i_idx, individual_id in enumerate(unique_individuals):
-        if (i_idx + 1) % 100 == 0:
+        if (i_idx + 1) % logging_interval == 0:
             current_time = time.time()
             if i_idx > 0:
                 elapsed = current_time - start_time
@@ -606,13 +654,15 @@ def m_step_with_omega(
             total_individuals = len(unique_individuals)
             processed_individuals = 0
             
+            logging_interval = _calculate_logging_interval(total_individuals)
+
             for i_idx, individual_id in enumerate(unique_individuals):
                 # 计算个体状态数量（用于热启动验证）
                 individual_data = observed_data[observed_data['individual_id'] == individual_id]
                 n_individual_states = _calculate_individual_state_space_size(individual_data)
                 
-                # 添加进度提示（每100个个体或开始/结束时）
-                if (i_idx + 1) % 100 == 0 or i_idx == 0 or i_idx == total_individuals - 1:
+                # 添加进度提示（每K个个体或开始/结束时）
+                if (i_idx + 1) % logging_interval == 0 or i_idx == 0 or i_idx == total_individuals - 1:
                     current_time = time.time()
                     elapsed = current_time - start_time
                     if processed_individuals > 0:
