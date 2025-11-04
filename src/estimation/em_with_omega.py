@@ -6,7 +6,7 @@
 
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple, List, Optional
 import logging
 import time
 from joblib import Parallel, delayed
@@ -26,6 +26,7 @@ from src.model.likelihood import (
 from src.model.bellman import solve_bellman_equation_individual
 from src.model.wage_equation import calculate_predicted_wage, calculate_reference_wage
 from src.model.smart_cache import EnhancedBellmanCache, create_enhanced_cache
+from src.utils.parallel_wrapper import ParallelConfig, parallel_individual_processor
 
 
 def _calculate_individual_state_space_size(individual_data: pd.DataFrame) -> int:
@@ -147,7 +148,8 @@ def e_step_with_omega(
     prov_to_idx: Dict[int, int],
     max_omega_per_individual: int = 1000,
     use_simplified_omega: bool = True,
-    bellman_cache=None  # 移除类型注解，支持多种缓存类型
+    bellman_cache=None,  # 移除类型注解，支持多种缓存类型
+    parallel_config: Optional[ParallelConfig] = None  # 新增并行配置参数
 ) -> Tuple[Dict[Any, np.ndarray], np.ndarray]:
     """
     扩展的E-step：计算p(τ, ω_i | D_i)后验概率
@@ -175,6 +177,8 @@ def e_step_with_omega(
         每个个体的最大ω组合数
     use_simplified_omega : bool
         是否使用简化策略（只在访问过的地区实例化ν和ξ）
+    parallel_config : ParallelConfig, optional
+        并行配置，如果为None则使用串行处理
 
     返回:
     ----
@@ -191,6 +195,12 @@ def e_step_with_omega(
 
     logger.info(f"  [E-step with ω] Processing {N} individuals across {K} types...")
     start_time = time.time()
+    
+    # 设置默认并行配置
+    if parallel_config is None:
+        parallel_config = ParallelConfig(n_jobs=1)  # 默认串行处理
+    
+    logger.info(f"  [E-step with ω] Parallel configuration: {parallel_config}")
     
     # 初始化缓存 - 使用增强版缓存系统（大幅提升容量和智能性）
     if bellman_cache is None:
@@ -262,172 +272,94 @@ def e_step_with_omega(
         for ind_id, omega_list, omega_probs in omega_results
     }
 
-    logging_interval = _calculate_logging_interval(N)
-
-    for i_idx, individual_id in enumerate(unique_individuals):
-        if (i_idx + 1) % logging_interval == 0:
-            current_time = time.time()
-            if i_idx > 0:
-                elapsed = current_time - start_time
-                rate = (i_idx + 1) / elapsed
-                remaining = (N - i_idx - 1) / rate
-                logger.info(f"    Processing individual {i_idx+1}/{N} "
-                          f"(rate: {rate:.1f} ind/s, est. remaining: {remaining:.1f}s)")
-            else:
-                logger.info(f"    Processing individual {i_idx+1}/{N}")
-
-        # 1. 提取该个体的数据和ω
+    # 个体处理函数（用于并行化）
+    def process_individual(individual_id):
+        """处理单个个体"""
         individual_data = observed_data[observed_data['individual_id'] == individual_id]
-        
-        if individual_data.empty:
-            logger.warning(f"  Skipping individual {individual_id} as their data is empty.")
-            log_likelihood_matrix[i_idx, :] = -1e10
-            continue
-            
         omega_list, omega_probs = individual_omega_dict[individual_id]
-
-        n_omega = len(omega_list)
         
-        # 计算个体状态数量（用于热启动验证）
-        n_individual_states = _calculate_individual_state_space_size(individual_data)
-
-        # 3. 计算每个(τ, ω)组合的似然
-        # 结构: posterior_matrix[omega_idx, type_idx]
-        log_lik_matrix = np.zeros((n_omega, K))
-
-        for omega_idx, omega in enumerate(omega_list):
-            # 提取ω值
-            eta_i = omega['eta']
-            sigma_epsilon = omega['sigma']
-
-            for k in range(K):
-                try:
-                    # 构建type-specific参数
-                    # 注意：现在只有gamma_0是type-specific，其他参数已经是共享的
-                    type_params = params.copy()
-                    if f'gamma_0_type_{k}' in params:
-                        type_params['gamma_0'] = params[f'gamma_0_type_{k}']
-
-                    type_params['sigma_epsilon'] = sigma_epsilon
-
-                    # 检查缓存 - 使用增强版缓存系统（智能查询）
-                    converged_v_individual = None
-                    initial_v = None
-                    
-                    if hasattr(bellman_cache, 'get'):  # 增强版缓存
-                        solution_shape = (n_individual_states, 3)  # 假设3个选择
-                        converged_v_individual = bellman_cache.get(individual_id, type_params, int(k), solution_shape)
-                        if converged_v_individual is not None:
-                            cache_hits += 1
-                            logger.debug(f"E-step缓存命中: {individual_id}, ω={omega_idx}, 类型={k}")
-                        else:
-                            # 增强版缓存会自动处理热启动，这里不需要额外处理
-                            hot_start_attempts += 1  # 记录尝试次数
-                            logger.debug(f"E-step缓存未命中: {individual_id}, ω={omega_idx}, 类型={k}")
-                    else:
-                        # 向后兼容：旧版缓存逻辑
-                        cache_key = (individual_id, tuple(sorted(type_params.items())), int(k))
-                        converged_v_individual = bellman_cache.get(cache_key)
-                        if converged_v_individual is not None:
-                            cache_hits += 1
-                        else:
-                            # 热启动：尝试使用相似参数的解作为初始值
-                            hot_start_attempts += 1
-                            # 保持之前修复的形状匹配逻辑（吸取之前的教训）
-                            if hasattr(bellman_cache, 'cache') and len(bellman_cache.cache) > 0:
-                                try:
-                                    for key, cached_solution in bellman_cache.cache.items():
-                                        if isinstance(cached_solution, np.ndarray) and cached_solution.shape[0] == n_individual_states:
-                                            initial_v = cached_solution
-                                            hot_start_successes += 1
-                                            break
-                                except Exception:
-                                    pass
-                    
-                    # 调试：检查变量状态
-                    if converged_v_individual is None and initial_v is None:
-                        logger.debug(f"E-step 无解可用: {individual_id}, ω={omega_idx}, 类型={k} - 将求解Bellman方程")
-                        
-                        # 求解Bellman方程（此处可能需要传入ω相关值到效用函数）
-                        # 简化实现：先不传ω到Bellman求解中
-                        converged_v_individual, n_iter = solve_bellman_equation_individual(
-                            utility_function=None,
-                            individual_data=individual_data,
-                            params=type_params,
-                            agent_type=int(k),
-                            beta=beta,
-                            transition_matrices=transition_matrices,
-                            regions_df=regions_df,
-                            distance_matrix=distance_matrix,
-                            adjacency_matrix=adjacency_matrix,
-                            verbose=False,
-                            prov_to_idx=prov_to_idx,
-                            initial_v=initial_v  # 热启动
-                        )
-                        
-                        # 检查Bellman方程是否成功求解
-                        if converged_v_individual is not None:
-                            # 存储到增强版缓存系统或向后兼容
-                            if hasattr(bellman_cache, 'put'):  # 增强版缓存
-                                # 增强版缓存使用智能存储接口
-                                bellman_cache.put(individual_id, type_params, int(k), converged_v_individual)
-                            else:  # 旧版缓存
-                                # 为旧版缓存创建传统键
-                                cache_key = (individual_id, tuple(sorted(type_params.items())), int(k))
-                                bellman_cache[cache_key] = converged_v_individual
-                            cache_misses += 1
-                        else:
-                            logger.warning(f"E-step Bellman方程求解失败: {individual_id}, ω={omega_idx}, 类型={k}")
-                            continue  # 跳过这个组合
-
-                    # 计算似然（包含工资似然）
-                    log_lik_obs = calculate_likelihood_from_v_individual(
-                        converged_v_individual=converged_v_individual,
-                        params=type_params,
-                        individual_data=individual_data,
-                        agent_type=int(k),
-                        beta=beta,
-                        transition_matrices=transition_matrices,
-                        regions_df=regions_df,
-                        distance_matrix=distance_matrix,
-                        adjacency_matrix=adjacency_matrix,
-                        prov_to_idx=prov_to_idx
-                    )
-
-                    # 汇总该个体的对数似然
-                    individual_log_lik = np.sum(log_lik_obs)
-                    log_lik_matrix[omega_idx, k] = individual_log_lik
-
-                except Exception as e:
-                    import traceback
-                    logger.error(f"Error computing likelihood for individual {individual_id}, "
-                               f"omega_idx={omega_idx}, type={k}: {e}")
-                    logger.error(f"Traceback: {traceback.format_exc()}")
-                    log_lik_matrix[omega_idx, k] = -1e10
-
-        # 4. 计算后验概率 p(τ, ω | D_i)
-        # log p(τ, ω | D) = log π_τ + log P(ω) + log L(D | τ, ω)
-        log_pi_k = np.log(np.maximum(pi_k, 1e-10))
-        log_omega_probs = np.log(np.maximum(omega_probs, 1e-10))
-
-        # Broadcasting: (n_omega, K)
-        log_joint = (
-            log_omega_probs[:, np.newaxis] +  # (n_omega, 1)
-            log_pi_k[np.newaxis, :] +          # (1, K)
-            log_lik_matrix                      # (n_omega, K)
+        # 缓存统计（线程局部）
+        cache_stats = {'cache_hits': 0, 'cache_misses': 0}
+        
+        # 从外部模块导入处理函数
+        from src.estimation.e_step_individual_processor import process_single_individual_e_step
+        
+        individual_id, joint_probs, marginal_likelihood = process_single_individual_e_step(
+            individual_id=individual_id,
+            individual_data=individual_data,
+            omega_list=omega_list,
+            omega_probs=omega_probs,
+            params=params,
+            pi_k=pi_k,
+            K=K,
+            beta=beta,
+            transition_matrices=transition_matrices,
+            regions_df=regions_df,
+            distance_matrix=distance_matrix,
+            adjacency_matrix=adjacency_matrix,
+            prov_to_idx=prov_to_idx,
+            bellman_cache=bellman_cache,
+            cache_stats=cache_stats
         )
+        
+        # 更新全局缓存统计
+        cache_hits += cache_stats['cache_hits']
+        cache_misses += cache_stats['cache_misses']
+        
+        return individual_id, joint_probs, marginal_likelihood
 
-        # 归一化
-        max_log_joint = np.max(log_joint)
-        joint_probs = np.exp(log_joint - max_log_joint)
-        joint_probs = joint_probs / np.sum(joint_probs)
+    # 根据配置选择处理方式
+    if parallel_config.is_parallel_enabled():
+        logger.info(f"  使用并行个体处理，{parallel_config.n_jobs} 个工作进程")
+        try:
+            # 并行处理所有个体
+            individual_results = Parallel(
+                n_jobs=parallel_config.n_jobs,
+                backend=parallel_config.backend,
+                verbose=parallel_config.verbose
+            )(
+                delayed(process_individual)(ind_id)
+                for ind_id in unique_individuals
+            )
+            
+            # 整理结果
+            for i_idx, (individual_id, joint_probs, marginal_likelihood) in enumerate(individual_results):
+                if joint_probs.size > 0:  # 确保有有效结果
+                    individual_posteriors[individual_id] = joint_probs
+                    log_likelihood_matrix[i_idx, :] = marginal_likelihood
+                else:
+                    log_likelihood_matrix[i_idx, :] = -1e10
+                    
+        except Exception as e:
+            logger.error(f"并行处理失败，回退到串行模式: {e}")
+            # 回退到串行处理
+            parallel_config = ParallelConfig(n_jobs=1)
+    
+    if not parallel_config.is_parallel_enabled():
+        logger.info("  使用串行个体处理模式")
+        # 原有的串行处理逻辑
+        logging_interval = _calculate_logging_interval(N)
+        
+        for i_idx, individual_id in enumerate(unique_individuals):
+            if (i_idx + 1) % logging_interval == 0:
+                current_time = time.time()
+                if i_idx > 0:
+                    elapsed = current_time - start_time
+                    rate = (i_idx + 1) / elapsed
+                    remaining = (N - i_idx - 1) / rate
+                    logger.info(f"    Processing individual {i_idx+1}/{N} "
+                              f"(rate: {rate:.1f} ind/s, est. remaining: {remaining:.1f}s)")
+                else:
+                    logger.info(f"    Processing individual {i_idx+1}/{N}")
 
-        # 存储
-        individual_posteriors[individual_id] = joint_probs
-
-        # 5. 边缘化ω以获得p(τ|D_i)用于更新π_k和计算似然
-        marginal_type_likelihood = np.sum(np.exp(log_lik_matrix), axis=0)
-        log_likelihood_matrix[i_idx, :] = marginal_type_likelihood
+            # 处理单个个体（原有的串行逻辑）
+            individual_id, joint_probs, marginal_likelihood = process_individual(individual_id)
+            
+            if joint_probs.size > 0:  # 确保有有效结果
+                individual_posteriors[individual_id] = joint_probs
+                log_likelihood_matrix[i_idx, :] = marginal_likelihood
+            else:
+                log_likelihood_matrix[i_idx, :] = -1e10
 
     total_time = time.time() - start_time
     cache_hit_rate = cache_hits / (cache_hits + cache_misses) if (cache_hits + cache_misses) > 0 else 0
@@ -457,6 +389,16 @@ def e_step_with_omega(
             logger.info(f"  [E-step with ω] LRU缓存状态: {cache_stats['size']}/{cache_stats['max_size']}条目, "
                        f"{cache_stats['memory_mb']:.1f}/{cache_stats['max_memory_mb']:.1f}MB, "
                        f"淘汰: {cache_stats['eviction_count']}次, 命中率: {cache_stats['hit_rate']:.1%}")
+
+    # 记录总体处理统计
+    total_time = time.time() - start_time
+    cache_hit_rate = cache_hits / (cache_hits + cache_misses) if (cache_hits + cache_misses) > 0 else 0
+    hot_start_rate = hot_start_successes / hot_start_attempts if hot_start_attempts > 0 else 0
+    
+    logger.info(f"  [E-step with ω] Completed. Total time: {total_time:.1f}s, "
+                f"Rate: {N/total_time:.1f} individuals/second")
+    logger.info(f"  [E-step with ω] Cache hit rate: {cache_hit_rate:.1%} ({cache_hits}/{cache_hits + cache_misses})")
+    logger.info(f"  [E-step with ω] Hot-start success rate: {hot_start_rate:.1%} ({hot_start_successes}/{hot_start_attempts})")
 
     return individual_posteriors, log_likelihood_matrix
 
@@ -1023,7 +965,8 @@ def run_em_algorithm_with_omega(
     initial_pi_k: np.ndarray = None,
     max_omega_per_individual: int = 1000,
     use_simplified_omega: bool = True,
-    lbfgsb_maxiter: int = 15
+    lbfgsb_maxiter: int = 15,
+    parallel_config: Optional['ParallelConfig'] = None  # 新增并行配置参数
 ) -> Dict[str, Any]:
     """
     EM-NFXP算法主循环（带离散支撑点ω）
@@ -1122,6 +1065,11 @@ def run_em_algorithm_with_omega(
         # 创建增强版缓存系统 - 为这次EM迭代创建共享缓存，具有内存管理功能
         from src.model.smart_cache import create_enhanced_cache
         bellman_cache = create_enhanced_cache(capacity=2000, memory_limit_mb=2000)  # EM迭代专用增强缓存
+        
+        # 设置并行配置（如果未提供则使用默认配置）
+        if parallel_config is None:
+            parallel_config = ParallelConfig(n_jobs=1)  # 默认串行处理
+        
         individual_posteriors, log_likelihood_matrix = e_step_with_omega(
             bellman_cache=bellman_cache,
             params=current_params,
@@ -1137,7 +1085,8 @@ def run_em_algorithm_with_omega(
             n_types=n_types,
             prov_to_idx=prov_to_idx,
             max_omega_per_individual=max_omega_per_individual,
-            use_simplified_omega=use_simplified_omega
+            use_simplified_omega=use_simplified_omega,
+            parallel_config=parallel_config  # 传递并行配置
         )
 
         # 计算当前对数似然

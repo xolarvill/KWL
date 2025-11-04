@@ -34,6 +34,7 @@ from src.utils.outreg2 import output_estimation_results, output_model_fit_result
 from src.config.model_config import ModelConfig
 from src.data_handler.data_loader import DataLoader
 from src.utils.estimation_progress import estimation_progress, resume_estimation_phase
+from src.utils.parallel_wrapper import ParallelConfig
 
 def run_estimation_workflow(
     sample_size: int = None, 
@@ -42,7 +43,9 @@ def run_estimation_workflow(
     bootstrap_jobs: int = 1,
     stderr_method: str = "louis", # 新增参数
     enable_progress_tracking: bool = False, # 默认关闭智能进度跟踪
-    auto_cleanup_progress: bool = False # 完成后自动清理进度文件
+    auto_cleanup_progress: bool = False, # 完成后自动清理进度文件
+    em_parallel_jobs: int = 1, # 新增EM算法并行任务数参数
+    em_parallel_backend: str = 'loky' # 新增EM算法并行后端参数
 ):
     """
     封装了模型估计、推断和输出的完整工作流
@@ -55,6 +58,8 @@ def run_estimation_workflow(
         stderr_method (str): 标准误计算方法 ('louis', 'bootstrap', 'shared_only', 'type_0_only', 'all_numerical').
         enable_progress_tracking (bool): 是否启用进度跟踪和断点续跑功能
         auto_cleanup_progress (bool): 完成后是否自动清理进度文件
+        em_parallel_jobs (int): EM算法并行任务数，-1表示使用所有CPU核心，1表示禁用并行化（默认为1）
+        em_parallel_backend (str): EM算法并行后端 ('loky', 'threading', 'multiprocessing')（默认为'loky'）
     """
     
     if enable_progress_tracking:
@@ -66,17 +71,17 @@ def run_estimation_workflow(
         ) as tracker:
             _run_estimation_with_tracking(
                 tracker, sample_size, use_bootstrap, n_bootstrap, 
-                bootstrap_jobs, stderr_method
+                bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend
             )
     else:
         # 传统模式，不使用进度跟踪
         _run_estimation_traditional(
             sample_size, use_bootstrap, n_bootstrap, 
-            bootstrap_jobs, stderr_method
+            bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend
         )
 
 
-def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method):
+def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend):
     """使用进度跟踪的估计工作流"""
     
     # --- 1. 配置 ---
@@ -173,6 +178,16 @@ def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstr
                 "use_simplified_omega": config.use_simplified_omega,
                 "lbfgsb_maxiter": config.lbfgsb_maxiter
             })
+            
+            # 添加并行配置
+            if em_parallel_jobs != 1:
+                parallel_config = ParallelConfig(
+                    n_jobs=em_parallel_jobs,
+                    backend=em_parallel_backend,
+                    verbose=1
+                )
+                estimation_params["parallel_config"] = parallel_config
+                logger.info(f"启用EM算法并行化: {parallel_config}")
 
             results = run_em_algorithm_with_omega(**estimation_params)
         else:
@@ -311,7 +326,7 @@ def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstr
     )
 
 
-def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method):
+def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend):
     """传统的估计工作流（无进度跟踪）"""
     # --- 1. 配置 ---
     config = ModelConfig()
@@ -399,6 +414,16 @@ def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstr
             "use_simplified_omega": config.use_simplified_omega,
             "lbfgsb_maxiter": config.lbfgsb_maxiter
         })
+        
+        # 添加并行配置
+        if em_parallel_jobs != 1:
+            parallel_config = ParallelConfig(
+                n_jobs=em_parallel_jobs,
+                backend=em_parallel_backend,
+                verbose=1
+            )
+            estimation_params["parallel_config"] = parallel_config
+            logger.info(f"启用EM算法并行化: {parallel_config}")
 
         results = run_em_algorithm_with_omega(**estimation_params)
     else:
@@ -535,6 +560,11 @@ def main():
     parser.add_argument('--stderr-method', type=str, default="louis",
                         choices=["louis", "bootstrap", "shared_only", "type_0_only", "all_numerical"],
                         help='标准误计算方法: "louis", "bootstrap", 其他方法是旧版本遗留现在被移出了"')
+    parser.add_argument('--em-parallel-jobs', type=int, default=1, 
+                        help='EM算法并行任务数，-1表示使用所有CPU核心，1表示禁用并行化（默认为1）')
+    parser.add_argument('--em-parallel-backend', type=str, default='loky',
+                        choices=['loky', 'threading', 'multiprocessing'],
+                        help='EM算法并行后端 (默认为loky)')
     parser.add_argument('--memory-safe', action='store_true', 
                         help='启用内存安全模式（大样本时自动启用）')
     parser.add_argument('--max-sample-size', type=int, default=None,
@@ -581,7 +611,9 @@ def main():
             bootstrap_jobs=args.bootstrap_jobs,
             stderr_method=args.stderr_method,
             enable_progress_tracking=not args.no_progress_tracking,  # 默认关闭，需要--no-progress-tracking显式启用
-            auto_cleanup_progress=args.auto_cleanup_progress
+            auto_cleanup_progress=args.auto_cleanup_progress,
+            em_parallel_jobs=args.em_parallel_jobs,
+            em_parallel_backend=args.em_parallel_backend
         )
         profiler.disable()
         stats = pstats.Stats(profiler).sort_stats('cumulative')
@@ -595,7 +627,9 @@ def main():
             bootstrap_jobs=args.bootstrap_jobs,
             stderr_method=args.stderr_method,
             enable_progress_tracking=not args.no_progress_tracking,  # 默认关闭，需要--no-progress-tracking显式启用
-            auto_cleanup_progress=args.auto_cleanup_progress
+            auto_cleanup_progress=args.auto_cleanup_progress,
+            em_parallel_jobs=args.em_parallel_jobs,
+            em_parallel_backend=args.em_parallel_backend
         )
 
 if __name__ == '__main__':
