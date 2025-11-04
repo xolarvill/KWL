@@ -233,13 +233,13 @@
   {\zihao{-4}\songti}
   {\thecontentslabel\quad}
   {}
-  {\titlerule*[0.5pc]{.}\contentspage}
+  {\titlerule*[0.2pc]{.}\contentspage}
 
 \titlecontents{subsection}[4em]
   {\zihao{-4}\songti}
   {\thecontentslabel\quad}
   {}
-  {\titlerule*[0.5pc]{.}\contentspage}
+  {\titlerule*[0.2pc]{.}\contentspage}
 
 % ==================== 图表格式 ====================
 % 图编号格式：章-图
@@ -652,7 +652,7 @@
     {\zihao{-4}\songti}
     {\thecontentslabel\quad}
     {}
-    {\titlerule*[0.5pc]{.}\contentspage}
+    {\titlerule*[0.2pc]{.}\contentspage}
 }
 
 % 发表论文列表环境（盲审版省略）
