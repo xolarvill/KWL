@@ -273,7 +273,7 @@ def e_step_with_omega(
     }
 
     # 个体处理函数（用于并行化）
-    def process_individual(individual_id):
+    def process_individual(individual_id, parallel_logger=None):
         """处理单个个体"""
         individual_data = observed_data[observed_data['individual_id'] == individual_id]
         omega_list, omega_probs = individual_omega_dict[individual_id]
@@ -284,41 +284,80 @@ def e_step_with_omega(
         # 从外部模块导入处理函数
         from src.estimation.e_step_individual_processor import process_single_individual_e_step
         
-        individual_id, joint_probs, marginal_likelihood = process_single_individual_e_step(
-            individual_id=individual_id,
-            individual_data=individual_data,
-            omega_list=omega_list,
-            omega_probs=omega_probs,
-            params=params,
-            pi_k=pi_k,
-            K=K,
-            beta=beta,
-            transition_matrices=transition_matrices,
-            regions_df=regions_df,
-            distance_matrix=distance_matrix,
-            adjacency_matrix=adjacency_matrix,
-            prov_to_idx=prov_to_idx,
-            bellman_cache=bellman_cache,
-            cache_stats=cache_stats
-        )
+        # 记录开始处理
+        if parallel_logger:
+            worker_id = parallel_logger._get_worker_id()
+            parallel_logger.log_worker_start(worker_id, 1)
         
-        # 更新全局缓存统计
-        cache_hits += cache_stats['cache_hits']
-        cache_misses += cache_stats['cache_misses']
-        
-        return individual_id, joint_probs, marginal_likelihood
+        try:
+            individual_id, joint_probs, marginal_likelihood = process_single_individual_e_step(
+                individual_id=individual_id,
+                individual_data=individual_data,
+                omega_list=omega_list,
+                omega_probs=omega_probs,
+                params=params,
+                pi_k=pi_k,
+                K=K,
+                beta=beta,
+                transition_matrices=transition_matrices,
+                regions_df=regions_df,
+                distance_matrix=distance_matrix,
+                adjacency_matrix=adjacency_matrix,
+                prov_to_idx=prov_to_idx,
+                bellman_cache=bellman_cache,
+                cache_stats=cache_stats
+            )
+            
+            # 更新全局缓存统计（串行模式）
+            if not parallel_logger:
+                cache_hits += cache_stats['cache_hits']
+                cache_misses += cache_stats['cache_misses']
+            
+            # 记录成功处理
+            if parallel_logger:
+                total_cache_requests = cache_stats['cache_hits'] + cache_stats['cache_misses']
+                cache_hit_rate = cache_stats['cache_hits'] / total_cache_requests if total_cache_requests > 0 else 0
+                parallel_logger.log_individual_processed(
+                    worker_id=worker_id,
+                    individual_id=individual_id,
+                    success=True,
+                    cache_hit=cache_hit_rate > 0 if total_cache_requests > 0 else None
+                )
+            
+            return individual_id, joint_probs, marginal_likelihood
+            
+        except Exception as e:
+            # 记录处理错误
+            if parallel_logger:
+                parallel_logger.log_individual_processed(
+                    worker_id=worker_id,
+                    individual_id=individual_id,
+                    success=False,
+                    error_msg=str(e)
+                )
+            
+            # 返回空结果，将在主函数中处理
+            return individual_id, np.array([]), np.full(K, -1e10)
 
     # 根据配置选择处理方式
     if parallel_config.is_parallel_enabled():
         logger.info(f"  使用并行个体处理，{parallel_config.n_jobs} 个工作进程")
+        
+        # 创建并行日志管理器
+        from src.utils.parallel_logging import QuietParallelLogger
+        parallel_logger = QuietParallelLogger(logger)
+        
         try:
+            # 开始并行处理
+            parallel_logger.start_processing(N)
+            
             # 并行处理所有个体
             individual_results = Parallel(
                 n_jobs=parallel_config.n_jobs,
                 backend=parallel_config.backend,
-                verbose=parallel_config.verbose
+                verbose=0  # 禁用joblib的默认日志
             )(
-                delayed(process_individual)(ind_id)
+                delayed(process_individual)(ind_id, parallel_logger)
                 for ind_id in unique_individuals
             )
             
@@ -329,7 +368,10 @@ def e_step_with_omega(
                     log_likelihood_matrix[i_idx, :] = marginal_likelihood
                 else:
                     log_likelihood_matrix[i_idx, :] = -1e10
-                    
+            
+            # 完成并行处理
+            parallel_logger.finish_processing()
+            
         except Exception as e:
             logger.error(f"并行处理失败，回退到串行模式: {e}")
             # 回退到串行处理
