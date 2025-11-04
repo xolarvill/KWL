@@ -97,7 +97,7 @@ def plot_estimation_results(
 
     # 按参数类型分组
     amenity_params = {k: v for k, v in params.items() if k.startswith('alpha_') and 'home' not in k}
-    core_params = {k: v for k, v in params.items() if k in ['alpha_w', 'lambda', 'alpha_home']}
+    core_params = {k: v for k, v in params.items() if k in ['alpha_w', 'alpha_home']}
     migration_params = {k: v for k, v in params.items() if k.startswith('gamma')}
     hukou_params = {k: v for k, v in params.items() if k.startswith('rho')}
 

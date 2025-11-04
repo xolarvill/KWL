@@ -57,12 +57,12 @@ class Agent:
         # 获取位置j的特征
         region_characteristics = environment.get_region_characteristics(j, period)
         
-        # 1. 收入效用（使用预测工资）
+        # 1. 收入效用（简化对数效用，删除前景理论）
         predicted_wage = region_characteristics.get('wage_predicted', 
                                                  region_characteristics.get('avg_wage', 50000))
-        w_ref = self.get_reference_wage(environment)
         
-        income_utility = self.calculate_income_utility(predicted_wage, w_ref)
+        # 不再使用参照工资，直接计算对数收入效用
+        income_utility = self.calculate_income_utility(predicted_wage)
         
         # 2. 地区舒适度
         amenity_utility = (
@@ -96,20 +96,19 @@ class Agent:
         
         return total_utility
     
-    def calculate_income_utility(self, w_ij: float, w_ref: float) -> float:
+    def calculate_income_utility(self, w_ij: float, w_ref: float = None) -> float:
         """
-        计算收入效用（基于前景理论）
+        计算收入效用（简化对数效用，删除前景理论）
+        
+        根据论文公式(339行): α_w · ln w_itj
         """
+        # 使用简单对数效用，不再考虑参照工资和损失厌恶
         log_w_ij = np.log(max(w_ij, 1))  # 避免log(0)
-        log_w_ref = np.log(max(w_ref, 1))
         
         alpha_w = self.params.get('alpha_w', 1.0)
-        lambda_loss = self.params.get('lambda', 2.0)
         
-        if log_w_ij >= log_w_ref:
-            return alpha_w * (log_w_ij - log_w_ref)
-        else:
-            return alpha_w * lambda_loss * (log_w_ij - log_w_ref)
+        # 直接返回对数收入效用
+        return alpha_w * log_w_ij
     
     def get_reference_wage(self, environment) -> float:
         """

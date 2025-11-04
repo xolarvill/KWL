@@ -134,7 +134,7 @@ def test_wage_equation_module():
     logger.info("="*60)
 
     from src.model.wage_equation import (
-        calculate_prospect_theory_utility,
+        # calculate_prospect_theory_utility,  # 前景理论已删除
         calculate_wage_likelihood,
         calculate_reference_wage
     )
@@ -142,21 +142,16 @@ def test_wage_equation_module():
     # 创建模拟数据
     n_obs = 100
     w_current = np.random.lognormal(10, 0.5, n_obs)
-    w_reference = w_current * np.random.uniform(0.9, 1.1, n_obs)
-
-    # 测试前景理论效用
-    utility = calculate_prospect_theory_utility(
-        w_current=w_current,
-        w_reference=w_reference,
-        alpha_w=1.0,
-        lambda_loss_aversion=2.0,
-        use_log_difference=True
-    )
-
-    logger.info(f"\n  Prospect theory utility computed:")
-    logger.info(f"    Mean utility: {np.mean(utility):.4f}")
-    logger.info(f"    Std utility: {np.std(utility):.4f}")
-    logger.info(f"    % in loss domain: {np.mean(w_current < w_reference)*100:.1f}%")
+    
+    # 测试简单对数收入效用（替代前景理论）
+    alpha_w = 1.0
+    log_wage = np.log(np.maximum(w_current, 1e-6))
+    income_utility = alpha_w * log_wage
+    
+    logger.info(f"\n  Simple log income utility computed:")
+    logger.info(f"    Mean utility: {np.mean(income_utility):.4f}")
+    logger.info(f"    Std utility: {np.std(income_utility):.4f}")
+    logger.info(f"    This replaces prospect theory with simple log utility")
 
     # 测试工资似然
     w_predicted = w_current * np.random.uniform(0.95, 1.05, n_obs)

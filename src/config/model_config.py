@@ -134,9 +134,9 @@ class ModelConfig:
     gamma_4: float = 0.01  # 年龄对迁移成本的影响
     gamma_5: float = -0.05  # 人口规模对迁移成本的影响
 
-    ## 共享的alpha_home和lambda（如果不做type-specific可以使用）
-    alpha_home: float = 1.0  # 家乡溢价（默认值，如果使用type-specific则被覆盖）
-    lambda_default: float = 2.0  # 损失厌恶系数（默认值，如果使用type-specific则被覆盖）
+    ## 共享参数（删除前景理论后简化）
+    alpha_home: float = 1.0  # 家乡溢价（默认值）
+    # lambda_default 参数已删除（前景理论已移除）
 
     # 5.2 类型特定参数（type-specific parameters）
     # 这些参数在不同类型间有差异
@@ -182,8 +182,8 @@ class ModelConfig:
     delta_0: float = 0.5  # 方差基准参数
     delta_1: float = 0.1  # 互联网效应参数（预期>0，即互联网降低不确定性）
 
-    ## 参照工资类型（用于前景理论）
-    reference_wage_type: str = 'lagged'  # 'lagged', 'group_mean', 或 'fixed'
+    ## 参照工资类型（已废弃 - 前景理论已删除）
+    reference_wage_type: str = 'lagged'  # 保留配置但不再使用
 
     ## 工资似然开关
     include_wage_likelihood: bool = True  # 是否在似然函数中包含工资密度
@@ -216,7 +216,7 @@ class ModelConfig:
     gamma_5_bounds: Tuple[float, float] = (-1.0, 1.0)  # 人口规模系数
 
     ## 其他参数边界
-    lambda_bounds: Tuple[float, float] = (1.0, 10.0)  # 损失厌恶系数（必须≥1）
+    # lambda_bounds 已删除（前景理论已移除）
     sigma_epsilon_bounds: Tuple[float, float] = (0.1, 5.0)  # 工资波动性（必须为正）
 
     ## 默认边界（用于未明确指定的参数）
@@ -256,7 +256,7 @@ class ModelConfig:
             "gamma_4": self.gamma_4,
             "gamma_5": self.gamma_5,
             "alpha_home": self.alpha_home,
-            "lambda": self.lambda_default,
+            # "lambda" 参数已删除（前景理论已移除）
             "n_choices": self.n_choices
         }
         # 注意：gamma_1现在是共享参数
@@ -365,8 +365,7 @@ class ModelConfig:
                 bounds.append(self.gamma_4_bounds)
             elif name == 'gamma_5':
                 bounds.append(self.gamma_5_bounds)
-            elif name == 'lambda':
-                bounds.append(self.lambda_bounds)
+            # lambda 参数已删除（前景理论已移除）
             elif name == 'sigma_epsilon':
                 bounds.append(self.sigma_epsilon_bounds)
             else:

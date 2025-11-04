@@ -6,7 +6,7 @@ of migration. This version is optimized for vectorized computation.
 import numpy as np
 from typing import Dict, Any, Optional
 from numba import jit, float64, int64, prange
-from src.model.wage_equation import calculate_prospect_theory_utility
+# 前景理论已删除 - 改用简单对数收入效用
 
 @jit(nopython=True)
 def _compute_distance_cost_jit(distance_matrix, prev_loc_indices, dest_loc_indices):
@@ -69,39 +69,25 @@ def calculate_flow_utility_vectorized(
     
     # --- 2. Calculate Utility Components based on the Paper ---
 
-    # 2.1 Income Utility: 前景理论效用函数 (论文701-714行)
-    if wage_predicted is not None and wage_reference is not None:
-        # 使用前景理论: U^income = f(ln w - ln w_ref, λ)
-        # 展平为1D以便批量计算
-        w_pred_flat = wage_predicted.flatten()
-        w_ref_flat = wage_reference.flatten()
-
-        # 获取损失厌恶系数（现在是共享参数）
-        lambda_param = params.get("lambda", 2.0)
-        alpha_w = params.get("alpha_w", 1.0)
-
-        # 计算前景理论效用
-        income_utility_flat = calculate_prospect_theory_utility(
-            w_current=w_pred_flat,
-            w_reference=w_ref_flat,
-            alpha_w=alpha_w,
-            lambda_loss_aversion=lambda_param,
-            use_log_difference=True
-        )
-
-        # 重塑为(n_states, n_choices)
-        income_utility = income_utility_flat.reshape((n_states, n_choices))
+    # 2.1 收入效用: 简化的对数收入效用 (删除前景理论)
+    # 根据论文公式(339行): α_w · ln w_itj
+    alpha_w = params.get("alpha_w", 1.0)
+    
+    if wage_predicted is not None:
+        # 使用预测工资计算收入效用
+        wage_pred_clipped = np.maximum(wage_predicted, 1e-6)  # 避免负值或零
+        income_utility = alpha_w * np.log(wage_pred_clipped)
     else:
-        # Fallback: 简化的对数工资效用（向后兼容）
-        # 使用地区基础工资作为粗略估计
+        # Fallback: 使用地区基础工资作为粗略估计
         if '地区基本经济面' in region_data:
             mu_jt = region_data['地区基本经济面'][:n_choices][np.newaxis, :]
             # 简单的基准工资（需要后续扩展）
             wage_approx = np.exp(mu_jt + 10.0)  # 10.0是对数空间的基准
         else:
             wage_approx = np.full((n_states, n_choices), 30000.0)
-
-        income_utility = params.get("alpha_w", 1.0) * np.log(np.maximum(wage_approx, 1e-6))
+        
+        wage_approx_clipped = np.maximum(wage_approx, 1e-6)
+        income_utility = alpha_w * np.log(wage_approx_clipped)
 
     # 2.2 Amenities Utility: Sum of alpha_k * A_jk
     # 包含5个amenity维度：气候、医疗、教育、公共服务、自然灾害
@@ -242,9 +228,10 @@ def _calculate_flow_utility_individual_jit(
     JIT-compiled core logic for individual flow utility calculation.
     This function only accepts NumPy arrays and scalars for maximum performance.
     """
-    # --- 1. Income Utility ---
+    # --- 1. Income Utility: 简化对数收入效用 (删除前景理论) ---
     wage_approx = np.exp(mu_jt + 10.0)
-    income_utility = params_alpha_w * np.log(wage_approx)
+    wage_approx_clipped = np.maximum(wage_approx, 1e-6)  # 避免负值或零
+    income_utility = params_alpha_w * np.log(wage_approx_clipped)
 
     # --- 2. Amenities Utility ---
     amenity_utility = (

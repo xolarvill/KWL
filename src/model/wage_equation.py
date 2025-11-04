@@ -1,8 +1,10 @@
 """
 工资方程模块
 
-实现论文中的完整工资方程(718-751行):
-    w_itj = μ_j(K_t) + G(X_i, a_it, t) + η_i + ν_ij + ε_itj
+实现论文中的简化工资方程(删除前景理论):
+    ln w_itj = μ_jt + G(X_i, a_it) + η_i + ν_ij + ε_itj
+    
+收入效用: U_income = α_w · ln w_itj (简单对数效用)
 
 其中:
 - μ_j(K_t): 地区基础工资（从预估计文件读取）
@@ -133,67 +135,19 @@ def calculate_wage_likelihood(
     return log_likelihood
 
 
+# 前景理论相关函数已删除 - 改用简单对数收入效用
+# 保留空函数以保持API兼容性，但实际不再使用前景理论
 def calculate_reference_wage(
     individual_data: pd.DataFrame,
     current_wages: np.ndarray,
     reference_type: str = 'lagged'
 ) -> np.ndarray:
     """
-    计算参照工资 w_ref
-
-    用于前景理论效用函数中的参照点设定
-
-    参数:
-    ----
-    individual_data : pd.DataFrame
-        个体数据，必须包含列: IID, year
-    current_wages : np.ndarray
-        当期工资 (shape: n_obs,)
-    reference_type : str
-        参照工资类型:
-        - 'lagged': 使用滞后一期工资
-        - 'group_mean': 使用同类型个体的平均工资
-        - 'fixed': 使用固定值（如期初工资）
-
-    返回:
-    ----
-    np.ndarray
-        参照工资 (shape: n_obs,)
+    参照工资计算函数 (已废弃 - 前景理论已删除)
+    
+    为保持API兼容性而保留，返回当前工资
     """
-    logger = logging.getLogger()
-
-    if reference_type == 'lagged':
-        # 按个体排序
-        df_sorted = individual_data.copy()
-        df_sorted['current_wage'] = current_wages
-        df_sorted = df_sorted.sort_values(['IID', 'year'])
-
-        # 计算滞后工资
-        df_sorted['w_ref'] = df_sorted.groupby('IID')['current_wage'].shift(1)
-
-        # 对于第一期观测，使用当期工资作为参照（无损失厌恶效应）
-        df_sorted['w_ref'] = df_sorted['w_ref'].fillna(df_sorted['current_wage'])
-
-        # 恢复原始顺序
-        w_ref = df_sorted.loc[individual_data.index, 'w_ref'].values
-
-    elif reference_type == 'group_mean':
-        # 简化实现：使用全样本均值
-        # 实际应用中可以根据type分组
-        w_ref = np.full_like(current_wages, np.mean(current_wages))
-
-    elif reference_type == 'fixed':
-        # 使用每个个体的期初工资
-        df_sorted = individual_data.copy()
-        df_sorted['current_wage'] = current_wages
-        first_wages = df_sorted.groupby('IID')['current_wage'].transform('first')
-        w_ref = first_wages.values
-
-    else:
-        logger.warning(f"未知的reference_type: {reference_type}，使用当期工资")
-        w_ref = current_wages.copy()
-
-    return w_ref
+    return current_wages
 
 
 def calculate_prospect_theory_utility(
@@ -204,53 +158,13 @@ def calculate_prospect_theory_utility(
     use_log_difference: bool = True
 ) -> np.ndarray:
     """
-    计算基于前景理论的收入效用
-
-    根据论文公式(705-714行):
-        U^income(ln w | ln w_ref) = {
-            α_w · (ln w - ln w_ref),               if ln w ≥ ln w_ref (gain)
-            α_w · λ · (ln w - ln w_ref),           if ln w < ln w_ref (loss)
-        }
-
-    参数:
-    ----
-    w_current : np.ndarray
-        当期工资 (shape: n_obs,)
-    w_reference : np.ndarray
-        参照工资 (shape: n_obs,)
-    alpha_w : float
-        收入的边际效用系数
-    lambda_loss_aversion : float
-        损失厌恶系数 (λ > 1表示损失的权重大于收益)
-    use_log_difference : bool
-        是否使用对数差分（论文设定为True）
-
-    返回:
-    ----
-    np.ndarray
-        收入效用 (shape: n_obs,)
+    前景理论效用函数 (已废弃 - 改用简单对数效用)
+    
+    为保持API兼容性而保留，实际返回简单对数效用
     """
-    # 确保工资为正值
-    w_current = np.maximum(w_current, 1.0)
-    w_reference = np.maximum(w_reference, 1.0)
-
-    if use_log_difference:
-        # 计算对数工资差
-        ln_diff = np.log(w_current) - np.log(w_reference)
-    else:
-        # 使用水平值差异
-        ln_diff = (w_current - w_reference) / np.maximum(w_reference, 1.0)
-
-    # 区分收益域和损失域
-    is_gain = ln_diff >= 0
-    is_loss = ln_diff < 0
-
-    # 计算效用
-    utility = np.zeros_like(ln_diff)
-    utility[is_gain] = alpha_w * ln_diff[is_gain]                      # 收益域
-    utility[is_loss] = alpha_w * lambda_loss_aversion * ln_diff[is_loss]  # 损失域（惩罚更重）
-
-    return utility
+    # 简单对数效用：α_w · ln(w_current)
+    w_current_safe = np.maximum(w_current, 1e-6)
+    return alpha_w * np.log(w_current_safe)
 
 
 def calculate_nu_variance_with_internet(

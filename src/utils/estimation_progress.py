@@ -31,7 +31,10 @@ class EstimationProgressTracker:
         self.progress_dir = Path(progress_dir)
         self.task_name = task_name
         self.save_interval = save_interval
-        self.progress_file = self.progress_dir / f"{task_name}_progress.json"
+        
+        # 加入时间戳的进度文件命名规则
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.progress_file = self.progress_dir / f"{task_name}_progress_{timestamp}.json"
         
         # 确保进度目录存在
         self.progress_dir.mkdir(exist_ok=True)
