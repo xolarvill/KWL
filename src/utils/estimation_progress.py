@@ -52,9 +52,20 @@ class EstimationProgressTracker:
         }
         
     def load_state(self) -> bool:
-        """加载状态"""
+        """加载状态 - 查找最新的进度文件"""
+        # 如果没有找到当前时间戳的文件，尝试查找最新的进度文件
         if not self.progress_file.exists():
-            return False
+            # 查找相同任务名称的所有进度文件
+            pattern = f"{self.task_name}_progress_*.json"
+            existing_files = list(self.progress_dir.glob(pattern))
+            
+            if existing_files:
+                # 按修改时间排序，取最新的文件
+                latest_file = max(existing_files, key=lambda x: x.stat().st_mtime)
+                self.progress_file = latest_file
+                logger.info(f"找到最新的进度文件: {latest_file.name}")
+            else:
+                return False
             
         try:
             with open(self.progress_file, 'r', encoding='utf-8') as f:
@@ -150,12 +161,25 @@ class EstimationProgressTracker:
             'completed_phases': self.state['completed_phases']
         }
     
-    def cleanup(self):
-        """清理进度文件"""
+    def cleanup(self, cleanup_all: bool = False):
+        """清理进度文件
+        
+        Args:
+            cleanup_all: 是否清理所有同任务的进度文件，还是只清理当前文件
+        """
         try:
-            if self.progress_file.exists():
-                self.progress_file.unlink()
-                logger.info(f"进度文件已清理: {self.progress_file}")
+            if cleanup_all:
+                # 清理所有同任务的进度文件
+                pattern = f"{self.task_name}_progress_*.json"
+                existing_files = list(self.progress_dir.glob(pattern))
+                for file_path in existing_files:
+                    file_path.unlink()
+                    logger.info(f"清理进度文件: {file_path.name}")
+            else:
+                # 只清理当前文件
+                if self.progress_file.exists():
+                    self.progress_file.unlink()
+                    logger.info(f"进度文件已清理: {self.progress_file.name}")
         except Exception as e:
             logger.warning(f"清理进度文件失败: {e}")
 
@@ -197,7 +221,7 @@ def estimation_progress(task_name: str = "estimation",
         
     finally:
         if auto_cleanup:
-            tracker.cleanup()
+            tracker.cleanup(cleanup_all=False)  # 只清理当前任务的当前文件
 
 
 def resume_estimation_phase(tracker: EstimationProgressTracker, 
@@ -250,3 +274,36 @@ def get_estimation_progress(task_name: str = "estimation",
     if tracker.load_state():
         return tracker.get_summary()
     return None
+
+
+def cleanup_old_progress_files(task_name: str = "estimation", 
+                               progress_dir: str = "progress", 
+                               keep_latest: int = 5):
+    """清理旧的进度文件，保留最新的几个
+    
+    Args:
+        task_name: 任务名称
+        progress_dir: 进度文件目录
+        keep_latest: 保留最新的文件数量
+    """
+    progress_path = Path(progress_dir)
+    pattern = f"{task_name}_progress_*.json"
+    existing_files = list(progress_path.glob(pattern))
+    
+    if len(existing_files) <= keep_latest:
+        logger.info(f"进度文件数量 ({len(existing_files)}) 不超过保留数量 ({keep_latest})，无需清理")
+        return
+    
+    # 按修改时间排序
+    existing_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+    
+    # 删除旧的文件
+    files_to_delete = existing_files[keep_latest:]
+    for file_path in files_to_delete:
+        try:
+            file_path.unlink()
+            logger.info(f"删除旧进度文件: {file_path.name}")
+        except Exception as e:
+            logger.warning(f"删除文件失败 {file_path.name}: {e}")
+    
+    logger.info(f"已清理 {len(files_to_delete)} 个旧进度文件，保留 {keep_latest} 个最新文件")

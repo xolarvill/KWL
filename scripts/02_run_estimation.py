@@ -41,7 +41,7 @@ def run_estimation_workflow(
     n_bootstrap: int = 100, 
     bootstrap_jobs: int = 1,
     stderr_method: str = "louis", # 新增参数
-    enable_progress_tracking: bool = True, # 启用进度跟踪
+    enable_progress_tracking: bool = False, # 默认关闭智能进度跟踪
     auto_cleanup_progress: bool = False # 完成后自动清理进度文件
 ):
     """
@@ -540,13 +540,13 @@ def main():
     parser.add_argument('--max-sample-size', type=int, default=None,
                         help='最大样本大小限制（如16000）')
     parser.add_argument('--no-progress-tracking', action='store_true',
-                        help='禁用进度跟踪和断点续跑功能')
+                        help='启用进度跟踪和断点续跑功能（默认关闭）')
     parser.add_argument('--auto-cleanup-progress', action='store_true',
                         help='完成后自动清理进度文件')
     parser.add_argument('--check-progress', action='store_true',
                         help='检查当前进度状态并退出')
     parser.add_argument('--clean-progress', action='store_true',
-                        help='清理所有进度文件')
+                        help='清理所有进度文件（包括带时间戳的历史文件）')
     args = parser.parse_args()
     
     # 处理进度管理相关命令
@@ -565,14 +565,9 @@ def main():
         return
     
     if args.clean_progress:
-        import shutil
-        progress_dir = Path("progress")
-        if progress_dir.exists():
-            shutil.rmtree(progress_dir)
-            progress_dir.mkdir(exist_ok=True)
-            logger.info("进度文件已清理")
-        else:
-            logger.info("进度目录不存在")
+        from src.utils.estimation_progress import cleanup_old_progress_files
+        cleanup_old_progress_files(task_name="main_estimation", keep_latest=0)  # 清理所有进度文件
+        logger.info("所有进度文件已清理")
         return
 
     if args.profile:
@@ -585,7 +580,7 @@ def main():
             n_bootstrap=args.n_bootstrap,
             bootstrap_jobs=args.bootstrap_jobs,
             stderr_method=args.stderr_method,
-            enable_progress_tracking=not args.no_progress_tracking,
+            enable_progress_tracking=not args.no_progress_tracking,  # 默认关闭，需要--no-progress-tracking显式启用
             auto_cleanup_progress=args.auto_cleanup_progress
         )
         profiler.disable()
@@ -598,7 +593,9 @@ def main():
             use_bootstrap=args.use_bootstrap,
             n_bootstrap=args.n_bootstrap,
             bootstrap_jobs=args.bootstrap_jobs,
-            stderr_method=args.stderr_method
+            stderr_method=args.stderr_method,
+            enable_progress_tracking=not args.no_progress_tracking,  # 默认关闭，需要--no-progress-tracking显式启用
+            auto_cleanup_progress=args.auto_cleanup_progress
         )
 
 if __name__ == '__main__':
