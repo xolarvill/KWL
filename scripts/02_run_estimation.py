@@ -569,7 +569,7 @@ def main():
                         help='启用内存安全模式（大样本时自动启用）')
     parser.add_argument('--max-sample-size', type=int, default=None,
                         help='最大样本大小限制（如16000）')
-    parser.add_argument('--no-progress-tracking', action='store_true',
+    parser.add_argument('--enable-progress-tracking', action='store_true',
                         help='启用进度跟踪和断点续跑功能（默认关闭）')
     parser.add_argument('--auto-cleanup-progress', action='store_true',
                         help='完成后自动清理进度文件')
@@ -610,7 +610,7 @@ def main():
             n_bootstrap=args.n_bootstrap,
             bootstrap_jobs=args.bootstrap_jobs,
             stderr_method=args.stderr_method,
-            enable_progress_tracking=not args.no_progress_tracking,  # 默认关闭，需要--no-progress-tracking显式启用
+            enable_progress_tracking=args.enable_progress_tracking,  # 默认关闭，需要--enable-progress-tracking显式启用
             auto_cleanup_progress=args.auto_cleanup_progress,
             em_parallel_jobs=args.em_parallel_jobs,
             em_parallel_backend=args.em_parallel_backend
@@ -626,7 +626,7 @@ def main():
             n_bootstrap=args.n_bootstrap,
             bootstrap_jobs=args.bootstrap_jobs,
             stderr_method=args.stderr_method,
-            enable_progress_tracking=not args.no_progress_tracking,  # 默认关闭，需要--no-progress-tracking显式启用
+            enable_progress_tracking=args.enable_progress_tracking,  # 默认关闭，需要--enable-progress-tracking显式启用
             auto_cleanup_progress=args.auto_cleanup_progress,
             em_parallel_jobs=args.em_parallel_jobs,
             em_parallel_backend=args.em_parallel_backend

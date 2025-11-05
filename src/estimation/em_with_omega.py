@@ -343,7 +343,7 @@ def e_step_with_omega(
                 )
             
             # 返回空结果，将在主函数中处理
-            return individual_id, np.array([]), np.full(K, -1e10)
+            return individual_id, np.array([]), np.full(K, -1e6)
 
     # 根据配置选择处理方式
     if parallel_config.is_parallel_enabled():
@@ -396,7 +396,7 @@ def e_step_with_omega(
                     individual_posteriors[individual_id] = joint_probs
                     log_likelihood_matrix[i_idx, :] = marginal_likelihood
                 else:
-                    log_likelihood_matrix[i_idx, :] = -1e10
+                    log_likelihood_matrix[i_idx, :] = -1e6
             
             # 完成并行处理
             parallel_logger.finish_processing()
@@ -436,7 +436,7 @@ def e_step_with_omega(
                 individual_posteriors[individual_id] = joint_probs
                 log_likelihood_matrix[i_idx, :] = marginal_likelihood
             else:
-                log_likelihood_matrix[i_idx, :] = -1e10
+                log_likelihood_matrix[i_idx, :] = -1e6
 
     total_time = time.time() - start_time
     cache_hit_rate = cache_hits / (cache_hits + cache_misses) if (cache_hits + cache_misses) > 0 else 0

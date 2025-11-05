@@ -70,7 +70,10 @@ def process_single_individual_e_step(
                 converged_v_individual = None
                 initial_v = None
                 
-                if hasattr(bellman_cache, 'get'):  # 增强版缓存
+                if bellman_cache is None:
+                    # 缓存为None，直接求解Bellman方程
+                    logger.debug(f"E-step缓存为None，直接求解Bellman方程: {individual_id}, ω={omega_idx}, 类型={k}")
+                elif hasattr(bellman_cache, 'get'):  # 增强版缓存
                     solution_shape = (n_individual_states, 3)  # 假设3个选择
                     converged_v_individual = bellman_cache.get(individual_id, type_params, int(k), solution_shape)
                     if converged_v_individual is not None:
@@ -158,7 +161,7 @@ def process_single_individual_e_step(
                 logger.error(f"Error computing likelihood for individual {individual_id}, "
                            f"omega_idx={omega_idx}, type={k}: {e}")
                 logger.error(f"Traceback: {traceback.format_exc()}")
-                log_lik_matrix[omega_idx, k] = -1e10
+                log_lik_matrix[omega_idx, k] = -1e6
     
     # 4. 计算后验概率 p(τ, ω | D_i)
     # log p(τ, ω | D) = log π_τ + log P(ω) + log L(D | τ, ω)

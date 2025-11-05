@@ -113,7 +113,7 @@ def process_individual_parallel(
             )
         
         # 返回空结果，将在主函数中处理
-        return individual_id, np.array([]), np.full(K, -1e10)
+        return individual_id, np.array([]), np.full(K, -1e6)
 
 
 def create_parallel_processing_data(
