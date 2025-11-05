@@ -10,6 +10,7 @@ import queue
 from typing import Dict, Any, Optional, List
 from collections import defaultdict, deque
 import numpy as np
+import weakref
 
 
 class ParallelLogger:

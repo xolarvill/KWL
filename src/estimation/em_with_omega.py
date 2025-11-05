@@ -27,6 +27,7 @@ from src.model.bellman import solve_bellman_equation_individual
 from src.model.wage_equation import calculate_predicted_wage, calculate_reference_wage
 from src.model.smart_cache import EnhancedBellmanCache, create_enhanced_cache
 from src.utils.parallel_wrapper import ParallelConfig, parallel_individual_processor
+from src.utils.parallel_logger_registry import register_parallel_logger, unregister_parallel_logger
 
 
 def _calculate_individual_state_space_size(individual_data: pd.DataFrame) -> int:
@@ -273,7 +274,7 @@ def e_step_with_omega(
     }
 
     # 个体处理函数（用于并行化）
-    def process_individual(individual_id, parallel_logger=None):
+    def process_individual(individual_id, parallel_logger_id=None):
         """处理单个个体"""
         individual_data = observed_data[observed_data['individual_id'] == individual_id]
         omega_list, omega_probs = individual_omega_dict[individual_id]
@@ -283,11 +284,16 @@ def e_step_with_omega(
         
         # 从外部模块导入处理函数
         from src.estimation.e_step_individual_processor import process_single_individual_e_step
+        from src.utils.parallel_logger_registry import get_parallel_logger
         
-        # 记录开始处理
-        if parallel_logger:
-            worker_id = parallel_logger._get_worker_id()
-            parallel_logger.log_worker_start(worker_id, 1)
+        # 获取并行日志管理器（如果存在）
+        parallel_logger = None
+        worker_id = None
+        if parallel_logger_id:
+            parallel_logger = get_parallel_logger(parallel_logger_id)
+            if parallel_logger:
+                worker_id = parallel_logger._get_worker_id()
+                parallel_logger.log_worker_start(worker_id, 1)
         
         try:
             individual_id, joint_probs, marginal_likelihood = process_single_individual_e_step(
@@ -347,17 +353,40 @@ def e_step_with_omega(
         from src.utils.parallel_logging import QuietParallelLogger
         parallel_logger = QuietParallelLogger(logger)
         
+        # 创建并行处理数据包（避免闭包依赖）
+        from src.estimation.e_step_parallel_processor import create_parallel_processing_data, process_individual_with_data_package
+        
+        data_package = create_parallel_processing_data(
+            individual_omega_dict=individual_omega_dict,
+            params=params,
+            pi_k=pi_k,
+            K=K,
+            beta=beta,
+            transition_matrices=transition_matrices,
+            regions_df=regions_df,
+            distance_matrix=distance_matrix,
+            adjacency_matrix=adjacency_matrix,
+            prov_to_idx=prov_to_idx,
+            bellman_cache=bellman_cache
+        )
+        
+        # 注册日志管理器
+        logger_id = register_parallel_logger(parallel_logger)
+        
         try:
             # 开始并行处理
             parallel_logger.start_processing(N)
             
-            # 并行处理所有个体
+            # 并行处理所有个体（使用无闭包版本）
             individual_results = Parallel(
                 n_jobs=parallel_config.n_jobs,
                 backend=parallel_config.backend,
                 verbose=0  # 禁用joblib的默认日志
             )(
-                delayed(process_individual)(ind_id, parallel_logger)
+                delayed(process_individual_with_data_package)(ind_id, 
+                                                            observed_data[observed_data['individual_id'] == ind_id],
+                                                            data_package,
+                                                            logger_id)
                 for ind_id in unique_individuals
             )
             
@@ -372,8 +401,14 @@ def e_step_with_omega(
             # 完成并行处理
             parallel_logger.finish_processing()
             
+            # 清理注册
+            unregister_parallel_logger(logger_id)
+            
         except Exception as e:
             logger.error(f"并行处理失败，回退到串行模式: {e}")
+            # 清理注册（如果存在）
+            if 'logger_id' in locals():
+                unregister_parallel_logger(logger_id)
             # 回退到串行处理
             parallel_config = ParallelConfig(n_jobs=1)
     

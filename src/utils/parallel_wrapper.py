@@ -6,10 +6,12 @@
 import functools
 import logging
 import time
+import threading
 from typing import Callable, List, Any, Optional
 from joblib import Parallel, delayed
 import os
 from .parallel_logging import ParallelLogger, QuietParallelLogger
+from .parallel_logger_registry import register_parallel_logger, get_parallel_logger, unregister_parallel_logger
 
 logger = logging.getLogger(__name__)
 
@@ -122,9 +124,12 @@ def parallel_individual_processor(config_getter: Optional[Callable] = None,
                 else:
                     parallel_logger = ParallelLogger(current_logger, verbose=config.verbose > 0)
                 
-                # 将日志管理器传递给处理函数
-                if 'parallel_logger' not in kwargs:
-                    kwargs['parallel_logger'] = parallel_logger
+                # 注册日志管理器并获取ID（避免直接传递无法序列化的对象）
+                logger_id = register_parallel_logger(parallel_logger)
+                
+                # 将日志管理器ID传递给处理函数
+                if 'parallel_logger_id' not in kwargs:
+                    kwargs['parallel_logger_id'] = logger_id
                 
                 try:
                     # 开始处理
@@ -138,12 +143,15 @@ def parallel_individual_processor(config_getter: Optional[Callable] = None,
                         verbose=0  # 禁用joblib的默认日志，使用我们的日志管理器
                     )(
                         delayed(_process_single_individual_wrapper)(func, individual_id, 
-                                                                  parallel_logger, *args, **kwargs)
+                                                                  *args, **kwargs)
                         for individual_id in individual_list
                     )
                     
                     # 完成处理
                     parallel_logger.finish_processing()
+                    
+                    # 清理注册
+                    unregister_parallel_logger(logger_id)
                     
                     # 记录处理统计
                     elapsed_time = time.time() - start_time
@@ -165,19 +173,34 @@ def parallel_individual_processor(config_getter: Optional[Callable] = None,
 
 
 def _process_single_individual_wrapper(func: Callable, individual_id: Any, 
-                                     parallel_logger: ParallelLogger, *args, **kwargs):
+                                     *args, **kwargs):
     """
-    单个个体处理的包装函数 - 带智能日志管理
+    单个个体处理的包装函数 - 带智能日志管理（注册表模式）
     
     这个函数包装原始函数，使其能够处理单个个体而不是列表，
-    并集成并行日志管理。
+    并通过注册表模式集成并行日志管理，避免序列化问题。
     """
-    worker_id = parallel_logger._get_worker_id()
+    
+    # 从kwargs中获取日志管理器ID
+    logger_id = kwargs.pop('parallel_logger_id', None)
+    parallel_logger = None
+    worker_id = None
+    
+    if logger_id:
+        parallel_logger = get_parallel_logger(logger_id)
+        if parallel_logger:
+            worker_id = parallel_logger._get_worker_id()
+    
+    # 如果没有找到日志管理器，使用基础worker ID
+    if worker_id is None:
+        worker_id = f"worker_{threading.current_thread().ident}"
+    
     start_time = time.time()
     
     try:
         # 记录工作进程开始处理
-        parallel_logger.log_worker_start(worker_id, 1)
+        if parallel_logger:
+            parallel_logger.log_worker_start(worker_id, 1)
         
         # 调用原始函数处理单个个体（包装成列表）
         result = func([individual_id], *args, **kwargs)
@@ -196,13 +219,14 @@ def _process_single_individual_wrapper(func: Callable, individual_id: Any,
         if isinstance(final_result, dict):
             cache_hit = final_result.get('cache_hit')
         
-        parallel_logger.log_individual_processed(
-            worker_id=worker_id,
-            individual_id=individual_id,
-            success=True,
-            cache_hit=cache_hit,
-            processing_time=processing_time
-        )
+        if parallel_logger:
+            parallel_logger.log_individual_processed(
+                worker_id=worker_id,
+                individual_id=individual_id,
+                success=True,
+                cache_hit=cache_hit,
+                processing_time=processing_time
+            )
         
         return final_result
         
@@ -210,13 +234,14 @@ def _process_single_individual_wrapper(func: Callable, individual_id: Any,
         processing_time = time.time() - start_time
         
         # 记录错误
-        parallel_logger.log_individual_processed(
-            worker_id=worker_id,
-            individual_id=individual_id,
-            success=False,
-            error_msg=str(e),
-            processing_time=processing_time
-        )
+        if parallel_logger:
+            parallel_logger.log_individual_processed(
+                worker_id=worker_id,
+                individual_id=individual_id,
+                success=False,
+                error_msg=str(e),
+                processing_time=processing_time
+            )
         
         # 返回错误标记，让调用者决定如何处理
         return {"error": str(e), "individual_id": individual_id}
