@@ -201,23 +201,26 @@ def solve_bellman_equation_individual(
         end_idx = start_idx + n_visited_locations
         v_new[start_idx:end_idx] = current_v
 
-    # The loop above is one full backward induction pass, not an iteration until convergence.
-    # This is because V(age) depends on V(age+1), so we can't iterate to convergence at each age.
     # The whole backward pass IS the solution.
     
     # 最终验证和清理：确保返回值有效
     v_new = np.nan_to_num(v_new, nan=0.0, posinf=1e6, neginf=-1e6)
+    converged = np.all(np.isfinite(v_new))
+
+    if not converged:
+        logger.warning(f"Bellman solution for individual contains non-finite values.")
     
     # 验证数组形状和大小
     if v_new.shape != (n_individual_states,):
         logger.error(f"Bellman solution shape mismatch: expected {(n_individual_states,)}, got {v_new.shape}")
         # 返回零向量作为后备方案
         v_new = np.zeros(n_individual_states)
+        converged = False
     
     if verbose:
         if hot_start_used:
-            logger.info(f"Individual Bellman backward induction complete for {len(ages)} age periods (with hot-start).")
+            logger.info(f"Individual Bellman backward induction complete for {len(ages)} age periods (with hot-start). Converged: {converged}")
         else:
-            logger.info(f"Individual Bellman backward induction complete for {len(ages)} age periods.")
+            logger.info(f"Individual Bellman backward induction complete for {len(ages)} age periods. Converged: {converged}")
         
-    return v_new, 1 # Returns the solved V function and "1 iteration"
+    return v_new, converged

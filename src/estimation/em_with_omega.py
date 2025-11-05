@@ -742,19 +742,34 @@ def m_step_with_omega(
                                 self.cache_hits += 1
                                 logger.debug(f"M-step缓存命中: {individual_id}, ω={omega_idx}, 类型={k}")
                             else:
-                                # 增强版缓存会自动处理热启动
-                                self.hot_start_attempts += 1
-                                logger.debug(f"M-step缓存未命中: {individual_id}, ω={omega_idx}, 类型={k}")
+                                self.cache_misses += 1
+                                logger.debug(f"M-step缓存未命中: {individual_id}, ω={omega_idx}, 类型={k}, 开始求解...")
                                 
-                                # 检查缓存状态（调试用）
-                                if hasattr(self.bellman_cache, 'get_stats'):
-                                    try:
-                                        cache_stats = self.bellman_cache.get_stats()
-                                        logger.debug(f"M-step 缓存状态: L1大小={cache_stats.get('l1_stats', {}).get('size', 'N/A')}, "
-                                                   f"L2大小={cache_stats.get('l2_cache_size', 'N/A')}, "
-                                                   f"总请求={cache_stats.get('total_requests', 'N/A')}")
-                                    except Exception as e:
-                                        logger.debug(f"M-step 获取缓存状态失败: {e}")
+                                # 热启动由增强缓存内部处理，此处直接求解
+                                converged_v_individual, converged = solve_bellman_equation_individual(
+                                    utility_function=None,
+                                    individual_data=individual_data,
+                                    params=type_params,
+                                    agent_type=int(k),
+                                    beta=beta,
+                                    transition_matrices=transition_matrices,
+                                    regions_df=regions_df,
+                                    distance_matrix=distance_matrix,
+                                    adjacency_matrix=adjacency_matrix,
+                                    verbose=False,
+                                    prov_to_idx=prov_to_idx,
+                                    initial_v=None  # 增强缓存会自动处理热启动
+                                )
+                                
+                                logger.debug(f"M-step Bellman求解完成: converged={converged}, v_is_none={converged_v_individual is None}")
+
+                                if converged and converged_v_individual is not None:
+                                    # 存入缓存
+                                    self.bellman_cache.put(individual_id, type_params, int(k), converged_v_individual)
+                                else:
+                                    logger.warning(f"Bellman方程求解失败: {individual_id}, ω={omega_idx}, 类型={k}")
+                                    n_failed_computations += 1
+                                    continue
                         else:
                             # 向后兼容：旧版缓存逻辑（保持之前修复的正确逻辑）
                             logger.debug(f"M-step 使用旧版缓存查询: individual_id={individual_id}")
@@ -802,7 +817,7 @@ def m_step_with_omega(
                                 initial_v=initial_v  # 热启动
                             )
                             
-                            logger.debug(f"M-step Bellman方程求解完成: converged={converged}, v_individual_is_none={converged_v_individual is None}")
+                            logger.debug(f"M-step Bellman方程求解完成: converged={converged}, v_is_none={converged_v_individual is None}")
                             
                             # 检查Bellman方程是否成功求解
                             if converged and converged_v_individual is not None:

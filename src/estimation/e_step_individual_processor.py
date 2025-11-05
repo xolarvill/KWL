@@ -107,7 +107,7 @@ def process_single_individual_e_step(
                     # 求解Bellman方程（此处可能需要传入ω相关值到效用函数）
                     # 简化实现：先不传ω到Bellman求解中
                     from src.model.bellman import solve_bellman_equation_individual
-                    converged_v_individual, n_iter = solve_bellman_equation_individual(
+                    converged_v_individual, converged = solve_bellman_equation_individual(
                         utility_function=None,
                         individual_data=individual_data,
                         params=type_params,
@@ -123,7 +123,7 @@ def process_single_individual_e_step(
                     )
                     
                     # 检查Bellman方程是否成功求解
-                    if converged_v_individual is not None:
+                    if converged and converged_v_individual is not None:
                         # 存储到增强版缓存系统或向后兼容
                         if hasattr(bellman_cache, 'put'):  # 增强版缓存
                             # 增强版缓存使用智能存储接口
@@ -135,6 +135,7 @@ def process_single_individual_e_step(
                         individual_cache_misses += 1
                     else:
                         logger.warning(f"E-step Bellman方程求解失败: {individual_id}, ω={omega_idx}, 类型={k}")
+                        log_lik_matrix[omega_idx, k] = -1e6
                         continue  # 跳过这个组合
                 
                 # 计算似然（包含工资似然）
