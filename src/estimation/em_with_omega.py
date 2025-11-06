@@ -896,8 +896,17 @@ def m_step_with_omega(
             if individual_log_liks:
                 logger.info(f"{log_msg_header} Mean ind loglik: {np.mean(individual_log_liks):.4f}, "
                           f"Min: {np.min(individual_log_liks):.4f}, Max: {np.max(individual_log_liks):.4f}")
-            logger.info(f"{log_msg_header} Processing rate: {processed_individuals/duration:.1f} individuals/second, "
-                        f"Cache hit rate: {cache_hit_rate:.1%} ({self.cache_hits}/{self.cache_hits + self.cache_misses})")
+            # 安全计算处理速率，避免除零错误
+            if duration > 0 and processed_individuals > 0:
+                processing_rate = processed_individuals / duration
+                logger.info(f"{log_msg_header} Processing rate: {processing_rate:.1f} individuals/second, "
+                            f"Cache hit rate: {cache_hit_rate:.1%} ({self.cache_hits}/{self.cache_hits + self.cache_misses})")
+            elif duration > 0:
+                logger.info(f"{log_msg_header} Processing rate: 0.0 individuals/second (no individuals processed), "
+                            f"Cache hit rate: {cache_hit_rate:.1%} ({self.cache_hits}/{self.cache_hits + self.cache_misses})")
+            else:
+                logger.info(f"{log_msg_header} Processing rate: N/A (processing time too short), "
+                            f"Cache hit rate: {cache_hit_rate:.1%} ({self.cache_hits}/{self.cache_misses})")
             
             # 增强版缓存统计信息
             if hasattr(self.bellman_cache, 'get_stats'):
