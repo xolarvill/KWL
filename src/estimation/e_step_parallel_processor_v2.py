@@ -119,8 +119,7 @@ def create_parallel_processing_data_v2(
     regions_df: Dict[str, np.ndarray],
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
-    prov_to_idx: Dict[int, int],
-    bellman_cache: Any
+    prov_to_idx: Dict[int, int]
 ) -> Dict[str, Any]:
     """
     创建并行处理所需的数据包 - v2版本
@@ -136,9 +135,12 @@ def create_parallel_processing_data_v2(
         'distance_matrix': distance_matrix,
         'adjacency_matrix': adjacency_matrix,
         'prov_to_idx': prov_to_idx,
-        'bellman_cache': bellman_cache,
+        # 'bellman_cache': bellman_cache, # 移除以避免pickle错误
         'individual_omega_dict': individual_omega_dict
     }
+
+
+from ..model.smart_cache import create_enhanced_cache
 
 
 def process_individual_with_data_package_v2(
@@ -155,6 +157,9 @@ def process_individual_with_data_package_v2(
     ----
     字典格式，包含处理结果和日志数据，完全可pickle
     """
+    # **修复Windows Pickle错误**: 为每个worker创建一个本地缓存
+    local_bellman_cache = create_enhanced_cache()
+
     # 从数据包中提取omega信息
     omega_list, omega_probs = data_package['individual_omega_dict'][individual_id]
     
@@ -173,5 +178,5 @@ def process_individual_with_data_package_v2(
         distance_matrix=data_package['distance_matrix'],
         adjacency_matrix=data_package['adjacency_matrix'],
         prov_to_idx=data_package['prov_to_idx'],
-        bellman_cache=data_package['bellman_cache']
+        bellman_cache=local_bellman_cache  # 传递本地缓存
     )

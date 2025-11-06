@@ -366,8 +366,7 @@ def e_step_with_omega(
             regions_df=regions_df,
             distance_matrix=distance_matrix,
             adjacency_matrix=adjacency_matrix,
-            prov_to_idx=prov_to_idx,
-            bellman_cache=bellman_cache
+            prov_to_idx=prov_to_idx
         )
         
         # 新系统不再需要注册日志管理器（避免序列化问题）
