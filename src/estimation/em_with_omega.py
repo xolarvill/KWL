@@ -349,14 +349,14 @@ def e_step_with_omega(
     if parallel_config.is_parallel_enabled():
         logger.info(f"  使用并行个体处理，{parallel_config.n_jobs} 个工作进程")
         
-        # 创建并行日志管理器
-        from src.utils.parallel_logging import QuietParallelLogger
-        parallel_logger = QuietParallelLogger(logger)
+        # 创建轻量级并行日志管理器（解决Windows pickle问题）
+        from src.utils.lightweight_parallel_logging import SimpleParallelLogger
+        parallel_logger = SimpleParallelLogger(logger, quiet_mode=True)
         
-        # 创建并行处理数据包（避免闭包依赖）
-        from src.estimation.e_step_parallel_processor import create_parallel_processing_data, process_individual_with_data_package
+        # 创建并行处理数据包（v2.0轻量级版本，解决pickle问题）
+        from src.estimation.e_step_parallel_processor_v2 import create_parallel_processing_data_v2, process_individual_with_data_package_v2
         
-        data_package = create_parallel_processing_data(
+        data_package = create_parallel_processing_data_v2(
             individual_omega_dict=individual_omega_dict,
             params=params,
             pi_k=pi_k,
@@ -370,8 +370,8 @@ def e_step_with_omega(
             bellman_cache=bellman_cache
         )
         
-        # 注册日志管理器
-        logger_id = register_parallel_logger(parallel_logger)
+        # 新系统不再需要注册日志管理器（避免序列化问题）
+        # logger_id = register_parallel_logger(parallel_logger)  # 旧代码废弃
         
         try:
             # 开始并行处理
@@ -383,32 +383,49 @@ def e_step_with_omega(
                 backend=parallel_config.backend,
                 verbose=0  # 禁用joblib的默认日志
             )(
-                delayed(process_individual_with_data_package)(ind_id, 
+                delayed(process_individual_with_data_package_v2)(ind_id, 
                                                             observed_data[observed_data['individual_id'] == ind_id],
-                                                            data_package,
-                                                            logger_id)
+                                                            data_package)
                 for ind_id in unique_individuals
             )
             
-            # 整理结果
-            for i_idx, (individual_id, joint_probs, marginal_likelihood) in enumerate(individual_results):
-                if joint_probs.size > 0:  # 确保有有效结果
-                    individual_posteriors[individual_id] = joint_probs
-                    log_likelihood_matrix[i_idx, :] = marginal_likelihood
+            # 整理结果（适配新系统的返回格式）
+            worker_data_list = []  # 收集所有worker的日志数据
+            
+            for i_idx, result_data in enumerate(individual_results):
+                if isinstance(result_data, dict) and 'worker_log_data' in result_data:
+                    # 新系统格式：包含结果和日志数据
+                    worker_data_list.append(result_data['worker_log_data'])
+                    individual_result = result_data['result']
                 else:
+                    # 旧格式兼容
+                    individual_result = result_data
+                
+                # 提取个体结果
+                if isinstance(individual_result, tuple) and len(individual_result) == 3:
+                    individual_id, joint_probs, marginal_likelihood = individual_result
+                    if joint_probs.size > 0:  # 确保有有效结果
+                        individual_posteriors[individual_id] = joint_probs
+                        log_likelihood_matrix[i_idx, :] = marginal_likelihood
+                    else:
+                        log_likelihood_matrix[i_idx, :] = -1e6
+                else:
+                    # 处理错误情况
                     log_likelihood_matrix[i_idx, :] = -1e6
             
-            # 完成并行处理
+            # 完成并行处理（新系统：聚合worker数据并输出统计）
+            if worker_data_list:
+                parallel_logger.aggregate_worker_data(worker_data_list)
             parallel_logger.finish_processing()
             
-            # 清理注册
-            unregister_parallel_logger(logger_id)
+            # 新系统不再需要清理注册
+            # unregister_parallel_logger(logger_id)  # 旧代码废弃
             
         except Exception as e:
             logger.error(f"并行处理失败，回退到串行模式: {e}")
-            # 清理注册（如果存在）
-            if 'logger_id' in locals():
-                unregister_parallel_logger(logger_id)
+            # 新系统不再需要清理注册
+            # if 'logger_id' in locals():
+            #     unregister_parallel_logger(logger_id)  # 旧代码废弃
             # 回退到串行处理
             parallel_config = ParallelConfig(n_jobs=1)
     
