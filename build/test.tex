@@ -310,11 +310,11 @@ $\mu g \/ m^{3}$，流动人口到该城市就业的概率下降0.39个百分点
 \section{模型的基本设定}
 
 
-本文构建一个动态空间均衡模型，以探究在一个存在显著制度摩擦的经济体中，个体生命周期内的迁移决策。我们考虑一个人口总量固定的封闭经济，其中劳动力在 $m$ 个离散的地理区域（城市）间流动。这些地区构成了个体的行动空间 $\mathcal{C} = \{1, 2, \dots, m\}$，各地区拥有固定的地理边界，其空间邻接关系由矩阵 $\mathbf{A} \in \{0,1\}^{m \times m}$ 刻画，其地理距离由矩阵$\mathbf{Dis} \in \mathbb{R}_{>0}^{\,m \times m}$ 刻画。不同的区域都具有独特的地区特征，这包括经济特征与非经济特征等，每个地区的特征随时间动态变化，会影响个体的迁移决策。各地区的工资由本地劳动力市场决定。
+本文构建一个动态空间均衡模型，以探究在一个存在显著制度摩擦的经济体中，个体生命周期内的迁移决策。我们考虑一个人口总量固定的封闭经济，其中劳动力在 $m$ 个离散的地理区域（城市）间流动。这些地区构成了个体的行动空间 $\mathcal{C} = \{1, 2, \dots, m\}$，各地区拥有固定的地理边界，其空间邻接关系由矩阵 $\mathbf{Adj} \in \{0,1\}^{m \times m}$ 刻画，其地理距离由矩阵$\mathbf{Dis} \in \mathbb{R}_{>0}^{\,m \times m}$ 刻画。不同的区域都具有独特的地区特征，这包括经济特征与非经济特征等，每个地区的特征随时间动态变化，会影响个体的迁移决策。各地区的工资由本地劳动力市场决定。
 
 时间以离散时期 $t \in \{0, 1, 2, \dots, T\}$ 推进，其中 $T$ 代表个体的生命周期总长度。经济体中的异质性个体 $i$ 是理性的、有限生命周期的决策者，其目标是选择一个最优的居住地序列 $\mathcal{J}=\{j_1, j_2, \dots, j_T\}$ 以最大化其终身期望效用。个体所处的环境是动态变化的：每个地区 $j \in \mathcal{C}$ 均具有随时间演变的经济与非经济特征（如工资水平、公共服务质量、环境舒适度等），这些特征共同构成了地区吸引力，并影响个体的迁移预期与决策。
 
-本模型的一个创新在于对中国户籍制度的结构化处理。我们假定每个个体 $i$ 拥有一个在其出生时即被确定且终身不变的户籍所在地 $hukou_i \in \mathcal{C}$。当个体选择的居住地 $j_t$ 与其户籍地不一致时（即人户分离），将因在获取公共服务、社会福利等方面受限而产生效用损失，我们称之为户籍惩罚。此外，我们区分了制度性的户籍地 $hukou_i$ 与具有情感依恋的家乡地 $home_i$。后者捕捉了源于家庭纽带、社会网络和文化认同的家乡溢价 (Home Premium)，它为个体居住在家乡提供额外的正效用。这两种设定共同刻画了制度推力与文化拉力在迁移决策中的复杂作用。
+本模型的一个创新在于对中国户籍制度的结构化处理。我们假定每个个体 $i$ 拥有一个在其出生时即被确定且终身不变的户籍所在地 $hukou_i \in \mathcal{C}$。当个体选择的居住地 $j_t$ 与其户籍地不一致时（即人户分离），将因在获取公共服务、社会福利等方面受限而产生效用损失，我们称之为户籍惩罚。此外，我们区分了制度性的户籍地 $hukou_i$ 与具有情感依恋的家乡地 $home_i \in \mathcal{C}$。后者捕捉了源于家庭纽带、社会网络和文化认同的家乡溢价 (home premium)，它为个体居住在家乡提供额外的正效用。这两种设定共同刻画了制度推力与文化拉力在迁移决策中的复杂作用。
 
 在经典的劳动力自由流动模型中，地区间工资差异会因套利行为而趋于收敛。然而，本模型引入的户籍制度、家乡溢价、异质性偏好及多维迁移成本，共同构成了对劳动力自由流动的关键摩擦。这些摩擦的存在，解释了为何现实中地区间的巨大差异能够长期持续，并驱动着持续而非趋于静止的人口流动，从而使模型的动态过程更贴近现实。
 
@@ -347,9 +347,6 @@ $\mu g \/ m^{3}$，流动人口到该城市就业的概率下降0.39个百分点
 
 
 
-
-
-
 \section{收入过程}
 \label{sec:income_process}
 
@@ -357,7 +354,7 @@ $\mu g \/ m^{3}$，流动人口到该城市就业的概率下降0.39个百分点
 该方程将工资分解为五个相互正交的组成部分，从宏观到微观，系统性地刻画了收入的来源。
 个体 $i$ 在时期 $t$ 于潜在地区 $j$ 的对数工资 $\ln w_{itj}$ 被设定为以下线性可加的形式：
 \begin{equation}
-    \ln w_{itj} = \mu_{jt} + G(X_i, a_{it}) + \eta_i + \nu_{ij} + \varepsilon_{itj}.
+    \ln w_{itj} = \mu_{jt} + G(X_i, a_{it}) + \eta_i + \nu_{ij} + \varepsilon_{itj}
     \label{eq:收入函数}
 \end{equation}
 
@@ -369,13 +366,13 @@ $\mu g \/ m^{3}$，流动人口到该城市就业的概率下降0.39个百分点
 
 个体-地区匹配效应 $ \nu_{ij} $ 该项捕捉了特定个体 $i$ 在特定地区 $j$ 所能产生的超额生产力，这源于技能与当地产业需求的契合度、社会网络资源等难以观测的因素。我们假设，$\nu_{ij}$ 的真实值对个体是未知的，直到其首次迁入该地区后才能被完全观测到。在迁入前，个体仅对其存在一个先验分布的预期。具体而言，当个体首次考虑迁往新地区 $j$ 时，他面临的匹配值是一个从正态分布中抽取的随机变量：
 \begin{equation}
-    \nu_{ij} \sim \mathcal{N}(0, \sigma_{\nu,jt}^2).
+    \nu_{ij} \sim \mathcal{N}(0, \sigma_{\nu,jt}^2)
 \end{equation}
 一旦迁入并观测到 $\nu_{ij}$ 的实现值后，该值在未来所有停留于 $j$ 的时期内保持不变。这种设定意味着迁移不仅是空间位置的变动，更是一个信息发现的过程。
 
 至关重要的是，我们进一步将收入的不确定性（即匹配效应的方差 $\sigma_{\nu,jt}^2$）与当地的信息环境内生关联起来：
 \begin{equation}
-    \sigma_{\nu,jt}^2 = \exp(\delta_0 - \delta_1 \cdot \text{Internet}_{j,t}),
+    \sigma_{\nu,jt}^2 = \exp(\delta_0 - \delta_1 \cdot \text{Internet}_{j,t})
     \label{eq:variance_information}
 \end{equation}
 其中 $\text{Internet}_{j,t}$ 为地区 $j$ 的互联网普及率。我们预期 $\delta_1 > 0$，这意味着更发达的互联网能够降低迁移前的信息不对称，从而减小潜在收入的不确定性。对于风险规避的个体而言，前往一个收入方差更大的地区（信息闭塞地区）具有更高的风险，这会抑制其迁移意愿。因此，该机制在标准的理性选择框架内，构成了信息摩擦阻碍劳动力流动的微观基础。
@@ -601,23 +598,17 @@ $\varepsilon$ & 工资的暂态效应\\
 \section{处理未观测到的异质性}
 \label{sec:unobs_hetero}
 
-在结构模型中，准确刻画个体间无法直接观测的异质性是确保模型识别与解释力的核心。如果不对此加以识别，模型可能会将个体持久性的偏好或能力差异错误地归因于状态依赖。为此，本文采用了两种互补的策略来捕捉多维度的未观测异质性：离散因子近似 (Discrete Factor Approximation, DFA) 和 有限混合模型 (Finite Mixture Model, FMM)。
+在结构模型中，未能合理解释个体间无法直接观测的异质性，可能导致将持久性的个体差异错误地归因为状态依赖，从而产生有偏估计。为应对这一核心挑战，本文采用两种互补的策略来捕捉多维度的未观测异质性：离散因子近似 (Discrete Factor Approximation, DFA) 和有限混合模型 (Finite Mixture Model, FMM)。
 
 
 \subsection{离散化近似}
 
-传统方法通常对关键随机变量或潜在变量施加明确分布假设（如正态性）。尽管此类参数化方法便于计算，但若真实分布存在系统性偏差，参数估计将产生不可通过样本量增加消除的偏误。此外，固定分布形式难以适应厚尾、偏态或多峰等复杂特征。
 
-本文不施加正态性等强参数假设，而是采用DFA方法刻画未知分布。对任意未知连续分布 $F$，我们构造其离散近似 $\hat{F}$，由有限支撑点集合 $\{(x_k, p_k)\}_{k=1}^N$ 构成，其中 $x_k$ 为支撑点位置，$p_k$ 为对应概率质量，$N$ 为预设支撑点数量。对于每一潜在状态变量 $q_r$（$r=1,\dots,n$），我们计算其在各支撑点上的效用值，并以离散加权平均替代连续积分：
-\[
-V(q_r) \approx \sum_{k=1}^N p_k \, u(q_r, x_k).
-\]
 
-经此处理，动态规划问题转化为有限状态马尔可夫决策过程，可直接构建似然函数并实施最大似然估计。支撑点位置与概率可灵活调整，从而捕捉厚尾、多峰或非对称等分布特征。
+为避免强参数化假设带来的误设风险，本文采用DFA方法对未知的连续分布进行半非参数近似。相较于完全非参数方法，DFA 将连续分布压缩为有限维参数空间，不仅显著降低计算复杂度、抑制随机噪声，且支撑点具备直观经济解释。
+其核心思想是用一个具有有限支撑点的离散分布 $\hat{F}$ 来逼近任意未知的连续分布 $F$。该离散分布由一组支撑点及其对应的概率质量构成，即 $\{(x_k, p_k)\}_{k=1}^N$，其中 $N$ 为预设的支撑点数量。为简化估计并保持模型的简约性，我们预先设定支撑点的概率相等 ($p_k=1/N$)，并将估计的重点放在支撑点的位置 $x_k$ 上。这使得模型能够灵活地捕捉未知分布的形状和范围，同时避免了对大量概率参数的估计。
 
-相较于完全非参数方法，DFA 将连续分布压缩为有限维参数空间，不仅显著降低计算复杂度、抑制随机噪声，且支撑点具备直观经济解释。
-在估计中，我们假设每个支撑点的概率是均等的，需要估计的是支撑点的位置（即值的大小），从而刻画分布的形状和范围。
-具体设定如表 \ref{tab:unobserved_heterogeneity_setting} 所示。
+通过DFA处理，模型中的连续状态空间被有效地离散化，从而将复杂的动态规划问题转化为一个计算上更易于处理的有限状态马尔可夫决策过程。我们在模型的四个维度上应用了DFA，具体设定如表 \ref{tab:unobserved_heterogeneity_setting} 所示。
 
 \begin{table}[!ht]
   \centering
@@ -641,7 +632,7 @@ V(q_r) \approx \sum_{k=1}^N p_k \, u(q_r, x_k).
 
 我们将个体 $i$ 的离散化未观测属性集合记为：
 \[
-\symbf{\omega}_i = \left( \eta_i, \, \symbf{\nu}_i, \, \symbf{\xi}_i, \, \sigma_{\varepsilon,i} \right),
+\symbf{\omega}_i = \left( \eta_i, \, \symbf{\nu}_i, \, \symbf{\xi}_i, \, \sigma_{\varepsilon,i} \right)
 \]
 其中 $\symbf{\nu}_i = (\nu_{i1}, \dots, \nu_{iJ})^\top$，$\symbf{\xi}_i = (\xi_{i1}, \dots, \xi_{iJ})^\top$。
 
@@ -649,11 +640,7 @@ V(q_r) \approx \sum_{k=1}^N p_k \, u(q_r, x_k).
 
 除连续型异质性外，本文进一步假设劳动力群体内存在 $K$ 个离散的潜在行为类别（latent classes），以避免基于可观测特征（如地区、行业、性别）的硬性分组所引入的内生性偏差。
 
-这种类别异质性正是由迁移成本函数中的固定成本项 $\gamma_{0\tau}$所引入的。
-具体而言，个体 $i$ 属于类别 $\tau \in \{1, 2, \dots, K\}$ 的概率为 $\pi_\tau$，且 $\sum\limits_{\tau=1}^K \pi_\tau = 1$。
-属于不同类别 $\tau$ 的个体拥有不同的基础迁移成本 $\gamma_{0\tau}$ 。例如，我们可以预期“恋家型”的 $\gamma_0$ 显著为正且数值较大，而“闯荡型”的 $\gamma_0$ 可能接近于零甚至为负，即使两者面临完全相同的状态变量。
-
-通过联合估计类别概率 $\pi_\tau$ 与类型特定参数 $\gamma_{0\tau}$，模型可内生识别行为类型及其人口占比，从而更全面地捕捉迁移决策中的结构性异质性。
+该类别异质性由理论模型中的迁移成本函数项 $\gamma_{0\tau}$ 引入。具体而言，个体 $i$ 属于类别 $\tau \in \{1, 2, \dots, K\}$ 的先验概率为 $\pi_\tau$，且满足 $\sum_{\tau=1}^K \pi_\tau = 1$。不同类别的个体拥有显著不同的基础迁移成本 $\gamma_{0\tau}$。例如，模型可以识别出具有高 $\gamma_{0\tau}$ 值的“低流动性”类别 (low-mobility type) 和具有低（甚至为负）$\gamma_{0\tau}$ 值的“高流动性”类别 (high-mobility type)，即使这两类个体的所有可观测特征都完全相同。通过联合估计类别概率 $\boldsymbol{\pi} = \{\pi_\tau\}$ 与类型特定的参数 $\{\gamma_{0\tau}\}$, 模型能够内生地识别出关键的行为模式及其在人口中的占比。
 
 上述两种方法互为补充，离散因子近似聚焦于随机冲击分布的非参数灵活建模，提升模型对未知分布的稳健性；有限混合模型则针对个体层面结构性行为差异进行分类识别，避免遗漏潜在分组信息所致偏误。二者结合使用，使模型在维持计算可行性的同时，全面刻画劳动力迁移行为的复杂驱动机制。
 
@@ -664,53 +651,49 @@ V(q_r) \approx \sum_{k=1}^N p_k \, u(q_r, x_k).
 \section{机器学习插件估计滋扰函数} 
 \label{sec:ml_plugins}
 
-本模型的似然函数依赖于对两类滋扰函数（nuisance functions）的准确预测：工资条件期望 $\mathbb{E}[w_{itj} \mid x_{it}, j_{itj}]$ 以及状态转移密度 $p(x_{i,t+1} \mid x_{it}, j_{it})$。这些函数虽非核心结构参数，但其误设将通过价值函数传导至迁移决策参数估计，诱发系统性偏误。
+
+本模型的似然函数依赖于两类非结构性函数，通常称为“滋扰函数” (nuisance functions)：工资的条件期望 $\mathbb{E}[\ln w_{it} \mid x_{it}, j_{it}=j]$，以及状态转移概率 $p(x_{i,t+1} \mid x_{it}, j_{it})$。尽管这些函数并非我们关心的核心结构参数，但对它们的错误设定将通过价值函数传导至对偏好和成本参数的估计，从而引发系统性偏误。
+
+传统结构估计通常对滋扰函数施加线性或低阶多项式等参数化假设。然而，在高维状态空间中，变量间复杂的非线性关系与交互效应使得此类假设极易导致误设。为规避这一风险，我们借鉴 \textcite{atheyGeneralizedRandomForests2019} 的插件估计思想，采用 \textcite{keLightGBMHighlyEfficient2017} 提出的LightGBM，一种高效的梯度提升决策树 (Gradient Boosting Decision Tree, GBDT) 算法作为非参数预测器。
 
 
-
-传统结构估计通常对滋扰函数施加线性或低阶多项式假设。然而，高维状态空间中的非线性交互与异方差性使得此类参数化形式易发误设。
-为了增强预测精度、减少函数形式误设，我们学习\textcite{atheyGeneralizedRandomForests2019}的插件估计框架，采用\textcite{keLightGBMHighlyEfficient2017}提出的LightGBM梯度提升决策树（Gradient Boosting Decision Tree, GBDT）作为非参数回归器。
-
-工资仅在实际选择地点 $j_{it}$ 被观测到，即 $w_{it} \equiv w_{i t j_{it}}$。我们将选择特定地点 $j$ 时的条件工资期望建模为：
+工资仅在个体实际选择的地点 $j_{it}$ 被观测到，我们将其记为 $w_{it} \equiv w_{it,j_{it}}$。我们的目标是估计在任意状态 $x_{it}$ 下，选择任一潜在地点 $j$ 时的条件工资期望：
 \[
-\mathbb{E}[w_{itj} \mid x_{it}, j_{it} = j] = g^*(x_{it}, j),
+\mathbb{E}[\ln w_{it} \mid x_{it}, j_{it} = j] = g_j(x_{it})
 \]
-其中 $g^*(\cdot, j)$ 为地点 $j$ 特定的未知回归函数。使用面板数据 $\{(w_{it}, x_{it}, j_{it})\}_{i,t}$ 训练 LightGBM 回归器，构造地点特定的预测模型：
-\[
-\hat{g}(x_{it}, j) = \text{LightGBM}\left( w_{it} \sim x_{it}, j \mid j_{it} = j \right).
-\]
-该估计器在训练时对每个 $j \in \mathcal{C}$ 单独拟合（或使用多分类目标编码），从而允许不同地点的工资生成过程存在结构性差异。
+这里的 $g_j(\cdot)$ 是地点 $j$ 特有的、形式未知的回归函数。我们利用观测到的面板数据 $\{(w_{it}, x_{it}, j_{it})\}_{i,t}$ 来训练LightGBM模型。具体而言，对于每一个潜在目的地 $j \in \mathcal{C}$，我们使用在该地区停留的子样本 (即满足 $j_{it}=j$ 的所有观测) 来拟合一个预测模型 $\hat{g}_j(x_{it})$。训练完成后，我们便可以为任何个体在任何状态 $x_{it}$ 下，生成其迁往任一地区 $j$ 的期望工资的精准预测值 $\hat{g}_j(x_{it})$。
 
-该模型能够自动学习高维状态变量之间的非线性关系与交互效应。在结构模型的每一次似然计算中，我们都调用这个预先训练好的 $\hat{g}(\cdot)$ 来获得工资预测值。类似地，对于状态向量中随机演化的部分我们同样使用机器学习回归器来估计其转移概率 $\hat{p}(K_{t+1} | K_t)$，如宏观状态 $K_t$。
+同样的方法被应用于估计状态转移过程。对于状态向量中随时间随机演化的宏观部分 $K_t$，我们将其下一期的实现值 $K_{t+1}$ 作为目标变量，$K_t$ 作为特征，训练一个LightGBM模型以获得其条件期望的非参数估计 $\mathbb{E}[K_{t+1} \mid K_t]$。
 
-
+需要强调的是，机器学习在此处扮演的是一个高效且灵活的预测插件角色，其任务是为结构模型提供对条件期望的精准预测，而非直接估计具有经济学含义的结构参数。核心的偏好与成本参数仍将在后续的结构化框架内被识别和估计。这种两步法策略有效地将预测任务与结构参数的推断任务分离，降低了整个模型因函数形式误设而产生偏误的风险。
 
 
 \section{结合EM算法的NFXP估计策略}
 \label{sec:em_nfxp}
 
-本文将未观测的异质性视为缺失数据，通过EM算法（Expectation-Maximization algorithm）进行迭代处理，并在每一步最大化（M步）中引入固定嵌套点（Nested Fixed Points, NFXP）算法作为核心用于求解给定参数下的动态规划问题。这种方法能够在处理复杂异质性的同时，保证结构模型参数估计的一致性。
+本模型的估计面临两大挑战，一是存在不可观测的个体类型与异质性属性，二是其动态规划结构需要在参数估计的每一步进行求解。为应对此，我们设计了一个整合期望最大化 (xpectation-Maximization, EM) 算法与嵌套不动点 (Nested Fixed-Point, NFXP) 算法的综合估计策略。由于个体类型 $\tau$ 和异质性属性 $\boldsymbol{\omega}_i$ 是不可观测的，我们将此视为一个缺失数据问题，采用EM算法框架求解。在EM算法最大化期望对数似然的M步中，评估似然函数本身需要求解高维动态规划问题，为此我们嵌入了NFXP算法作为核心计算引擎。这种方法能够在处理复杂异质性的同时，保证结构模型参数估计的一致性。
+
 
 \subsection{EM框架}
 
 本模型待估参数集合记为  
 \[
-\Theta \equiv \bigl( \theta, \{\pi_\tau\}_{\tau=1}^K, \{x^s_k, p^s_k\}_{k=1}^N \bigr),
+\Theta \equiv \bigl( \theta, \{\pi_\tau\}_{\tau=1}^K, \mathcal{X} \bigr)
 \]
-其中 $\theta$ 为核心结构参数；$\pi_\tau$ 为有限混合模型中类型 $\tau$ 的人口占比，满足 $\sum_{\tau=1}^K \pi_\tau = 1$；$\{x^s_k, p^s_k\}_{k=1}^N$ 为所有离散支撑点的位置与概率，用于近似连续异质性分布。个体 $i$ 的离散化异质性向量记为
+其中 $\theta$ 为核心结构参数；$\pi_\tau$ 为有限混合模型中类型 $\tau$ 的人口占比，满足 $\sum_{\tau=1}^K \pi_\tau = 1$；$\mathcal{X} = \{\boldsymbol{x}^\eta, \boldsymbol{x}^\nu, \boldsymbol{x}^\xi, \boldsymbol{x}^{\sigma_\varepsilon}\}$ 代表所有异质性来源的支撑点位置向量集合。个体 $i$ 的离散化异质性向量记为
 \[
 \symbf{\omega}_i = \bigl( \eta_i, \symbf{\nu}_i, \symbf{\xi}_i, \sigma_{\varepsilon,i} \bigr)
 \]
-其联合先验概率为各维度支撑点概率之积$P(\symbf{\omega}_i) = \prod\limits_{d} p^s_{d,k_d}$。
+每个元素都是从其对应类型的支撑点中抽取的。其联合先验概率为各维度支撑点概率之积$P(\symbf{\omega}_i) = \prod\limits_{d} p^s_{d,k_d}$。
 
 
 
-E步给定当前参数猜测 $ \Theta^{(k)} $ \footnote{上标 $ (k) $ 表示第 $ k $ 次迭代起始时使用的参数；$ \Theta^{(k+1)} $ 为 M 步更新后用于下一轮 E 步的参数。}，目标是计算个体 $ i $ 属于特定潜在类型 $ \tau $ 并拥有特定属性组合 $ \omega_i $ 的后验概率。依据贝叶斯法则，该概率表达为：
+E步给定当前参数猜测 $ \Theta^{(k)} $ \footnote{上标 $ (k) $ 表示第 $ k $ 次迭代起始时使用的参数；$ \Theta^{(k+1)} $ 为 M 步更新后用于下一轮 E 步的参数。}，目标是计算个体 $ i $ 属于特定潜在类型 $ \tau $ 并拥有特定属性组合 $ \symbf{\omega}_i $ 的后验概率。依据贝叶斯法则，该概率表达为：
 \begin{equation}
-    p_{i}(\tau, \omega_i | \mathcal{D}_i, \Theta^{(k)}) = \frac{\pi_\tau^{(k)} P(\symbf{\omega}_i) \mathcal{L}_i(\mathcal{D}_i | \tau, \omega_i, \Theta^{(k)})}{\sum_{\tau'=1}^K \pi_{\tau'}^{(k)} \sum_{\omega'_i \in \Omega} P(\symbf{\omega}'_i) \mathcal{L}_i(\mathcal{D}_i | \tau', \omega'_i, \Theta^{(k)})}
+    p_{i}(\tau, \symbf{\omega}_i | \mathcal{D}_i, \Theta^{(k)}) = \frac{\pi_\tau^{(k)} P(\symbf{\omega}_i) \mathcal{L}_i(\mathcal{D}_i | \tau, \symbf{\omega}_i, \Theta^{(k)})}{\sum_{\tau'=1}^K \pi_{\tau'}^{(k)} \sum_{\omega'_i \in \Omega} P(\symbf{\omega}'_i) \mathcal{L}_i(\mathcal{D}_i | \tau', \omega'_i, \Theta^{(k)})}
     \label{eq:posterior}
 \end{equation}
-其中 $ \mathcal{D}_i = \{(j_{it}^{\text{obs}}, w_{it}^{\text{obs}})\}_{t=1}^{T_i} $ 为个体 $ i $ 的完整观测序列（居住地与工资），$ \mathcal{L}_i(\cdot \mid \tau, \omega_i, \Theta^{(k)}) $ 则是个体在给定类型与属性下的条件似然贡献，其详细推导见 \S\ref{sec:likelihood_derivation}。
+其中 $ \mathcal{D}_i = \{(j_{it}^{\text{obs}}, w_{it}^{\text{obs}})\}_{t=1}^{T_i} $ 为个体 $ i $ 的完整观测序列（居住地与工资），$ \mathcal{L}_i(\cdot \mid \tau, \symbf{\omega}_i, \Theta^{(k)}) $ 则是个体在给定类型与属性下的条件似然贡献，其详细推导见 \S\ref{sec:likelihood_derivation}。
 
 M步旨在寻找新参数 $ \Theta^{(k+1)} $，最大化由 E 步后验加权的期望对数似然函数  
 \begin{equation}
@@ -725,14 +708,14 @@ M步旨在寻找新参数 $ \Theta^{(k+1)} $，最大化由 E 步后验加权的
 	\pi_\tau^{(k+1)} = \frac{1}{N} \sum_{i=1}^N \sum_{\symbf{\omega}_i \in \Omega} p_{i}(\tau, \symbf{\omega}_i \mid \mathcal{D}_i, \Theta^{(k)})	
 \end{equation}
 
-该优化构成整个估计流程的计算瓶颈，而 NFXP 算法 正是嵌入其中的核心引擎。其余参数（$\theta$、支撑点位置 $x_k$、概率 $p_k$）通过数值优化更新，嵌入 NFXP 求解 $\mathcal{L}_i$。
+该优化构成整个估计流程的计算瓶颈，而 NFXP 算法 正是嵌入其中的核心引擎。而结构参数$\theta$和所有支撑点的位置$\mathcal{X}$通过数值优化更新，嵌入 NFXP 求解 $\mathcal{L}_i$。
 
 对于优化器评估的每一组候选参数 $ \Theta $，必须执行嵌套双层计算。
-内层循环针对特定个体类型 \( (\tau, \omega_i) \) 与参数 \( \Theta \)，通过价值函数迭代求解贝尔曼方程的不动点。
+内层循环针对特定个体类型 \( (\tau, \symbf{\omega}_i) \) 与参数 \( \Theta \)，通过价值函数迭代求解贝尔曼方程的不动点。
 
 对固定 $(\tau, \symbf{\omega}_i, \Theta)$，从初始猜测 $V^{(0)}(x) = 0$ 出发，迭代贝尔曼方程：
 \begin{align}
-V^{(s+1)}(x; \tau, \symbf{\omega}_i, \Theta) &= \ln \left( \sum_{j \in \mathcal{C}} \exp \bigl( u(j, x; \theta, \symbf{\omega}_i, \tau) + \beta \mathbb{E}[V^{(s)}(x' \mid x, j; \Theta)] \bigr) \right),
+V^{(s+1)}(x; \tau, \symbf{\omega}_i, \Theta) &= \ln \left( \sum_{j \in \mathcal{C}} \exp \bigl( u(j, x; \theta, \symbf{\omega}_i, \tau) + \beta \mathbb{E}[V^{(s)}(x' \mid x, j; \Theta)] \bigr) \right)
 \label{eq:bellman_iteration}
 \end{align}
 
@@ -740,10 +723,10 @@ V^{(s+1)}(x; \tau, \symbf{\omega}_i, \Theta) &= \ln \left( \sum_{j \in \mathcal{
 \[
 \| V^{(s+1)} - V^{(s)} \|_{\infty} \leq \varepsilon_V = 10^{-6}
 \]
-由于折扣因子 $\beta \in (0,1)$，该迭代为收缩映射，可以保证全局收敛。收敛后得到最优价值函数 \( V^*(x, \tau, \omega_i; \Theta) \)，用于后续选择概率与似然计算。
+由于折扣因子 $\beta \in (0,1)$，根据巴拿赫不动点定理，该迭代过程是一个收缩映射，保证收敛到唯一的不动点。收敛后得到最优价值函数 \( V^*(x, \tau, \symbf{\omega}_i; \Theta) \)，用于后续选择概率与似然计算。在实际计算中，我们使用 \S\ref{sec:ml_plugins} 中训练的机器学习插件来近似状态转移概率，并通过数值积分计算该期望值。
 
 
-基于收敛价值函数，可进一步计算各决策节点的选择价值 $ v_{it}(j, x_{it}) $，并依据式 \eqref{eq:地点选择概率} 得出条件选择概率 $ P(j_t = j \mid x_{it}, \tau, \omega_i; \Theta) $。结合工资方程 \eqref{eq:工资自然贡献} 的条件密度，即可构造完整的个体似然贡献 $ \mathcal{L}_i(\mathcal{D}_i \mid \tau, \omega_i, \Theta) $。将选择概率与工资条件密度（见下节）代入，构造个体条件似然 $\mathcal{L}_i(\cdot \mid \tau, \symbf{\omega}_i, \Theta)$，供 $Q(\Theta \mid \Theta^{(k)})$ 评估。
+基于收敛价值函数，可进一步计算各决策节点的选择价值 $ v_{it}(j, x_{it}) $，并依据式 \eqref{eq:地点选择概率} 得出条件选择概率 $ P(j_t = j \mid x_{it}, \tau, \symbf{\omega}_i; \Theta) $。结合工资方程 \eqref{eq:工资自然贡献} 的条件密度，即可构造完整的个体似然贡献 $ \mathcal{L}_i(\mathcal{D}_i \mid \tau, \symbf{\omega}_i, \Theta) $。将选择概率与工资条件密度（见下节）代入，构造个体条件似然 $\mathcal{L}_i(\cdot \mid \tau, \symbf{\omega}_i, \Theta)$，供 $Q(\Theta \mid \Theta^{(k)})$ 评估。
 
 至此，EM 算法从初始猜测 $ \Theta^{(0)} $ 出发，交替执行 E 步与 M 步，直至参数与对数似然函数收敛，最终产出估计量 $ \hat{\Theta} $。
 
@@ -756,7 +739,8 @@ V^{(s+1)}(x; \tau, \symbf{\omega}_i, \Theta) &= \ln \left( \sum_{j \in \mathcal{
 \subsection{似然函数的构建}
 \label{sec:likelihood_derivation}
 
-我们首先考虑一个信息完全的情景，假设我们确知个体$i$属于类别$\tau$，且其未观测属性为$\omega_i$。根据模型设定，个体的选择决策（由$\zeta$驱动）与工资的随机冲击（由$\varepsilon$驱动）相互独立。个体类型 $\tau$ 与异质性 $\symbf{\omega}_i$，观测 $(j_{it}, w_{it})$ 的联合密度为选择概率与工资密度之积：
+我们首先考虑一个信息完全的情景，假设我们确知个体$i$属于类别$\tau$，且其未观测属性为$\symbf{\omega}_i$。
+根据模型设定，个体的选择决策（由$\zeta$驱动）与工资的随机冲击（由$\varepsilon$驱动）相互独立。个体类型 $\tau$ 与异质性 $\symbf{\omega}_i$，观测 $(j_{it}, w_{it})$ 的联合密度为选择概率与工资密度之积：
 \begin{equation}
 p(j_{it}, w_{it} \mid x_{it}, \tau, \symbf{\omega}_i; \Theta) = P(j_{it} \mid x_{it}, \tau, \symbf{\omega}_i; \Theta) \cdot \phi(w_{it}; \mu_{it}(j_{it}), \sigma_{\varepsilon,i}^2)
 \label{eq:joint_density}
@@ -775,24 +759,22 @@ $\hat{g}(\cdot,j)$ 为 LightGBM 插件预测（\S\ref{sec:ml_plugins}）。
 \end{equation}
 该式度量了在完全知晓个体底细的情况下，其生命轨迹发生的概率。
 
-现实中无法观测到$(\tau, \omega_i)$，但得益于先前的离散设定，个体$i$的无条件似然贡献是对所有可能的类别和属性组合下的条件似然进行加权求和，其权重为各类别的先验概率$\pi_\tau$和各属性的先验概率$P(\omega_i)$，这就是对对所有潜在 $(\tau, \symbf{\omega}_i)$ 加权平均得到的无条件似然：
+然而现实中无法观测到$(\tau, \symbf{\omega}_i)$，因此，为了连接模型与数据，我们需要构建个体的无条件似然函数。但得益于先前的离散设定，个体$i$的无条件似然贡献是对所有可能的类别和属性组合下的条件似然进行加权求和，其权重为各类别的先验概率$\pi_\tau$和各属性的先验概率$P(\symbf{\omega}_i)$，这就是对所有潜在 $(\tau, \symbf{\omega}_i)$ 加权平均得到的无条件似然：
 \begin{equation}
 \mathcal{L}_i(\mathcal{D}_i \mid \Theta) = \sum_{\tau=1}^K \pi_\tau \sum_{\symbf{\omega}_i \in \Omega} P(\symbf{\omega}_i) \, \mathcal{L}_i(\mathcal{D}_i \mid \tau, \symbf{\omega}_i, \Theta)
 \label{eq:marginal_likelihood}
 \end{equation}
 这意味着观测到的个体$i$的行为，有$\pi_1$的可能是由第一类人产生的，有$\pi_2$的可能是由第二类人产生的。将所有这些可能性加总，就得到了对该个体行为的综合性解释。
 
-最后，假设样本中$N$个个体是独立同分布抽取的，样本总对数似然函数即为所有个体对数似然贡献之和：
+最后，假设样本中$N$个个体是独立同分布的，整个样本的总对数似然函数即为所有个体对数似然贡献之和：
 \begin{equation}
 \begin{split}
 \ln\mathcal{L}(\Theta | \mathcal{D}) &= \sum_{i=1}^{N} \ln\left( \mathcal{L}_i(\mathcal{D}_i | \Theta) \right) \\&
-= \sum_{i=1}^{N} \ln \left( \sum_{\tau=1}^{K} \pi_\tau \left[ \sum_{\omega_i \in \Omega} P(\omega_i) \cdot \mathcal{L}_i(\mathcal{D}_i | \tau, \omega_i, \Theta) \right] \right)
+= \sum_{i=1}^{N} \ln \left( \sum_{\tau=1}^{K} \pi_\tau \left[ \sum_{\symbf{\omega}_i \in \Omega} P(\symbf{\omega}_i) \cdot \mathcal{L}_i(\mathcal{D}_i | \tau, \symbf{\omega}_i, \Theta) \right] \right)
 \end{split}
 \label{eq:sample_loglik}
 \end{equation}
 这便是我们通过EM+NFXP算法最终要最大化的目标函数。找到使该函数值达到最大的一致估计量$\hat{\Theta}$，就意味着我们找到了一套能够最好地解释观测到的、复杂的、异质性的劳动力迁移面板数据的深层结构参数。
-
-
 
 
 
@@ -1092,14 +1074,14 @@ CMDS 采用分层、多阶段、与流动人口规模成比例的PPS抽样方法
 
 经过NFXP算法估计得到的参数值如下表格\ref{tab:结构参数估计结果}所示。（附带标准误和显著性星号标记）
 
-由于模型中存在潜在类别与未观测异质性$(\tau, \omega_i)$，这些变量在估计时被视为缺失数据，从而使得观测样本的对数似然函数成为对潜变量分布积分后的边际似然。对于此类模型，直接基于观测数据对数似然函数的海塞矩阵计算渐近方差在理论上复杂、在计算上几乎不可行，这是因为每一次似然评估都需要通过NFXP求解完整的动态规划问题，参见\textcite{arcidiaconoConditionalChoiceProbability2011}。
+由于模型中存在潜在类别与未观测异质性$(\tau, \symbf{\omega}_i)$，这些变量在估计时被视为缺失数据，从而使得观测样本的对数似然函数成为对潜变量分布积分后的边际似然。对于此类模型，直接基于观测数据对数似然函数的海塞矩阵计算渐近方差在理论上复杂、在计算上几乎不可行，这是因为每一次似然评估都需要通过NFXP求解完整的动态规划问题，参见\textcite{arcidiaconoConditionalChoiceProbability2011}。
 
 为了在理论一致性的前提下降低计算负担，本文采用\textcite{louisFindingObservedInformation1982}提出的基于 EM 算法的观察信息矩阵分解方法。该方法指出，EM算法下的观测信息矩阵可以表示为完全数据信息的期望与缺失数据引致的不确定性之差：
 \begin{equation}
 I(\Theta) = - \mathbb{E} \left[ \frac{\partial^2 \ln f(\mathcal{D}, Z | \Theta)}{\partial \Theta \partial \Theta'} \Big| \mathcal{D}, \Theta \right] - \mathrm{Var}\left( \frac{\partial \ln f(\mathcal{D}, Z | \Theta)}{\partial \Theta} \Big| \mathcal{D}, \Theta \right)
 \end{equation}
 
-其中$\mathcal{D}$为观测数据，$Z=(\tau, \omega_i)$为潜在变量。前一项代表在完全信息下的期望信息量，后一项则衡量了因潜变量未观测而产生的信息损失。值得注意的是，这两个量都可以利用E步中已经计算得到的后验概率$p_i(\tau, \omega_i|\mathcal{D}_i, \Theta^{(k)})$进行估计，因此无需在每次方差计算中重复执行动态规划求解。
+其中$\mathcal{D}$为观测数据，$Z=(\tau, \symbf{\omega}_i)$为潜在变量。前一项代表在完全信息下的期望信息量，后一项则衡量了因潜变量未观测而产生的信息损失。值得注意的是，这两个量都可以利用E步中已经计算得到的后验概率$p_i(\tau, \symbf{\omega}_i|\mathcal{D}_i, \Theta^{(k)})$进行估计，因此无需在每次方差计算中重复执行动态规划求解。
 
 基于此，结构参数的渐近协方差矩阵可表示为：
 \begin{equation}
