@@ -349,10 +349,6 @@ def e_step_with_omega(
     if parallel_config.is_parallel_enabled():
         logger.info(f"  使用并行个体处理，{parallel_config.n_jobs} 个工作进程")
         
-        # 创建轻量级并行日志管理器（解决Windows pickle问题）
-        from src.utils.lightweight_parallel_logging import SimpleParallelLogger
-        parallel_logger = SimpleParallelLogger(logger, quiet_mode=True)
-        
         # 创建并行处理数据包（v2.0轻量级版本，解决pickle问题）
         from src.estimation.e_step_parallel_processor_v2 import create_parallel_processing_data_v2, process_individual_with_data_package_v2
         
@@ -369,35 +365,39 @@ def e_step_with_omega(
             prov_to_idx=prov_to_idx
         )
         
-        # 新系统不再需要注册日志管理器（避免序列化问题）
-        # logger_id = register_parallel_logger(parallel_logger)  # 旧代码废弃
+        # 使用新的轻量级并行处理装饰器，完全避免Windows pickle问题
+        from src.utils.parallel_migration import safe_parallel_wrapper
+        from src.utils.lightweight_parallel_wrapper import create_simple_parallel_config
+        
+        # 创建并行配置
+        parallel_config_wrapper = create_simple_parallel_config(n_jobs=parallel_config.n_jobs)
+        
+        # 创建包装后的处理函数
+        @safe_parallel_wrapper(use_new_system=True, quiet_mode=True)
+        def process_individuals_batch(individual_ids):
+            """批量处理个体的包装函数"""
+            results = []
+            for ind_id in individual_ids:
+                # 调用v2版本的并行处理函数
+                result = process_individual_with_data_package_v2(
+                    ind_id,
+                    observed_data[observed_data['individual_id'] == ind_id],
+                    data_package
+                )
+                results.append(result)
+            return results
         
         try:
-            # 开始并行处理
-            parallel_logger.start_processing(N)
-            
-            # 并行处理所有个体（使用无闭包版本）
-            individual_results = Parallel(
-                n_jobs=parallel_config.n_jobs,
-                backend=parallel_config.backend,
-                verbose=0  # 禁用joblib的默认日志
-            )(
-                delayed(process_individual_with_data_package_v2)(ind_id, 
-                                                            observed_data[observed_data['individual_id'] == ind_id],
-                                                            data_package)
-                for ind_id in unique_individuals
-            )
+            # 使用新的轻量级并行系统处理所有个体
+            individual_results = process_individuals_batch(unique_individuals)
             
             # 整理结果（适配新系统的返回格式）
-            worker_data_list = []  # 收集所有worker的日志数据
-            
+            # 新系统已经处理了日志聚合，直接提取结果
             for i_idx, result_data in enumerate(individual_results):
-                if isinstance(result_data, dict) and 'worker_log_data' in result_data:
-                    # 新系统格式：包含结果和日志数据
-                    worker_data_list.append(result_data['worker_log_data'])
+                # 提取个体结果
+                if isinstance(result_data, dict) and 'result' in result_data:
                     individual_result = result_data['result']
                 else:
-                    # 旧格式兼容
                     individual_result = result_data
                 
                 # 提取个体结果
@@ -412,19 +412,8 @@ def e_step_with_omega(
                     # 处理错误情况
                     log_likelihood_matrix[i_idx, :] = -1e6
             
-            # 完成并行处理（新系统：聚合worker数据并输出统计）
-            if worker_data_list:
-                parallel_logger.aggregate_worker_data(worker_data_list)
-            parallel_logger.finish_processing()
-            
-            # 新系统不再需要清理注册
-            # unregister_parallel_logger(logger_id)  # 旧代码废弃
-            
         except Exception as e:
             logger.error(f"并行处理失败，回退到串行模式: {e}")
-            # 新系统不再需要清理注册
-            # if 'logger_id' in locals():
-            #     unregister_parallel_logger(logger_id)  # 旧代码废弃
             # 回退到串行处理
             parallel_config = ParallelConfig(n_jobs=1)
     

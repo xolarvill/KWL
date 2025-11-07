@@ -158,7 +158,13 @@ def process_individual_with_data_package_v2(
     字典格式，包含处理结果和日志数据，完全可pickle
     """
     # **修复Windows Pickle错误**: 为每个worker创建一个本地缓存
+    # 避免重复的日志输出，使用quiet模式
+    import os
+    os.environ['CACHE_QUIET_MODE'] = 'true'
     local_bellman_cache = create_enhanced_cache()
+    # 清理环境变量
+    if 'CACHE_QUIET_MODE' in os.environ:
+        del os.environ['CACHE_QUIET_MODE']
 
     # 从数据包中提取omega信息
     omega_list, omega_probs = data_package['individual_omega_dict'][individual_id]

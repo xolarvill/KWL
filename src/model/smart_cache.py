@@ -159,7 +159,11 @@ class EnhancedBellmanCache:
             'total_requests': 0
         }
         
-        logger.info(f"增强缓存系统初始化: L1容量={capacity}, L2容量={self.l2_capacity}, 内存限制={memory_limit_mb}MB")
+        # 只在主进程初始化时记录日志，避免并行处理时日志刷屏
+        # 使用环境变量来控制是否输出日志
+        import os
+        if os.environ.get('CACHE_QUIET_MODE', '').lower() != 'true':
+            logger.info(f"增强缓存系统初始化: L1容量={capacity}, L2容量={self.l2_capacity}, 内存限制={memory_limit_mb}MB")
     
     def get(self, individual_id: str, params: Dict[str, Any], 
             agent_type: int, solution_shape: Tuple[int, int]) -> Optional[np.ndarray]:
@@ -248,4 +252,9 @@ class EnhancedBellmanCache:
 # 向后兼容：创建函数用于替换原有的LRUCache
 def create_enhanced_cache(capacity: int = 2000, memory_limit_mb: int = 2000) -> EnhancedBellmanCache:
     """创建增强版缓存系统 - 保持API兼容"""
+    # 记录主进程PID，用于避免并行处理时日志刷屏
+    import os
+    if '_main_pid' not in globals():
+        globals()['_main_pid'] = os.getpid()
+    
     return EnhancedBellmanCache(capacity=capacity, memory_limit_mb=memory_limit_mb)

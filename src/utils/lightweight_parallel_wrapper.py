@@ -36,6 +36,7 @@ class LightweightParallelConfig:
     
     def _validate_n_jobs(self, n_jobs: int) -> int:
         """验证并标准化n_jobs参数"""
+        import os
         if n_jobs == -1:
             return os.cpu_count() or 4
         elif n_jobs < -1:
@@ -72,6 +73,11 @@ def lightweight_parallel_processor(config_getter: Optional[Callable] = None,
                 config = config_getter()
             else:
                 config = LightweightParallelConfig(n_jobs=1)
+            
+            # 特别处理n_jobs=-1的情况
+            if hasattr(config, 'n_jobs') and config.n_jobs == -1:
+                import os
+                config.n_jobs = os.cpu_count() or 4
             
             if not isinstance(config, LightweightParallelConfig):
                 logger.warning(f"Invalid config type: {type(config)}, using serial mode")
