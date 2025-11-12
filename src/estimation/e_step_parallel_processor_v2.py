@@ -119,7 +119,8 @@ def create_parallel_processing_data_v2(
     regions_df: Dict[str, np.ndarray],
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
-    prov_to_idx: Dict[int, int]
+    prov_to_idx: Dict[int, int],
+    bellman_cache: Any = None
 ) -> Dict[str, Any]:
     """
     创建并行处理所需的数据包 - v2版本
@@ -135,7 +136,7 @@ def create_parallel_processing_data_v2(
         'distance_matrix': distance_matrix,
         'adjacency_matrix': adjacency_matrix,
         'prov_to_idx': prov_to_idx,
-        # 'bellman_cache': bellman_cache, # 移除以避免pickle错误
+        'bellman_cache': bellman_cache, # 添加缓存信息
         'individual_omega_dict': individual_omega_dict
     }
 
@@ -157,14 +158,19 @@ def process_individual_with_data_package_v2(
     ----
     字典格式，包含处理结果和日志数据，完全可pickle
     """
-    # **修复Windows Pickle错误**: 为每个worker创建一个本地缓存
-    # 避免重复的日志输出，使用quiet模式
-    import os
-    os.environ['CACHE_QUIET_MODE'] = 'true'
-    local_bellman_cache = create_enhanced_cache()
-    # 清理环境变量
-    if 'CACHE_QUIET_MODE' in os.environ:
-        del os.environ['CACHE_QUIET_MODE']
+    # 获取缓存信息
+    bellman_cache = data_package.get('bellman_cache', None)
+    
+    # 如果没有提供缓存，则为每个worker创建一个本地缓存
+    if bellman_cache is None:
+        # **修复Windows Pickle错误**: 为每个worker创建一个本地缓存
+        # 避免重复的日志输出，使用quiet模式
+        import os
+        os.environ['CACHE_QUIET_MODE'] = 'true'
+        bellman_cache = create_enhanced_cache()
+        # 清理环境变量
+        if 'CACHE_QUIET_MODE' in os.environ:
+            del os.environ['CACHE_QUIET_MODE']
 
     # 从数据包中提取omega信息
     omega_list, omega_probs = data_package['individual_omega_dict'][individual_id]
@@ -184,5 +190,5 @@ def process_individual_with_data_package_v2(
         distance_matrix=data_package['distance_matrix'],
         adjacency_matrix=data_package['adjacency_matrix'],
         prov_to_idx=data_package['prov_to_idx'],
-        bellman_cache=local_bellman_cache  # 传递本地缓存
+        bellman_cache=bellman_cache  # 传递缓存
     )

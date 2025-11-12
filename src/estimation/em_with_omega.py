@@ -362,7 +362,8 @@ def e_step_with_omega(
             regions_df=regions_df,
             distance_matrix=distance_matrix,
             adjacency_matrix=adjacency_matrix,
-            prov_to_idx=prov_to_idx
+            prov_to_idx=prov_to_idx,
+            bellman_cache=bellman_cache  # 传递缓存
         )
         
         # 使用新的轻量级并行处理装饰器，完全避免Windows pickle问题
@@ -528,10 +529,10 @@ def aggregate_omega_posteriors_for_parameter_update(
 def _m_step_objective_worker(
     individual_id: Any,
     data_package: Dict[str, Any]
-) -> float:
+) -> Dict[str, Any]:
     """
     M-step worker function to compute the weighted log-likelihood for a single individual.
-    Returns the individual's contribution (simplified version for parallel processing).
+    Returns the individual's contribution and cache statistics.
     """
     # 1. Unpack data from the package
     params = data_package['params']
@@ -545,6 +546,7 @@ def _m_step_objective_worker(
     adjacency_matrix = data_package['adjacency_matrix']
     prov_to_idx = data_package['prov_to_idx']
     bellman_cache = data_package['bellman_cache']
+    shared_cache_dict = data_package.get('shared_cache_dict', None)
 
     # 2. Logic from the original for-loop body
     individual_data = observed_data[observed_data['individual_id'] == individual_id]
@@ -555,8 +557,16 @@ def _m_step_objective_worker(
     weight_threshold = 1e-10
     omega_indices, type_indices = np.where(posterior_matrix > weight_threshold)
 
+    # 缓存统计
+    cache_hits = 0
+    cache_misses = 0
+
     if len(omega_indices) == 0:
-        return 0.0
+        return {
+            'contribution': 0.0,
+            'cache_hits': cache_hits,
+            'cache_misses': cache_misses
+        }
 
     n_individual_states = _calculate_individual_state_space_size(individual_data)
 
@@ -577,7 +587,36 @@ def _m_step_objective_worker(
         try:
             # Assuming 3 choices for now. This might need to be made dynamic if n_choices varies.
             solution_shape = (n_individual_states, 3) 
-            converged_v_individual = bellman_cache.get(individual_id, type_params, int(k), solution_shape)
+            
+            # 首先尝试从共享缓存中获取
+            converged_v_individual = None
+            if shared_cache_dict is not None:
+                # 创建缓存键
+                try:
+                    import pickle
+                    from src.model.smart_cache import SmartCacheKey
+                    cache_key_generator = SmartCacheKey()
+                    cache_key = cache_key_generator.create_key(individual_id, type_params, int(k))
+                    serialized_key = pickle.dumps(cache_key)
+                    
+                    # 从共享缓存中获取
+                    if serialized_key in shared_cache_dict:
+                        serialized_value = shared_cache_dict[serialized_key]
+                        converged_v_individual = pickle.loads(serialized_value)
+                        cache_hits += 1
+                    else:
+                        cache_misses += 1
+                except Exception:
+                    # 如果共享缓存访问失败，继续使用原始缓存
+                    cache_misses += 1
+            else:
+                # 使用原始缓存
+                converged_v_individual = bellman_cache.get(individual_id, type_params, int(k), solution_shape)
+                if converged_v_individual is not None:
+                    cache_hits += 1
+                else:
+                    cache_misses += 1
+
             converged = converged_v_individual is not None
 
             if not converged:
@@ -595,6 +634,23 @@ def _m_step_objective_worker(
                     prov_to_idx=prov_to_idx,
                     initial_v=None
                 )
+                
+                # 如果求解成功，更新缓存
+                if converged and converged_v_individual is not None:
+                    cache_misses += 1  # 这是一次缓存未命中后的成功计算
+                    # 将结果存储到共享缓存中（如果可用）
+                    if shared_cache_dict is not None:
+                        try:
+                            import pickle
+                            from src.model.smart_cache import SmartCacheKey
+                            cache_key_generator = SmartCacheKey()
+                            cache_key = cache_key_generator.create_key(individual_id, type_params, int(k))
+                            serialized_key = pickle.dumps(cache_key)
+                            serialized_value = pickle.dumps(converged_v_individual)
+                            shared_cache_dict[serialized_key] = serialized_value
+                        except Exception:
+                            # 如果无法存储到共享缓存，继续执行
+                            pass
 
             if not converged or converged_v_individual is None or np.any(~np.isfinite(converged_v_individual)):
                 continue
@@ -620,7 +676,11 @@ def _m_step_objective_worker(
             # In a parallel worker, it's better to fail gracefully for one individual
             continue
 
-    return individual_contribution
+    return {
+        'contribution': individual_contribution,
+        'cache_hits': cache_hits,
+        'cache_misses': cache_misses
+    }
 
 
 def m_step_with_omega(
@@ -768,6 +828,40 @@ def m_step_with_omega(
             # 解包参数
             params = _unpack_params(param_values, param_names, initial_params['n_choices'])
             
+            # 创建共享缓存以支持多进程访问
+            # 使用字典来存储缓存数据，以便在进程间共享
+            import multiprocessing as mp
+            try:
+                manager = mp.Manager()
+                shared_cache_dict = manager.dict()
+                
+                # 将当前缓存数据复制到共享字典中（如果缓存中有数据）
+                if hasattr(self.bellman_cache, 'l1_cache') and hasattr(self.bellman_cache.l1_cache, 'cache'):
+                    # 增强版缓存
+                    for key, value in self.bellman_cache.l1_cache.cache.items():
+                        # 将键值转换为可序列化的格式
+                        try:
+                            import pickle
+                            serialized_key = pickle.dumps(key)
+                            serialized_value = pickle.dumps(value)
+                            shared_cache_dict[serialized_key] = serialized_value
+                        except Exception:
+                            # 如果无法序列化，跳过该项
+                            pass
+                elif isinstance(self.bellman_cache, dict):
+                    # 普通字典缓存
+                    for key, value in self.bellman_cache.items():
+                        try:
+                            import pickle
+                            serialized_key = pickle.dumps(key)
+                            serialized_value = pickle.dumps(value)
+                            shared_cache_dict[serialized_key] = serialized_value
+                        except Exception:
+                            pass
+            except Exception as e:
+                logger.warning(f"{log_msg_header} 创建共享缓存失败，将使用独立缓存: {e}")
+                shared_cache_dict = None
+            
             # 创建数据包供worker使用
             data_package = {
                 'params': params,
@@ -780,7 +874,8 @@ def m_step_with_omega(
                 'distance_matrix': distance_matrix,
                 'adjacency_matrix': adjacency_matrix,
                 'prov_to_idx': prov_to_idx,
-                'bellman_cache': self.bellman_cache  # 主进程缓存作为只读传递
+                'bellman_cache': self.bellman_cache,  # 主进程缓存（用于类型检查）
+                'shared_cache_dict': shared_cache_dict  # 共享缓存字典
             }
             
             # 使用joblib进行并行处理
@@ -800,13 +895,24 @@ def m_step_with_omega(
                 ) for individual_id in unique_individuals
             )
             
-            # 聚合结果
+            # 聚合结果和缓存统计
             total_weighted_log_lik = 0.0
             n_valid_computations = 0
             n_failed_computations = 0
             individual_log_liks = []
+            total_cache_hits = 0
+            total_cache_misses = 0
             
-            for i_idx, individual_contribution in enumerate(worker_results):
+            for i_idx, result in enumerate(worker_results):
+                if isinstance(result, dict):
+                    # 新格式：包含贡献和缓存统计
+                    individual_contribution = result['contribution']
+                    total_cache_hits += result['cache_hits']
+                    total_cache_misses += result['cache_misses']
+                else:
+                    # 旧格式：只有贡献值
+                    individual_contribution = result
+                    
                 if np.isfinite(individual_contribution):
                     total_weighted_log_lik += individual_contribution
                     individual_log_liks.append(individual_contribution)
@@ -817,6 +923,10 @@ def m_step_with_omega(
                 # 进度日志（每logging_interval个个体）
                 if (i_idx + 1) % max(1, len(unique_individuals) // 10) == 0 or i_idx == 0:
                     logger.info(f"{log_msg_header} Processed {i_idx+1}/{len(unique_individuals)} individuals in parallel")
+            
+            # 更新主进程的缓存统计
+            self.cache_hits = total_cache_hits
+            self.cache_misses = total_cache_misses
             
             # 计算负对数似然
             neg_ll = -total_weighted_log_lik
