@@ -10,8 +10,8 @@
 \addbibresource{Papers.bib}
 
 % 论文基本信息
-\thesisTitle{基于个人动态最优居住地选择序列视角考察2010-2018年中国的劳动力行为研究}
-\thesisTitleEN{A Study of Migratory Behaviors from 2010 to 2018 in China Based on Individual Optimal Residential Location Sequence Theory}
+\thesisTitle{户籍、信息与异质性：中国劳动力迁移的动态结构分析与一般均衡模拟}
+\thesisTitleEN{Hukou, Information, and Heterogeneity: A Dynamic Structural Analysis and General Equilibrium Simulation of Labor Migration in China}
 \authorName{李晨逸}
 \studentID{230507031002}
 \mentorName{吴意云}
@@ -33,13 +33,17 @@
 
 % -------------------------------------- 中文摘要 --------------------------------------
 \begin{abstract}
-随着经济的发展与社会工业化带来的社会关系剧变，劳动力迁移形成有规律的迁移模式是必然的。不同于我国研究中的传统城乡二元对立语境，本文基于理性预期构造了动态最优住址选择模型，基于CLDS数据对2010年至2018年间我国各省的人口流动进行实证检验，并得到的结论是（xxx、xxx、xxx）。本文的贡献在于（xxx、xxx、xxx）。
+本文旨在量化中国劳动力流动面临的多重壁垒，并评估相关政策在一般均衡下的长期效应。为此，我们首先构建并估计了一个动态离散选择模型，该模型在一个统一的生命周期框架内整合了户籍制度、家乡溢价、信息不对称以及多维度未观测异质性。为捕捉政策对市场工资、房价等宏观变量的反馈效应，我们进一步将估计出的微观决策规则嵌入一个多主体仿真模型（ABM）中，从而构建了一个连接微观与宏观的政策分析工具。
+基于[您的数据来源]数据的估计结果表明，户籍制度是阻碍劳动力流动的核心因素，其效用成本相当于[XX]\%的年收入。信息摩擦和以“家乡溢价”为代表的非经济因素同样显著抑制了劳动力在地区间的有效配置。模型识别出劳动力市场中存在显著的行为异质性，约[XX]\%的人口属于对经济激励不敏感的“低流动性”群体。
+反事实模拟显示，在缺乏配套改革的情况下，单方面的户籍开放政策因引发严重的宏观拥挤效应而效果有限。相比之下，一个将户籍改革与增加大城市土地供应、优化公共服务资源配置相结合的一揽子政策，能够将劳动力空间错配程度降低[YY]\%，并带来显著的社会福利改进。本研究为理解中国劳动力市场的结构性摩擦提供了定量的证据，并展示了在政策评估中考虑一般均衡效应的必要性。
 \keywords{关键词1；关键词2}
 \end{abstract}
 
 % -------------------------------------- 英文摘要 --------------------------------------
 \begin{abstracten}
-Here is the english version of abstract
+This paper quantifies the multifaceted barriers to labor mobility in China and evaluates the long-term, general equilibrium effects of related policies. We first develop and estimate a dynamic discrete choice model that incorporates the Hukou system, home premium, information frictions, and multi-dimensional unobserved heterogeneity within a unified life-cycle framework. To capture the feedback effects of policies on market-level outcomes such as wages and housing prices, we then embed the estimated micro-level decision rules into an agent-based model (ABM), creating a policy analysis tool that bridges the micro-macro divide.
+Using data from [Your Data Source], our estimates indicate that the Hukou system is the primary impediment to labor mobility, imposing a utility cost equivalent to [XX]\% of annual income. Information frictions and non-pecuniary factors, represented by a significant home premium, also substantially hinder the efficient spatial allocation of labor. The model identifies significant behavioral heterogeneity, with approximately [XX]\% of the population belonging to a low-mobility type that is largely unresponsive to economic incentives.
+Counterfactual simulations reveal that a standalone Hukou reform would have limited success due to severe macroeconomic congestion effects. In contrast, a policy package that combines Hukou reform with measures to increase land supply and optimize public service provision in major cities could reduce labor misallocation by [YY]\% and generate substantial welfare gains. This research provides quantitative evidence on the structural frictions in China's labor market and highlights the necessity of incorporating general equilibrium effects in policy evaluation.
 \keywordsen{a;b;c}
 \end{abstracten}
 
@@ -68,7 +72,7 @@ Here is the english version of abstract
 
 % 我国学术界对于劳动力研究存在不足
 对于劳动力流动现象的研究，我国学术界长期围绕城乡二元分析框架与空间均衡模型展开。作为典型的发展中经济体，我国自计划经济时期形成的城乡二元结构构成了劳动力迁移的制度基础。改革开放后，工业化进程产生的劳动要素需求与农村剩余劳动力释放一拍即合，这一过程在学术研究领域直接映射为对传统二元经济理论的引用。其中，在\textcite{lewisEconomicDevelopmentUnlimited1954}二元对立模型基础上，
-\textcite{todaroModelLaborMigration1969}通过引入失业率与预期收入，突破了无限劳动供给假设的刚性约束，其"即使存在失业风险，人口仍会因预期收入差距迁移"的核心命题，恰与中国城市化进程中农民工"候鸟式迁移"的特征契合，成为解释中国农民工流动现象的核心理论工具。而后，\textcite{harrisMigrationUnemploymentDevelopment1970}进一步将城市正规部门与非正规部门纳入分析框架，通过工资刚性与就业概率的动态调整机制，构建起解释发展中国家城市失业与农村劳动力持续涌入并存现象的理论模型。这种强调制度分割与部门差异的分析视角，为中国学者解析户籍制度、土地制度等特殊约束条件下的劳动力流动提供了重要切入点。如\textcite{XiongCaiYunNongMinGongChengShiDingJuZhuanYiJueCeYinSuDeTuiLaMoXingJiShiZhengFenXi2007}构建的农民工定居决策模型，通过引入城市拉力（就业机会、公共服务）与农村推力（土地保障弱化、收入差距）的交互作用，拓展了传统二元模型的解释维度。\textcite{HuangZhongHuaNongCunTuDiZhiDuAnPaiShiFouZuAiNongMinGongShiMinHuaTuoDaLuoMoXingTuoZhanHeYiWuShiShiZhengFenXi2014}通过嵌入土地保险功能变量，\textcite{ZhongShuiYingXiangChengRenKouLiuDongDeLiLunJieShiNongCunRenKouTuiChuShiJiaoTuoDaLuoMoXingDeZaiXiuZheng2015}纳入制度变迁因素。
+\textcite{todaroModelLaborMigration1969}通过引入失业率与预期收入，突破了无限劳动供给假设的刚性约束，其“即使存在失业风险，人口仍会因预期收入差距迁移”的核心命题，恰与中国城市化进程中农民工候鸟式迁移的特征契合，成为解释中国农民工流动现象的核心理论工具。而后，\textcite{harrisMigrationUnemploymentDevelopment1970}进一步将城市正规部门与非正规部门纳入分析框架，通过工资刚性与就业概率的动态调整机制，构建起解释发展中国家城市失业与农村劳动力持续涌入并存现象的理论模型。这种强调制度分割与部门差异的分析视角，为中国学者解析户籍制度、土地制度等特殊约束条件下的劳动力流动提供了重要切入点。如\textcite{XiongCaiYunNongMinGongChengShiDingJuZhuanYiJueCeYinSuDeTuiLaMoXingJiShiZhengFenXi2007}构建的农民工定居决策模型，通过引入城市拉力（就业机会、公共服务）与农村推力（土地保障弱化、收入差距）的交互作用，拓展了传统二元模型的解释维度。\textcite{HuangZhongHuaNongCunTuDiZhiDuAnPaiShiFouZuAiNongMinGongShiMinHuaTuoDaLuoMoXingTuoZhanHeYiWuShiShiZhengFenXi2014}通过嵌入土地保险功能变量，\textcite{ZhongShuiYingXiangChengRenKouLiuDongDeLiLunJieShiNongCunRenKouTuiChuShiJiaoTuoDaLuoMoXingDeZaiXiuZheng2015}纳入制度变迁因素。
 部分文献虽然淡化了城乡之间的对立，但依然在均衡状态下分析工资和租金的确定，同时考虑移民流动对这些结果的影响。
 \textcite{ZongJiaFengDaChengShiZhiFuLiaoGengGaoDeGongZiMa2015}构建的三部门Rosen-Roback模型揭示，中国大城市存在显著工资溢价且技能异质性导致差异化集聚收益：高技能劳动力通过知识溢出获取短期增长红利，而低技能群体则需经历长期调整方能获益。
 \textcite{WangLiLiWoGuoRenKouQianYiChengBenChengShiGuiMoYuShengChanLu2020,WangLiLiTuDiGongGeiFangJieYuLaoDongLiKongJianPeiZhiXiaoLu2023,WangLiLiLaoDongLiLiuDongDuiChengShiGongZiYuFuLiDeYingXiangJiYuKongJianJunHengMoXingDeFenXi2024}通过将土地供给管制、迁移壁垒等制度变量内生化，定量识别出行政干预对劳动力空间配置的扭曲效应：建设用地指标的区域错配加剧东部大城市住房供给弹性不足，推高生活成本并阻碍生产率导向的人口集聚，导致2010年经济总产出损失达3\%-4\%。刘华仁（2024）则构建包含人力资本溢出效应的量化空间均衡模型，证明高技能劳动力的区域再配置可通过生产率与公共服务双重渠道提升社会福利，这为人才政策优化提供了理论依据。
@@ -120,7 +124,7 @@ Here is the english version of abstract
 
 根据\textcite{jiaEconomicsInternalMigration2023}的研究，劳动力迁移问题可采用两种研究方法，其中一种是空间均衡方法。该方法以迁移后形成的新空间一般均衡为核心，主要关注人口流动如何影响本地工资、区域房价等变量的市场出清。
 
-空间均衡概念可追溯至20世纪中叶，\textcite{samuelsonSpatialPriceEquilibrium1952}提出的"空间价格均衡"框架考虑了运输成本对不同地点价格的影响，奠定了空间经济学基础。\textcite{tieboutPureTheoryLocal1956}提出"用脚投票"理论，假设消费者在无迁移成本和信息完全的条件下，会自由选择最能满足其偏好的社区。\textcite{harrisMigrationUnemploymentDevelopment1970}则构建了研究农村到城市迁移的两部门内部贸易模型，探讨了城乡工资差异的均衡状态。
+空间均衡概念可追溯至20世纪中叶，\textcite{samuelsonSpatialPriceEquilibrium1952}提出的空间价格均衡框架考虑了运输成本对不同地点价格的影响，奠定了空间经济学基础。\textcite{tieboutPureTheoryLocal1956}提出“用脚投票”理论，假设消费者在无迁移成本和信息完全的条件下，会自由选择最能满足其偏好的社区。\textcite{harrisMigrationUnemploymentDevelopment1970}则构建了研究农村到城市迁移的两部门内部贸易模型，探讨了城乡工资差异的均衡状态。
 
 受城市经济学发展影响，20世纪60-70年代，\textcite{alonsoLocationLandUse1964}、\textcite{muthCitiesHousingSpatial1969}和\textcite{millsAggregativeModelResource1967}开创的单中心城市模型考察了城市内部空间结构，为城市间移民研究奠定基础。\textcite{rosenHedonicPricesImplicit1974}提出的享乐定价模型能够通过观察特定地点便利设施对工资和租金的影响来量化这些设施的价值，为移民研究提供了重要工具。
 基于Rosen模型，\textcite{robackWagesRentsQuality1982}正式确立了移民空间均衡模型，该模型假设个人会迁移至效用最高的地点，同时考虑金钱因素(工资、租金)和非金钱因素(便利设施)。在均衡状态下，工资和租金会调整以平衡不同地点的效用，使得没有人能通过迁移提高效用。这一模型成为理解便利设施如何影响移民模式和城市增长的基础框架。
@@ -225,17 +229,17 @@ Here is the english version of abstract
 \section{影响劳动力迁移的因素}
 \label{sec:_影响劳动力迁移的因素}
 
-为构建有效的动态离散选择(DDC)模型分析劳动力流动，需系统整合迁移决策理论的相关研究成果。\textcite{leeTheoryMigration1966}提出的"推-拉"理论构建了二元分析框架：推力因素促使个体离开原居地，拉力因素驱动个体流向特定目的地。DDC模型的优势在于能够通过随机效用函数的结构化设定，将多维决策因素纳入迁移行为的分析框架。
+为构建有效的动态离散选择(DDC)模型分析劳动力流动，需系统整合迁移决策理论的相关研究成果。\textcite{leeTheoryMigration1966}提出的推-拉理论构建了二元分析框架：推力因素促使个体离开原居地，拉力因素驱动个体流向特定目的地。DDC模型的优势在于能够通过随机效用函数的结构化设定，将多维决策因素纳入迁移行为的分析框架。
 
 \textbf{房价}作为影响劳动力流动的重要因素受到广泛关注。\textcite{GaoBoQuYuFangJieChaiYiLaoDongLiLiuDongYuChanYeShengJi2012}发现相对房价提高促使劳动力流出，并对低附加值产业产生挤出效应。\textcite{WangLiLiTuDiGongGeiFangJieYuLaoDongLiKongJianPeiZhiXiaoLu2023}指出，东部大城市的严格土地规制导致高房价阻碍劳动力向高生产率地区转移，加剧空间错配。\textcite{ZhouYingGangGaoFangJieJiChuLiaoShuiJiYuZhongGuoLiuDongRenKouDeWeiGuanShiJiao2019}发现高房价增强了劳动力家庭的流动意愿，特别是对未购房的高技能劳动力具有显著挤出效应。\textcite{zhouHousingPricesMigration2022}研究表明房价每上涨1\%，流动人口的平均受教育年限增加0.297年，显示高房价对低技能劳动力形成挤出效应。\textcite{ZhangLiFangJieRuHeYingXiangLaoDongLiLiuDong2017}论证了房价对劳动力流动的双重作用：一方面，高房价降低了未来收入的不确定性，吸引人才；另一方面，上涨的房价压缩了可支配收入，抑制劳动力流入，形成倒U型影响。
 
-\textbf{户籍制度}是我国劳动力流动的重要制度性障碍。\textcite{ngaiChinasMobilityBarriers2019}指出户籍制度通过绑定公共福利限制了人口流动，同时土地政策导致农业就业过剩。\textcite{LiQiangYingXiangZhongGuoChengXiangLiuDongRenKouDeTuiLiYuLaLiYinSuFenXi2003}分析发现户籍制度使中国人口流动不再遵循传统的推拉规律，形成了独特的迁移模式。\textcite{tombeTradeMigrationProductivity2019}量化了户籍政策带来的高迁移成本，发现2000年至2005年间，国内贸易和人口迁移成本的下降贡献了总劳动生产率增长的36\%。\textcite{ZhouWenTuDiLiuZhuanHuJiZhiDuGaiGeYuZhongGuoChengShiHuaLiLunYuMoNi2017}研究表明土地控制和户籍限制共同抑制了劳动力流动，改革这些制度有助于提高城市化水平并缩小城乡收入差距。\textcite{AnHuSenChengShiGaoFangJieHeHuJiZhiDuCuJinHuoYiZhiChengXiangShouRuChaiJuKuoDaZhongGuoLaoDongLiLiuDongHeShouRuChaiJuKuoDaBeiLunDeYiGeJieShi2011}探讨了城市高房价与户籍制度对城乡收入差距的"门槛效应"，发现市场开放度低时高房价扩大收入差距，户籍制度起抑制作用；但市场开放度高时，户籍制度反而加剧收入差距。
+\textbf{户籍制度}是我国劳动力流动的重要制度性障碍。\textcite{ngaiChinasMobilityBarriers2019}指出户籍制度通过绑定公共福利限制了人口流动，同时土地政策导致农业就业过剩。\textcite{LiQiangYingXiangZhongGuoChengXiangLiuDongRenKouDeTuiLiYuLaLiYinSuFenXi2003}分析发现户籍制度使中国人口流动不再遵循传统的推拉规律，形成了独特的迁移模式。\textcite{tombeTradeMigrationProductivity2019}量化了户籍政策带来的高迁移成本，发现2000年至2005年间，国内贸易和人口迁移成本的下降贡献了总劳动生产率增长的36\%。\textcite{ZhouWenTuDiLiuZhuanHuJiZhiDuGaiGeYuZhongGuoChengShiHuaLiLunYuMoNi2017}研究表明土地控制和户籍限制共同抑制了劳动力流动，改革这些制度有助于提高城市化水平并缩小城乡收入差距。\textcite{AnHuSenChengShiGaoFangJieHeHuJiZhiDuCuJinHuoYiZhiChengXiangShouRuChaiJuKuoDaZhongGuoLaoDongLiLiuDongHeShouRuChaiJuKuoDaBeiLunDeYiGeJieShi2011}探讨了城市高房价与户籍制度对城乡收入差距的“门槛效应”，发现市场开放度低时高房价扩大收入差距，户籍制度起抑制作用；但市场开放度高时，户籍制度反而加剧收入差距。
 
 \textbf{舒适度}(amenity)包括空气质量、公共服务水平、城市天气等因素共同影响劳动力流动。\textcite{YangXiChengShiGuiMoYuChengZhenHuaNongMinGongShiMinHuaDeJingJiXiaoYingJiYuChengShiShengChanLuYuYiJuDuChaiYiDeDingLiangFenXi2017}发现城镇化显著提升了实际GDP和城乡劳动力实际工资，但效应因城市规模而异。\textcite{WangLiNuoJiYuYaLiMenJianJiaShuoDeJiaTingQianJuYiXiangXingChengJiZhiYanJiuYiHangZhouShiQuWeiLi2007}指出收入、生活成本和城市宜居性特征共同决定了劳动力的空间流动模式。\textcite{XiaYiRanChengShiJianDeMengMuSanQianGongGongFuWuYingXiangLaoDongLiLiuXiangDeJingYanYanJiu2015}研究表明公共服务显著影响劳动力流向，长期流动人口更倾向于选择公共服务水平较高的城市。\textcite{SunWeiZengKongQiWuRanYuLaoDongLiDeKongJianLiuDongJiYuLiuDongRenKouJiuYeXuanZhiXingWeiDeYanJiu2019}分析发现PM2.5浓度每上升1
 $\mu g \/ m^{3}$，流动人口到该城市就业的概率下降0.39个百分点，且年龄较大、受教育水平较高的人群对空气污染更敏感。
 
 
-\textbf{语言}在迁移决策中具有重要影响。\textcite{adseraRoleLanguageShaping2015}发现语言接近性使移民率提高约20\%。\textcite{bauerEnclavesLanguageLocation2005}指出语言聚居区能通过减少沟通障碍鼓励移民。\textcite{isphordingLinguisticBarriersDestination2014}研究发现较大的语言距离导致移民在经济社会融入方面面临显著困难。\textcite{LiuYuYunLaoDongLiKuaFangYanLiuDongDeDaoUXingMoShi2015}探讨了方言距离对劳动力流动的"倒U型"影响：当方言距离较小时促进流动，过大时阻碍流动。
+\textbf{语言}在迁移决策中具有重要影响。\textcite{adseraRoleLanguageShaping2015}发现语言接近性使移民率提高约20\%。\textcite{bauerEnclavesLanguageLocation2005}指出语言聚居区能通过减少沟通障碍鼓励移民。\textcite{isphordingLinguisticBarriersDestination2014}研究发现较大的语言距离导致移民在经济社会融入方面面临显著困难。\textcite{LiuYuYunLaoDongLiKuaFangYanLiuDongDeDaoUXingMoShi2015}探讨了方言距离对劳动力流动的倒U型影响：当方言距离较小时促进流动，过大时阻碍流动。
 
 \textbf{年龄}影响移民决策，年轻人通常更频繁迁移，这符合人力资本理论：移民是一种投资，对年轻工人的收益期更长。年轻人获得更多收益，老年人面临更高成本和更少收益，但某些老年人出于特定原因（如回国或与家人团聚）仍会迁移。
 \textbf{教育}作为人力资本核心要素，在人口迁移中扮演重要角色。\textcite{aydemirEffectEducationInternal2022}发现完成中学教育可使青年男性移民概率增加约50\%。\textcite{wozniakAreCollegeGraduates2010}表明受过高等教育的劳动者更倾向于迁往劳动力需求高的地区。\textcite{weberStudentMigrationTransition2023}揭示了经济发展与高等教育机会之间的正向关系，推动了国际学生流动。高等教育通常涉及正向选择机制，流动人口往往拥有更高的教育背景或技能水平。\textbf{迁移成本}影响个人决策和研究框架，包括财务成本、社会成本和机会成本。\textcite{LiuChenHuiLaoDongLiLiuDongJiNengPiPeiYuDiQuJingJiChaiJu2022}在效用函数中加入与迁移距离相关的迁移成本。
@@ -347,7 +351,7 @@ $\mu g \/ m^{3}$，流动人口到该城市就业的概率下降0.39个百分点
 
 
 
-\section{收入过程}
+\section{工资过程与收入效用}
 \label{sec:income_process}
 
 工资是驱动劳动力迁移决策的核心经济变量。为了捕捉其决定过程中的多层次异质性，并内生化信息在迁移决策中的作用，本节对个体的潜在工资进行结构化建模。
@@ -588,7 +592,7 @@ $\varepsilon$ & 工资的暂态效应\\
 
 
 % ---------------------------------------- 实证部分 ----------------------------------------
-\chapter{实证处理}
+\chapter{实证策略}
 
 本章详细阐述实证分析的识别与估计策略。结构模型的核心挑战在于分离状态依赖、未观测异质性与滋扰函数误设所诱发的估计偏误。为此，我们依次构建以下模块化框架：首先，采用离散因子近似与有限混合模型联合刻画多维未观测异质性（\S\ref{sec:unobs_hetero}）；其次，引入机器学习插件非参数估计工资条件期望与状态转移概率，规避函数形式误设（\S\ref{sec:ml_plugins}）；最后，结合期望最大化（EM）算法与嵌套固定点（NFXP）求解器，迭代估计全部结构参数（\S\ref{sec:em_nfxp}）。上述策略在理论上确保参数识别，在计算上兼顾可行性与精度，为后续反事实政策分析奠定稳健基础。
 
@@ -648,7 +652,7 @@ $\varepsilon$ & 工资的暂态效应\\
 
 
 
-\section{机器学习插件估计滋扰函数} 
+\section{非参数估计滋扰函数} 
 \label{sec:ml_plugins}
 
 
@@ -786,7 +790,7 @@ $\hat{g}(\cdot,j)$ 为 LightGBM 插件预测（\S\ref{sec:ml_plugins}）。
 
 \paragraph{个体追踪数据}
 
-本文使用的是中山大学社会科学调查中心组织实施的中国劳动力动态调查（China Labor-force Dynamics Survey, CLDS）。该调查是一项全国性、综合性、追踪性的社会调查项目，旨在系统收集中国劳动力、家庭及社区层面的经济社会数据。CLDS 采用多阶段、分层、PPS 与整群抽样相结合的方法，覆盖中国 29 个省、自治区、直辖市（不含港澳台、西藏、海南），具有良好的全国代表性。本文主要使用其 2012–2018 年的追踪数据，提取出所有参与过至少一次调查的成年劳动力样本。
+本文使用的是中山大学社会科学调查中心组织实施的中国劳动力动态调查（China Labor-force Dynamics Survey, CLDS）。该调查是一项全国性、综合性、追踪性的社会调查项目，旨在系统收集中国劳动力、家庭及社区层面的经济社会数据。CLDS 采用多阶段、分层、PPS 与整群抽样相结合的方法，覆盖中国 29 个省、自治区、直辖市（不含港澳台、西藏、海南），具有良好的全国代表性。本文主要使用其 2010–2018 年的追踪数据，提取出所有参与过至少一次调查的成年劳动力样本。
 为了确保研究的有效性，我们将初始样本限定为年龄在18至70周岁的劳动年龄人口，并剔除了在关键变量（如当前居住地、收入等）上存在缺失的观测值。
 将个体记录中的I2\_16系列变量中关于迁移记录的数据展开，形成在2010年至2018年至少有2期观测的非平衡面板数据。
 对于部分时变的个体控制变量（如婚姻状况）出现的少量偶发性缺失，我们采用了前后值填补等标准方法进行处理。对于核心的结果变量（如收入和居住地），我们仅使用原始的非缺失观测值，以确保估计的准确性。
