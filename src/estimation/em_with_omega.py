@@ -525,6 +525,104 @@ def aggregate_omega_posteriors_for_parameter_update(
     return aggregated_stats
 
 
+def _m_step_objective_worker(
+    individual_id: Any,
+    data_package: Dict[str, Any]
+) -> float:
+    """
+    M-step worker function to compute the weighted log-likelihood for a single individual.
+    Returns the individual's contribution (simplified version for parallel processing).
+    """
+    # 1. Unpack data from the package
+    params = data_package['params']
+    observed_data = data_package['observed_data']
+    individual_posteriors = data_package['individual_posteriors']
+    individual_omega_lists = data_package['individual_omega_lists']
+    beta = data_package['beta']
+    transition_matrices = data_package['transition_matrices']
+    regions_df_np = data_package['regions_df_np']
+    distance_matrix = data_package['distance_matrix']
+    adjacency_matrix = data_package['adjacency_matrix']
+    prov_to_idx = data_package['prov_to_idx']
+    bellman_cache = data_package['bellman_cache']
+
+    # 2. Logic from the original for-loop body
+    individual_data = observed_data[observed_data['individual_id'] == individual_id]
+    posterior_matrix = individual_posteriors[individual_id]
+    omega_list = individual_omega_lists[individual_id]
+    
+    individual_contribution = 0.0
+    weight_threshold = 1e-10
+    omega_indices, type_indices = np.where(posterior_matrix > weight_threshold)
+
+    if len(omega_indices) == 0:
+        return 0.0
+
+    n_individual_states = _calculate_individual_state_space_size(individual_data)
+
+    for idx in range(len(omega_indices)):
+        omega_idx = omega_indices[idx]
+        k = type_indices[idx]
+        weight = posterior_matrix[omega_idx, k]
+
+        type_params = params.copy()
+        if f'gamma_0_type_{k}' in params:
+            type_params['gamma_0'] = params[f'gamma_0_type_{k}']
+        sigma_epsilon = omega_list[omega_idx]['sigma']
+        type_params['sigma_epsilon'] = sigma_epsilon
+
+        if not (np.isfinite(sigma_epsilon) and sigma_epsilon > 0):
+            continue
+
+        try:
+            # Assuming 3 choices for now. This might need to be made dynamic if n_choices varies.
+            solution_shape = (n_individual_states, 3) 
+            converged_v_individual = bellman_cache.get(individual_id, type_params, int(k), solution_shape)
+            converged = converged_v_individual is not None
+
+            if not converged:
+                converged_v_individual, converged = solve_bellman_equation_individual(
+                    utility_function=None,
+                    individual_data=individual_data,
+                    params=type_params,
+                    agent_type=int(k),
+                    beta=beta,
+                    transition_matrices=transition_matrices,
+                    regions_df=regions_df_np,
+                    distance_matrix=distance_matrix,
+                    adjacency_matrix=adjacency_matrix,
+                    verbose=False,
+                    prov_to_idx=prov_to_idx,
+                    initial_v=None
+                )
+
+            if not converged or converged_v_individual is None or np.any(~np.isfinite(converged_v_individual)):
+                continue
+
+            log_lik_obs = calculate_likelihood_from_v_individual(
+                converged_v_individual=converged_v_individual,
+                params=type_params,
+                individual_data=individual_data,
+                agent_type=int(k),
+                beta=beta,
+                transition_matrices=transition_matrices,
+                regions_df=regions_df_np,
+                distance_matrix=distance_matrix,
+                adjacency_matrix=adjacency_matrix,
+                prov_to_idx=prov_to_idx
+            )
+
+            individual_log_lik = np.sum(log_lik_obs)
+            if np.isfinite(individual_log_lik):
+                individual_contribution += weight * individual_log_lik
+
+        except Exception:
+            # In a parallel worker, it's better to fail gracefully for one individual
+            continue
+
+    return individual_contribution
+
+
 def m_step_with_omega(
     individual_posteriors: Dict[Any, np.ndarray],
     initial_params: Dict[str, Any],
@@ -540,7 +638,8 @@ def m_step_with_omega(
     prov_to_idx: Dict[int, int],
     max_omega_per_individual: int = 1000,
     lbfgsb_maxiter: int = 15,
-    bellman_cache: Dict = None
+    bellman_cache: Dict = None,
+    parallel_config: Optional['ParallelConfig'] = None  # 新增并行配置参数
 ) -> Tuple[Dict[str, Any], np.ndarray]:
     """
     扩展的M-step：对ω进行加权求和来更新参数
@@ -550,6 +649,12 @@ def m_step_with_omega(
 
     from scipy.optimize import minimize
     from src.config.model_config import ModelConfig
+    
+    # 设置默认并行配置
+    if parallel_config is None:
+        parallel_config = ParallelConfig(n_jobs=1)  # 默认串行处理
+    
+    logger.info(f"  [M-step with ω] Parallel configuration: {parallel_config}")
     
     # 传递缓存给目标函数 - 使用增强版缓存系统
     if bellman_cache is None:
@@ -601,7 +706,7 @@ def m_step_with_omega(
 
     # --- 目标函数类 ---
     class Objective:
-        def __init__(self, shared_bellman_cache=None):
+        def __init__(self, shared_bellman_cache=None, parallel_config=None):
             self.call_count = 0
             self.last_call_end_time = time.time()
             # 在目标函数调用之间缓存Bellman解
@@ -610,6 +715,8 @@ def m_step_with_omega(
             self.cache_misses = 0
             self.hot_start_attempts = 0
             self.hot_start_successes = 0
+            # 并行配置
+            self.parallel_config = parallel_config or ParallelConfig(n_jobs=1)
             
             # 确保是增强版缓存实例
             log_msg_header = "  [M-step]"
@@ -652,6 +759,102 @@ def m_step_with_omega(
                 from src.model.smart_cache import create_enhanced_cache
                 self.bellman_cache = create_enhanced_cache(capacity=2000, memory_limit_mb=2000)
 
+        def _function_parallel(self, param_values: np.ndarray, param_names: List[str]) -> float:
+            """并行版本的M-step目标函数"""
+            start_time = time.time()
+            log_msg_header = f"    [M-step Objective Call #{self.call_count}]"
+            logger.info(f"{log_msg_header} Starting (PARALLEL MODE)...")
+            
+            # 解包参数
+            params = _unpack_params(param_values, param_names, initial_params['n_choices'])
+            
+            # 创建数据包供worker使用
+            data_package = {
+                'params': params,
+                'observed_data': observed_data,
+                'individual_posteriors': individual_posteriors,
+                'individual_omega_lists': individual_omega_lists,
+                'beta': beta,
+                'transition_matrices': transition_matrices,
+                'regions_df_np': regions_df,  # 注意：使用regions_df_np命名，与worker函数一致
+                'distance_matrix': distance_matrix,
+                'adjacency_matrix': adjacency_matrix,
+                'prov_to_idx': prov_to_idx,
+                'bellman_cache': self.bellman_cache  # 主进程缓存作为只读传递
+            }
+            
+            # 使用joblib进行并行处理
+            from joblib import Parallel, delayed
+            
+            logger.info(f"{log_msg_header} Starting parallel processing with {self.parallel_config.n_jobs} jobs...")
+            
+            # 并行调用worker函数
+            worker_results = Parallel(
+                n_jobs=self.parallel_config.n_jobs,
+                verbose=0,
+                backend='threading' if self.parallel_config.n_jobs == 1 else 'loky'
+            )(
+                delayed(_m_step_objective_worker)(
+                    individual_id,
+                    data_package
+                ) for individual_id in unique_individuals
+            )
+            
+            # 聚合结果
+            total_weighted_log_lik = 0.0
+            n_valid_computations = 0
+            n_failed_computations = 0
+            individual_log_liks = []
+            
+            for i_idx, individual_contribution in enumerate(worker_results):
+                if np.isfinite(individual_contribution):
+                    total_weighted_log_lik += individual_contribution
+                    individual_log_liks.append(individual_contribution)
+                    n_valid_computations += 1
+                else:
+                    n_failed_computations += 1
+                
+                # 进度日志（每logging_interval个个体）
+                if (i_idx + 1) % max(1, len(unique_individuals) // 10) == 0 or i_idx == 0:
+                    logger.info(f"{log_msg_header} Processed {i_idx+1}/{len(unique_individuals)} individuals in parallel")
+            
+            # 计算负对数似然
+            neg_ll = -total_weighted_log_lik
+            duration = time.time() - start_time
+            time_since_last = time.time() - self.last_call_end_time
+            self.last_call_end_time = time.time()
+            
+            # 日志输出（保持与串行版本一致）
+            cache_hit_rate = self.cache_hits / (self.cache_hits + self.cache_misses) if (self.cache_hits + self.cache_misses) > 0 else 0
+            logger.info(f"{log_msg_header} Finished (PARALLEL). Duration: {duration:.2f}s, "
+                        f"Since last: {time_since_last:.2f}s, NegLL: {neg_ll:.4f}")
+            logger.info(f"{log_msg_header} Valid: {n_valid_computations}, Failed: {n_failed_computations}")
+            if individual_log_liks:
+                logger.info(f"{log_msg_header} Mean ind loglik: {np.mean(individual_log_liks):.4f}, "
+                          f"Min: {np.min(individual_log_liks):.4f}, Max: {np.max(individual_log_liks):.4f}")
+            
+            if duration > 0 and n_valid_computations > 0:
+                processing_rate = n_valid_computations / duration
+                logger.info(f"{log_msg_header} Processing rate: {processing_rate:.1f} individuals/second, "
+                            f"Cache hit rate: {cache_hit_rate:.1%} ({self.cache_hits}/{self.cache_hits + self.cache_misses})")
+            
+            # 增强版缓存统计信息
+            if hasattr(self.bellman_cache, 'get_stats'):
+                try:
+                    cache_stats = self.bellman_cache.get_stats()
+                    logger.info(f"{log_msg_header} 增强缓存统计: L1命中率={cache_stats['l1_hit_rate']:.1%}, "
+                               f"L2相似性命中率={cache_stats['l2_hit_rate']:.1%}, "
+                               f"总命中率={cache_stats['total_hit_rate']:.1%}, "
+                               f"相似性匹配={cache_stats['similarity_hits']}")
+                except Exception as e:
+                    logger.warning(f"{log_msg_header} 获取增强缓存统计失败: {e}")
+            
+            if n_valid_computations == 0:
+                logger.error(f"{log_msg_header} All computations failed!")
+                return 1e10
+            
+            return neg_ll
+
         def function(self, param_values: np.ndarray, param_names: List[str]) -> float:
             self.call_count += 1
             start_time = time.time()
@@ -663,6 +866,13 @@ def m_step_with_omega(
 
             # 解包参数
             params = _unpack_params(param_values, param_names, initial_params['n_choices'])
+
+            # 根据并行配置选择处理模式
+            if self.parallel_config.is_parallel_enabled() and self.parallel_config.n_jobs > 1:
+                logger.info(f"{log_msg_header} Using PARALLEL processing with {self.parallel_config.n_jobs} jobs")
+                return self._function_parallel(param_values, param_names)
+            else:
+                logger.info(f"{log_msg_header} Using SERIAL processing")
 
             # 提前定义统计变量
             total_weighted_log_lik = 0.0
@@ -988,7 +1198,7 @@ def m_step_with_omega(
             return neg_ll
 
     # --- 优化执行 ---
-    objective = Objective(shared_bellman_cache=bellman_cache)
+    objective = Objective(shared_bellman_cache=bellman_cache, parallel_config=parallel_config)
     initial_param_values, param_names = _pack_params(initial_params)
     param_bounds = config.get_parameter_bounds(param_names)
 
@@ -1248,7 +1458,8 @@ def run_em_algorithm_with_omega(
             prov_to_idx=prov_to_idx,
             max_omega_per_individual=max_omega_per_individual,
             lbfgsb_maxiter=lbfgsb_maxiter,
-            bellman_cache=bellman_cache  # 传递E步的缓存给M步
+            bellman_cache=bellman_cache,  # 传递E步的缓存给M步
+            parallel_config=parallel_config  # 传递并行配置给M步
         )
 
     # 汇总结果
