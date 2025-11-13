@@ -77,7 +77,7 @@ def create_compatible_parallel_config(n_jobs: int = 1, backend: str = 'loky',
         return ParallelConfig(n_jobs=n_jobs, backend=backend, **kwargs)
 
 
-def safe_parallel_wrapper(use_new_system: bool = True, quiet_mode: bool = True):
+def safe_parallel_wrapper(use_new_system: bool = True, quiet_mode: bool = True, config_getter=None):
     """
     安全的并行包装器工厂函数
     
@@ -86,6 +86,7 @@ def safe_parallel_wrapper(use_new_system: bool = True, quiet_mode: bool = True):
     Args:
         use_new_system: 是否强制使用新系统（推荐True）
         quiet_mode: 是否使用安静模式
+        config_getter: 获取并行配置的函数，如果为None则使用默认配置
         
     Returns:
         装饰器函数
@@ -93,8 +94,9 @@ def safe_parallel_wrapper(use_new_system: bool = True, quiet_mode: bool = True):
     def decorator(func):
         if use_new_system:
             # 使用新的轻量级系统
+            actual_config_getter = config_getter if config_getter is not None else lambda: create_simple_parallel_config()
             wrapped = lightweight_parallel_processor(
-                config_getter=lambda: create_simple_parallel_config(),
+                config_getter=actual_config_getter,
                 quiet_mode=quiet_mode
             )(func)
             

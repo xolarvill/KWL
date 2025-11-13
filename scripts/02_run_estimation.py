@@ -625,6 +625,8 @@ def main():
     parser.add_argument('--em-parallel-backend', type=str, default='loky',
                         choices=['loky', 'threading', 'multiprocessing'],
                         help='EM算法并行后端 (默认为loky)')
+    parser.add_argument('--memory-safe-mode', action='store_true',
+                        help='启用内存安全模式，自动调整并行参数以避免内存溢出')
     parser.add_argument('--lbfgsb-gtol', type=float, default=None,
                         help='临时调整L-BFGS-B梯度容差（如1e-4用于快速粗略估计，1e-5用于精确估计）')
     parser.add_argument('--lbfgsb-ftol', type=float, default=None,

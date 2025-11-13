@@ -9,6 +9,7 @@ import pandas as pd
 from typing import Dict, Any, Tuple, List, Optional
 import logging
 import time
+import os
 from joblib import Parallel, delayed
 
 from src.model.discrete_support import (
@@ -203,6 +204,15 @@ def e_step_with_omega(
     
     logger.info(f"  [E-step with ω] Parallel configuration: {parallel_config}")
     
+    # 如果个体数量很大，自动调整并行工作进程数以避免内存问题
+    if parallel_config.is_parallel_enabled() and N > 10000:
+        original_n_jobs = parallel_config.n_jobs
+        # 根据个体数量动态调整工作进程数
+        suggested_n_jobs = max(1, min(parallel_config.n_jobs, os.cpu_count(), N // 1000))
+        if suggested_n_jobs < original_n_jobs:
+            logger.info(f"  [E-step with ω] 为避免内存问题，将工作进程数从 {original_n_jobs} 调整为 {suggested_n_jobs}")
+            parallel_config.n_jobs = suggested_n_jobs
+    
     # 初始化缓存 - 使用增强版缓存系统（大幅提升容量和智能性）
     if bellman_cache is None:
         # 创建增强版缓存实例，容量从500提升到2000
@@ -346,7 +356,96 @@ def e_step_with_omega(
             return individual_id, np.array([]), np.full(K, -1e6)
 
     # 根据配置选择处理方式
-    if parallel_config.is_parallel_enabled():
+    # 如果个体数量过多，使用分批处理以避免内存问题
+    BATCH_SIZE = 5000  # 每批处理的个体数量
+    
+    if parallel_config.is_parallel_enabled() and N > BATCH_SIZE:
+        logger.info(f"  使用分批并行处理，{parallel_config.n_jobs} 个工作进程，每批 {BATCH_SIZE} 个个体")
+        
+        # 分批处理
+        all_individual_posteriors = {}
+        all_log_likelihood_matrix = np.zeros((N, K))
+        
+        for batch_start in range(0, N, BATCH_SIZE):
+            batch_end = min(batch_start + BATCH_SIZE, N)
+            batch_individuals = unique_individuals[batch_start:batch_end]
+            batch_size = len(batch_individuals)
+            
+            logger.info(f"  处理批次 {batch_start//BATCH_SIZE + 1}: 个体 {batch_start+1}-{batch_end}")
+            
+            # 为当前批次创建数据子集
+            batch_omega_dict = {ind_id: individual_omega_dict[ind_id] for ind_id in batch_individuals}
+            
+            # 创建批次数据包
+            from src.estimation.e_step_parallel_processor_v2 import create_parallel_processing_data_v2, process_individual_with_data_package_v2
+            
+            batch_data_package = create_parallel_processing_data_v2(
+                individual_omega_dict=batch_omega_dict,
+                params=params,
+                pi_k=pi_k,
+                K=K,
+                beta=beta,
+                transition_matrices=transition_matrices,
+                regions_df=regions_df,
+                distance_matrix=distance_matrix,
+                adjacency_matrix=adjacency_matrix,
+                prov_to_idx=prov_to_idx,
+                bellman_cache=bellman_cache
+            )
+            
+            # 处理当前批次
+            def get_parallel_config():
+                from src.utils.lightweight_parallel_wrapper import create_simple_parallel_config
+                return create_simple_parallel_config(n_jobs=parallel_config.n_jobs)
+                
+            from src.utils.lightweight_parallel_wrapper import lightweight_parallel_processor
+            @lightweight_parallel_processor(config_getter=get_parallel_config, quiet_mode=True)
+            def process_batch_individuals(batch_individual_ids):
+                results = []
+                for ind_id in batch_individual_ids:
+                    result = process_individual_with_data_package_v2(
+                        ind_id,
+                        observed_data[observed_data['individual_id'] == ind_id],
+                        batch_data_package
+                    )
+                    results.append(result)
+                return results
+            
+            # 执行批次处理
+            try:
+                batch_results = process_batch_individuals(batch_individuals)
+                
+                # 整理批次结果
+                for i_idx, result_data in enumerate(batch_results):
+                    if isinstance(result_data, dict) and 'result' in result_data:
+                        individual_result = result_data['result']
+                    else:
+                        individual_result = result_data
+                    
+                    if isinstance(individual_result, tuple) and len(individual_result) == 3:
+                        individual_id, joint_probs, marginal_likelihood = individual_result
+                        if joint_probs.size > 0:
+                            all_individual_posteriors[individual_id] = joint_probs
+                            all_log_likelihood_matrix[batch_start + i_idx, :] = marginal_likelihood
+                        else:
+                            all_log_likelihood_matrix[batch_start + i_idx, :] = -1e6
+                    else:
+                        all_log_likelihood_matrix[batch_start + i_idx, :] = -1e6
+                        
+            except Exception as e:
+                logger.error(f"批次处理失败: {e}")
+                # 回退到串行处理当前批次
+                logger.info("  回退到串行处理当前批次")
+                for i_idx, individual_id in enumerate(batch_individuals):
+                    individual_id, joint_probs, marginal_likelihood = process_individual(individual_id)
+                    if joint_probs.size > 0:
+                        all_individual_posteriors[individual_id] = joint_probs
+                        all_log_likelihood_matrix[batch_start + i_idx, :] = marginal_likelihood
+                    else:
+                        all_log_likelihood_matrix[batch_start + i_idx, :] = -1e6
+        
+        return all_individual_posteriors, all_log_likelihood_matrix
+    elif parallel_config.is_parallel_enabled():
         logger.info(f"  使用并行个体处理，{parallel_config.n_jobs} 个工作进程")
         
         # 创建并行处理数据包（v2.0轻量级版本，解决pickle问题）
@@ -367,14 +466,16 @@ def e_step_with_omega(
         )
         
         # 使用新的轻量级并行处理装饰器，完全避免Windows pickle问题
-        from src.utils.parallel_migration import safe_parallel_wrapper
-        from src.utils.lightweight_parallel_wrapper import create_simple_parallel_config
+        from src.utils.lightweight_parallel_wrapper import create_simple_parallel_config, lightweight_parallel_processor
         
         # 创建并行配置
         parallel_config_wrapper = create_simple_parallel_config(n_jobs=parallel_config.n_jobs)
         
-        # 创建包装后的处理函数
-        @safe_parallel_wrapper(use_new_system=True, quiet_mode=True)
+        # 创建包装后的处理函数，直接使用配置
+        def get_parallel_config():
+            return parallel_config_wrapper
+            
+        @lightweight_parallel_processor(config_getter=get_parallel_config, quiet_mode=True)
         def process_individuals_batch(individual_ids):
             """批量处理个体的包装函数"""
             results = []

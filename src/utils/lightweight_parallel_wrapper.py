@@ -7,15 +7,27 @@ import functools
 import logging
 import time
 import threading
+import psutil
+import os
 from typing import Callable, List, Any, Optional, Dict
 from joblib import Parallel, delayed
-import os
 from .lightweight_parallel_logging import (
     SimpleParallelLogger, WorkerLogData, 
     create_safe_worker_logger, log_worker_progress
 )
 
 logger = logging.getLogger(__name__)
+
+
+def check_memory_usage():
+    """检查当前内存使用情况"""
+    process = psutil.Process(os.getpid())
+    memory_info = process.memory_info()
+    memory_percent = psutil.virtual_memory().percent
+    return {
+        'process_memory_mb': memory_info.rss / 1024 / 1024,
+        'system_memory_percent': memory_percent
+    }
 
 
 class LightweightParallelConfig:
@@ -89,6 +101,14 @@ def lightweight_parallel_processor(config_getter: Optional[Callable] = None,
             total_individuals = len(individual_list)
             current_logger.info(f"处理 {total_individuals} 个个体，配置: n_jobs={config.n_jobs}")
             
+            # 检查内存使用情况
+            try:
+                memory_info = check_memory_usage()
+                current_logger.info(f"当前内存使用: 进程内存={memory_info['process_memory_mb']:.1f}MB, "
+                                  f"系统内存={memory_info['system_memory_percent']:.1f}%")
+            except Exception as e:
+                current_logger.debug(f"无法获取内存信息: {e}")
+            
             if not config.is_parallel_enabled():
                 # 串行处理
                 current_logger.info("使用串行处理模式")
@@ -107,7 +127,10 @@ def lightweight_parallel_processor(config_getter: Optional[Callable] = None,
                         n_jobs=config.n_jobs,
                         backend=config.backend,
                         batch_size=config.batch_size,
-                        verbose=0  # 禁用joblib日志
+                        verbose=0,  # 禁用joblib日志
+                        max_nbytes=100*1024*1024,  # 限制在worker之间传输的数据大小为100MB
+                        mmap_mode='r',  # 使用内存映射模式读取数据
+                        timeout=None  # 不设置超时限制
                     )(
                         delayed(_safe_worker_function)(func, individual_id, *args, **kwargs)
                         for individual_id in individual_list
