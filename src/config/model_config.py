@@ -80,11 +80,30 @@ class ModelConfig:
     em_max_iterations: int = 100
     em_tolerance: float = 1e-4
     em_n_types: int = 3  # 混合模型的类型数量
+    
+    # 策略模式下的EM容差参数
+    fast_em_tolerance: float = 1e-3
+    aggressive_em_tolerance: float = 1e-5
 
     ## M-step中的L-BFGS-B参数
     lbfgsb_maxiter: int = 15
-    lbfgsb_gtol: float = 1e-3
-    lbfgsb_ftol: float = 1e-3
+    lbfgsb_gtol: float = 1e-5
+    lbfgsb_ftol: float = 1e-6
+    
+    ## 策略模式配置
+    # fast模式配置
+    fast_lbfgsb_maxiter: int = 10
+    fast_lbfgsb_gtol: float = 1e-3
+    fast_lbfgsb_ftol: float = 1e-3
+    fast_em_tolerance: float = 1e-3
+    fast_bootstrap_em_tol: float = 1e-2
+    
+    # test模式配置（用于快速测试，采用宽松到夸张的容差）
+    test_lbfgsb_maxiter: int = 5
+    test_lbfgsb_gtol: float = 1e-2
+    test_lbfgsb_ftol: float = 1e-2
+    test_em_tolerance: float = 1e-2
+    test_bootstrap_em_tol: float = 1e-1
 
     ## Bootstrap推断参数
     bootstrap_n_replications: int = 200
@@ -92,6 +111,10 @@ class ModelConfig:
     bootstrap_em_tol: float = 1e-3
     bootstrap_seed: int = 42
     bootstrap_n_jobs: int = -1  # -1表示使用所有CPU核心
+    
+    # 策略模式下的Bootstrap参数
+    fast_bootstrap_em_tol: float = 1e-2
+    aggressive_bootstrap_em_tol: float = 1e-4
 
     # ========================
     # 四、模型外生参数
@@ -175,7 +198,7 @@ class ModelConfig:
     sigma_range: Tuple[float, float] = (0.3, 1.5)  # σ_ε范围
 
     ## ω枚举控制
-    max_omega_per_individual: int = 1000  # 每个个体的最大ω组合数（超过则用蒙特卡洛）
+    max_omega_per_individual: int = 100  # 每个个体的最大ω组合数（超过则用蒙特卡洛）
     use_simplified_omega: bool = True     # 是否使用简化策略（只在访问过的地区实例化ν和ξ）
 
     ## 互联网效应参数（论文737-742行）
@@ -385,6 +408,41 @@ class ModelConfig:
             setattr(self, param_name, value)
         else:
             raise ValueError(f"参数 '{param_name}' 不存在于ModelConfig中")
+            
+    def get_strategy_params(self, strategy: str = "normal") -> Dict[str, Any]:
+        """
+        根据策略模式获取相应的参数配置
+        
+        Args:
+            strategy: 策略模式 ("fast", "normal", "test")
+            
+        Returns:
+            Dict[str, Any]: 参数配置字典
+        """
+        if strategy == "fast":
+            return {
+                "lbfgsb_maxiter": self.fast_lbfgsb_maxiter,
+                "lbfgsb_gtol": self.fast_lbfgsb_gtol,
+                "lbfgsb_ftol": self.fast_lbfgsb_ftol,
+                "em_tolerance": self.fast_em_tolerance,
+                "bootstrap_em_tol": self.fast_bootstrap_em_tol
+            }
+        elif strategy == "test":
+            return {
+                "lbfgsb_maxiter": self.test_lbfgsb_maxiter,
+                "lbfgsb_gtol": self.test_lbfgsb_gtol,
+                "lbfgsb_ftol": self.test_lbfgsb_ftol,
+                "em_tolerance": self.test_em_tolerance,
+                "bootstrap_em_tol": self.test_bootstrap_em_tol
+            }
+        else:  # normal mode
+            return {
+                "lbfgsb_maxiter": self.lbfgsb_maxiter,
+                "lbfgsb_gtol": self.lbfgsb_gtol,
+                "lbfgsb_ftol": self.lbfgsb_ftol,
+                "em_tolerance": self.em_tolerance,
+                "bootstrap_em_tol": self.bootstrap_em_tol
+            }
 
     def to_dict(self) -> Dict[str, Any]:
         """

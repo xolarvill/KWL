@@ -15,6 +15,7 @@ from scipy.stats import norm
 from src.model.likelihood import calculate_likelihood_from_v_individual
 from src.model.bellman import solve_bellman_equation_individual
 from src.estimation.em_with_omega import _pack_params, _unpack_params # 导入参数打包解包工具
+from src.config.model_config import ModelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -149,11 +150,15 @@ def louis_method_standard_errors_streaming(
     expected_complete_information = np.zeros((n_params, n_params))
     sum_of_individual_scores_outer_product = np.zeros((n_params, n_params))
     
-    # 3. 创建omega枚举器
+    # 3. 获取配置中的权重阈值
+    config = ModelConfig()
+    weight_threshold = config.weight_threshold
+    
+    # 4. 创建omega枚举器
     from src.model.discrete_support import SimplifiedOmegaEnumerator
     enumerator = SimplifiedOmegaEnumerator(support_generator)
     
-    # 4. 流式处理每个个体
+    # 5. 流式处理每个个体
     start_time = pd.Timestamp.now()
     processed_combinations = 0
     skipped_combinations = 0
@@ -192,7 +197,7 @@ def louis_method_standard_errors_streaming(
             for k in range(n_types):
                 weight = posterior_matrix[omega_idx, k]  # p(τ, ω | D_i)
                 
-                if weight < 1e-6:  # 忽略极小权重
+                if weight < weight_threshold:  # 忽略极小权重
                     skipped_combinations += 1
                     continue
                 
@@ -718,7 +723,8 @@ def _louis_method_standard_errors_core(
         # 先计算所有权重的总和，用于相对权重阈值
         total_weight = np.sum(posterior_matrix)
         cumulative_weight = 0.0
-        weight_threshold = 1e-8
+        config = ModelConfig()
+        weight_threshold = config.weight_threshold
         
         for omega_idx, omega in enumerate(omega_list):
             for k in range(n_types):

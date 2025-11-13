@@ -49,7 +49,8 @@ def run_estimation_workflow(
     lbfgsb_gtol: float = None, # 临时控制L-BFGS-B梯度容差（调试用）
     lbfgsb_ftol: float = None, # 临时控制L-BFGS-B函数值容差（调试用）
     lbfgsb_maxiter: int = None, # 临时控制L-BFGS-B最大迭代次数（调试用）
-    max_runtime_minutes: int = None # 最大运行时间限制（分钟），超时自动停止
+    max_runtime_minutes: int = None, # 最大运行时间限制（分钟），超时自动停止
+    strategy: str = "normal" # 策略模式: "fast", "normal", "test"
 ):
     """
     封装了模型估计、推断和输出的完整工作流
@@ -79,18 +80,18 @@ def run_estimation_workflow(
             _run_estimation_with_tracking(
                 tracker, sample_size, use_bootstrap, n_bootstrap, 
                 bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend,
-                lbfgsb_gtol, lbfgsb_ftol, lbfgsb_maxiter
+                lbfgsb_gtol, lbfgsb_ftol, lbfgsb_maxiter, strategy
             )
     else:
         # 传统模式，不使用进度跟踪
         _run_estimation_traditional(
             sample_size, use_bootstrap, n_bootstrap, 
             bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend,
-            lbfgsb_gtol, lbfgsb_ftol, lbfgsb_maxiter
+            lbfgsb_gtol, lbfgsb_ftol, lbfgsb_maxiter, strategy
         )
 
 
-def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None):
+def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal"):
     """使用进度跟踪的估计工作流"""
     
     # --- 1. 配置 ---
@@ -145,6 +146,14 @@ def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstr
         data_driven_pi_k /= data_driven_pi_k.sum()
         logger.info(f"使用数据驱动的初始类型概率: {data_driven_pi_k}")
 
+        # 获取策略参数
+        strategy_params = config.get_strategy_params(strategy)
+        
+        # 如果没有通过命令行指定，则使用策略参数
+        lbfgsb_gtol = lbfgsb_gtol if lbfgsb_gtol is not None else strategy_params["lbfgsb_gtol"]
+        lbfgsb_ftol = lbfgsb_ftol if lbfgsb_ftol is not None else strategy_params["lbfgsb_ftol"]
+        lbfgsb_maxiter = lbfgsb_maxiter if lbfgsb_maxiter is not None else strategy_params["lbfgsb_maxiter"]
+        
         # 3. 准备共同参数
         estimation_params = {
             "observed_data": df_individual,
@@ -156,7 +165,7 @@ def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstr
             "beta": config.discount_factor,
             "n_types": config.em_n_types,
             "max_iterations": config.em_max_iterations,
-            "tolerance": config.em_tolerance,
+            "tolerance": strategy_params["em_tolerance"] if strategy != "normal" else config.em_tolerance,
             "n_choices": config.n_choices,
             "initial_params": initial_params,
             "initial_pi_k": data_driven_pi_k,
@@ -270,7 +279,7 @@ def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstr
                 n_types=config.em_n_types,
                 n_bootstrap=n_bootstrap,
                 max_em_iterations=config.bootstrap_max_em_iter,
-                em_tolerance=config.bootstrap_em_tol,
+                em_tolerance=strategy_params["bootstrap_em_tol"] if strategy != "normal" else config.bootstrap_em_tol,
                 seed=config.bootstrap_seed,
                 n_jobs=bootstrap_jobs,
                 verbose=True
@@ -338,7 +347,7 @@ def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstr
     )
 
 
-def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None):
+def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal"):
     """传统的估计工作流（无进度跟踪）"""
     # --- 1. 配置 ---
     config = ModelConfig()
@@ -384,6 +393,14 @@ def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstr
     data_driven_pi_k /= data_driven_pi_k.sum()
     logger.info(f"使用数据驱动的初始类型概率: {data_driven_pi_k}")
 
+    # 获取策略参数
+    strategy_params = config.get_strategy_params(strategy)
+    
+    # 如果没有通过命令行指定，则使用策略参数
+    lbfgsb_gtol = lbfgsb_gtol if lbfgsb_gtol is not None else strategy_params["lbfgsb_gtol"]
+    lbfgsb_ftol = lbfgsb_ftol if lbfgsb_ftol is not None else strategy_params["lbfgsb_ftol"]
+    lbfgsb_maxiter = lbfgsb_maxiter if lbfgsb_maxiter is not None else strategy_params["lbfgsb_maxiter"]
+    
     # 3. 准备共同参数
     estimation_params = {
         "observed_data": df_individual,
@@ -395,7 +412,7 @@ def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstr
         "beta": config.discount_factor,
         "n_types": config.em_n_types,
         "max_iterations": config.em_max_iterations,
-        "tolerance": config.em_tolerance,
+        "tolerance": strategy_params["em_tolerance"] if strategy != "normal" else config.em_tolerance,
         "n_choices": config.n_choices,
         "initial_params": initial_params,
         "initial_pi_k": data_driven_pi_k,
@@ -512,7 +529,7 @@ def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstr
                 n_types=config.em_n_types,
                 n_bootstrap=n_bootstrap,
                 max_em_iterations=config.bootstrap_max_em_iter,
-                em_tolerance=config.bootstrap_em_tol,
+                em_tolerance=strategy_params["bootstrap_em_tol"] if strategy != "normal" else config.bootstrap_em_tol,
                 seed=config.bootstrap_seed,
                 n_jobs=bootstrap_jobs,
                     verbose=True
@@ -586,6 +603,9 @@ def main():
                         help='临时调整L-BFGS-B函数值容差（如1e-5用于快速粗略估计，1e-6用于精确估计）')
     parser.add_argument('--lbfgsb-maxiter', type=int, default=None,
                         help='临时调整L-BFGS-B最大迭代次数（如10用于快速粗略估计，15用于精确估计）')
+    parser.add_argument('--strategy', type=str, default='normal',
+                        choices=['fast', 'normal', 'test'],
+                        help='运行策略: "fast"快速但精度较低, "normal"平衡模式, "test"用于快速测试的宽松容差模式')
     parser.add_argument('--memory-safe', action='store_true', 
                         help='启用内存安全模式（大样本时自动启用）')
     parser.add_argument('--max-sample-size', type=int, default=None,
@@ -637,7 +657,8 @@ def main():
             em_parallel_backend=args.em_parallel_backend,
             lbfgsb_gtol=args.lbfgsb_gtol,
             lbfgsb_ftol=args.lbfgsb_ftol,
-            lbfgsb_maxiter=args.lbfgsb_maxiter
+            lbfgsb_maxiter=args.lbfgsb_maxiter,
+            strategy=args.strategy
         )
         profiler.disable()
         stats = pstats.Stats(profiler).sort_stats('cumulative')
@@ -656,7 +677,8 @@ def main():
             em_parallel_backend=args.em_parallel_backend,
             lbfgsb_gtol=args.lbfgsb_gtol,
             lbfgsb_ftol=args.lbfgsb_ftol,
-            lbfgsb_maxiter=args.lbfgsb_maxiter
+            lbfgsb_maxiter=args.lbfgsb_maxiter,
+            strategy=args.strategy
         )
 
 if __name__ == '__main__':
