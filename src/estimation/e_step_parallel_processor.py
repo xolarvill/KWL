@@ -1,15 +1,16 @@
 """
-E-step并行处理模块 - 无闭包版本
-解决序列化问题的根本方案
+E-step并行处理模块 - v2.0 轻量级版本
+彻底解决Windows pickle问题的全新实现
 """
 
 import numpy as np
+import time
 from typing import Dict, Any, Tuple, List, Optional
 from .e_step_individual_processor import process_single_individual_e_step
-from ..utils.parallel_logger_registry import get_parallel_logger
+from ..utils.lightweight_parallel_logging import create_safe_worker_logger, log_worker_progress
 
 
-def process_individual_parallel(
+def process_individual_parallel_v2(
     individual_id: Any,
     individual_data: Any,
     omega_list: List[Dict],
@@ -23,51 +24,30 @@ def process_individual_parallel(
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
     prov_to_idx: Dict[int, int],
-    bellman_cache: Any,
-    parallel_logger_id: Optional[str] = None
-) -> Tuple[Any, np.ndarray, np.ndarray]:
+    bellman_cache: Any
+) -> Dict[str, Any]:
     """
-    处理单个个体 - 并行化版本（无闭包）
+    处理单个个体 - v2.0轻量级版本（完全避免pickle问题）
     
-    这个函数不依赖任何外部闭包变量，所有需要的数据都通过参数传递，
-    确保可以被pickle序列化，支持并行化处理。
-    
-    参数:
-    ----
-    individual_id: 个体ID
-    individual_data: 个体数据(DataFrame)
-    omega_list: ω列表
-    omega_probs: ω概率
-    params: 模型参数
-    pi_k: 类型概率
-    K: 类型数量
-    beta: 贴现因子
-    transition_matrices: 转移矩阵
-    regions_df: 地区数据
-    distance_matrix: 距离矩阵
-    adjacency_matrix: 邻接矩阵
-    prov_to_idx: 省份映射
-    bellman_cache: Bellman方程缓存
-    parallel_logger_id: 并行日志管理器ID
+    核心改进：
+    1. 不接收logger对象，避免序列化问题
+    2. 返回包含日志数据的字典格式
+    3. 使用可pickle的简单数据结构记录状态
     
     返回:
     ----
-    individual_id: 个体ID
-    joint_probs: 联合后验概率
-    marginal_likelihood: 边缘似然
+    字典格式：{
+        'result': (individual_id, joint_probs, marginal_likelihood),
+        'worker_log_data': WorkerLogData对象
+    }
     """
     
-    # 缓存统计（线程局部）
-    cache_stats = {'cache_hits': 0, 'cache_misses': 0}
+    # 创建worker日志数据（可pickle的安全结构）
+    worker_data = create_safe_worker_logger()
+    start_time = time.time()
     
-    # 获取并行日志管理器（如果存在）
-    parallel_logger = None
-    worker_id = None
-    if parallel_logger_id:
-        parallel_logger = get_parallel_logger(parallel_logger_id)
-        if parallel_logger:
-            worker_id = parallel_logger._get_worker_id()
-            parallel_logger.log_worker_start(worker_id, 1)
+    # 缓存统计
+    cache_stats = {'cache_hits': 0, 'cache_misses': 0}
     
     try:
         # 调用核心处理函数
@@ -89,31 +69,44 @@ def process_individual_parallel(
             cache_stats=cache_stats
         )
         
-        # 记录成功处理
-        if parallel_logger:
-            total_cache_requests = cache_stats['cache_hits'] + cache_stats['cache_misses']
-            cache_hit_rate = cache_stats['cache_hits'] / total_cache_requests if total_cache_requests > 0 else 0
-            parallel_logger.log_individual_processed(
-                worker_id=worker_id,
-                individual_id=individual_id,
-                success=True,
-                cache_hit=cache_hit_rate > 0 if total_cache_requests > 0 else None
-            )
+        processing_time = time.time() - start_time
         
-        return individual_id, joint_probs, marginal_likelihood
+        # 记录成功处理
+        total_cache_requests = cache_stats['cache_hits'] + cache_stats['cache_misses']
+        cache_hit = (cache_stats['cache_hits'] > 0) if total_cache_requests > 0 else None
+        
+        log_worker_progress(
+            worker_data=worker_data,
+            individual_id=individual_id,
+            success=True,
+            cache_hit=cache_hit,
+            processing_time=processing_time
+        )
+        
+        # 返回新格式：结果 + 日志数据
+        return {
+            'result': (individual_id, joint_probs, marginal_likelihood),
+            'worker_log_data': worker_data
+        }
         
     except Exception as e:
-        # 记录处理错误
-        if parallel_logger:
-            parallel_logger.log_individual_processed(
-                worker_id=worker_id,
-                individual_id=individual_id,
-                success=False,
-                error_msg=str(e)
-            )
+        processing_time = time.time() - start_time
+        error_msg = str(e)
         
-        # 返回空结果，将在主函数中处理
-        return individual_id, np.array([]), np.full(K, -1e6)
+        # 记录处理错误
+        log_worker_progress(
+            worker_data=worker_data,
+            individual_id=individual_id,
+            success=False,
+            error_msg=error_msg,
+            processing_time=processing_time
+        )
+        
+        # 返回错误结果和日志数据
+        return {
+            'result': (individual_id, np.array([]), np.full(K, -1e6)),
+            'worker_log_data': worker_data
+        }
 
 
 def create_parallel_processing_data(
@@ -127,16 +120,11 @@ def create_parallel_processing_data(
     distance_matrix: np.ndarray,
     adjacency_matrix: np.ndarray,
     prov_to_idx: Dict[int, int],
-    bellman_cache: Any
+    bellman_cache: Any = None
 ) -> Dict[str, Any]:
     """
-    创建并行处理所需的数据包
-    
-    将所有需要的数据打包成一个字典，避免闭包依赖。
-    
-    返回:
-    ----
-    包含所有处理参数的数据字典
+    创建并行处理所需的数据包 - v2版本
+    与v1版本相同，保持兼容性
     """
     return {
         'params': params,
@@ -148,27 +136,47 @@ def create_parallel_processing_data(
         'distance_matrix': distance_matrix,
         'adjacency_matrix': adjacency_matrix,
         'prov_to_idx': prov_to_idx,
-        'bellman_cache': bellman_cache,
+        'bellman_cache': bellman_cache, # 添加缓存信息
         'individual_omega_dict': individual_omega_dict
     }
+
+
+from ..model.smart_cache import create_enhanced_cache
 
 
 def process_individual_with_data_package(
     individual_id: Any,
     individual_data: Any,
-    data_package: Dict[str, Any],
-    parallel_logger_id: Optional[str] = None
-) -> Tuple[Any, np.ndarray, np.ndarray]:
+    data_package: Dict[str, Any]
+) -> Dict[str, Any]:
     """
-    使用数据包处理单个个体
+    使用数据包处理单个个体 - v2.0版本
     
-    这是真正可以被joblib并行调用的函数，所有数据都通过参数传递。
+    这是新系统的核心函数，完全避免pickle序列化问题。
+    
+    返回:
+    ----
+    字典格式，包含处理结果和日志数据，完全可pickle
     """
+    # 获取缓存信息
+    bellman_cache = data_package.get('bellman_cache', None)
+    
+    # 如果没有提供缓存，则为每个worker创建一个本地缓存
+    if bellman_cache is None:
+        # **修复Windows Pickle错误**: 为每个worker创建一个本地缓存
+        # 避免重复的日志输出，使用quiet模式
+        import os
+        os.environ['CACHE_QUIET_MODE'] = 'true'
+        bellman_cache = create_enhanced_cache()
+        # 清理环境变量
+        if 'CACHE_QUIET_MODE' in os.environ:
+            del os.environ['CACHE_QUIET_MODE']
+
     # 从数据包中提取omega信息
     omega_list, omega_probs = data_package['individual_omega_dict'][individual_id]
     
-    # 调用处理函数
-    return process_individual_parallel(
+    # 调用v2版本的并行处理函数
+    return process_individual_parallel_v2(
         individual_id=individual_id,
         individual_data=individual_data,
         omega_list=omega_list,
@@ -182,6 +190,5 @@ def process_individual_with_data_package(
         distance_matrix=data_package['distance_matrix'],
         adjacency_matrix=data_package['adjacency_matrix'],
         prov_to_idx=data_package['prov_to_idx'],
-        bellman_cache=data_package['bellman_cache'],
-        parallel_logger_id=parallel_logger_id
+        bellman_cache=bellman_cache  # 传递缓存
     )

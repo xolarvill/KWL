@@ -14,11 +14,9 @@ from joblib import Parallel, delayed
 
 from src.model.discrete_support import (
     DiscreteSupportGenerator,
-    SimplifiedOmegaEnumerator,
-    extract_omega_values_for_state
+    SimplifiedOmegaEnumerator
 )
 from src.model.likelihood import (
-    calculate_likelihood_from_v,
     calculate_likelihood_from_v_individual,
     _make_cache_key,
     clear_bellman_cache,
@@ -134,7 +132,7 @@ def _calculate_logging_interval(total_individuals: int) -> int:
 
 
 
-
+# 计算后验概率
 def e_step_with_omega(
     params: Dict[str, Any],
     pi_k: np.ndarray,
@@ -377,9 +375,9 @@ def e_step_with_omega(
             batch_omega_dict = {ind_id: individual_omega_dict[ind_id] for ind_id in batch_individuals}
             
             # 创建批次数据包
-            from src.estimation.e_step_parallel_processor_v2 import create_parallel_processing_data_v2, process_individual_with_data_package_v2
+            from estimation.e_step_parallel_processor import create_parallel_processing_data, process_individual_with_data_package
             
-            batch_data_package = create_parallel_processing_data_v2(
+            batch_data_package = create_parallel_processing_data(
                 individual_omega_dict=batch_omega_dict,
                 params=params,
                 pi_k=pi_k,
@@ -403,7 +401,7 @@ def e_step_with_omega(
             def process_batch_individuals(batch_individual_ids):
                 results = []
                 for ind_id in batch_individual_ids:
-                    result = process_individual_with_data_package_v2(
+                    result = process_individual_with_data_package(
                         ind_id,
                         observed_data[observed_data['individual_id'] == ind_id],
                         batch_data_package
@@ -449,9 +447,9 @@ def e_step_with_omega(
         logger.info(f"  使用并行个体处理，{parallel_config.n_jobs} 个工作进程")
         
         # 创建并行处理数据包（v2.0轻量级版本，解决pickle问题）
-        from src.estimation.e_step_parallel_processor_v2 import create_parallel_processing_data_v2, process_individual_with_data_package_v2
+        from estimation.e_step_parallel_processor import create_parallel_processing_data, process_individual_with_data_package
         
-        data_package = create_parallel_processing_data_v2(
+        data_package = create_parallel_processing_data(
             individual_omega_dict=individual_omega_dict,
             params=params,
             pi_k=pi_k,
@@ -481,7 +479,7 @@ def e_step_with_omega(
             results = []
             for ind_id in individual_ids:
                 # 调用v2版本的并行处理函数
-                result = process_individual_with_data_package_v2(
+                result = process_individual_with_data_package(
                     ind_id,
                     observed_data[observed_data['individual_id'] == ind_id],
                     data_package
@@ -587,46 +585,6 @@ def e_step_with_omega(
     logger.info(f"  [E-step with ω] Hot-start success rate: {hot_start_rate:.1%} ({hot_start_successes}/{hot_start_attempts})")
 
     return individual_posteriors, log_likelihood_matrix
-
-
-def aggregate_omega_posteriors_for_parameter_update(
-    individual_posteriors: Dict[Any, np.ndarray],
-    observed_data: pd.DataFrame,
-    support_generator: DiscreteSupportGenerator
-) -> Dict[str, np.ndarray]:
-    """
-    汇总ω后验分布，用于参数更新
-
-    从individual_posteriors中提取有用的统计量，
-    例如E[η_i | D_i], E[σ_ε | D_i]等
-
-    参数:
-    ----
-    individual_posteriors : Dict
-        每个个体的后验概率
-    observed_data : pd.DataFrame
-        观测数据
-    support_generator : DiscreteSupportGenerator
-        支撑点生成器
-
-    返回:
-    ----
-    Dict with aggregated statistics
-    """
-    logger = logging.getLogger()
-    logger.info("  Aggregating omega posterior statistics...")
-
-    # TODO: 实现后验期望值计算
-    # 例如: E[η_i | D_i] = Σ_ω η(ω) · p(ω | D_i)
-
-    aggregated_stats = {
-        'eta_posterior_mean': [],
-        'sigma_posterior_mean': []
-    }
-
-    logger.info("  Omega aggregation completed.")
-
-    return aggregated_stats
 
 
 def _m_step_objective_worker(
