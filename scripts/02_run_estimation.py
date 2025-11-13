@@ -227,6 +227,19 @@ def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstr
     individual_posteriors = estimation_result["individual_posteriors"]
     type_probabilities = estimation_result["type_probabilities"]
     
+    # 输出参数估计结果到日志
+    logger.info("\n" + "="*60)
+    logger.info("参数估计完成，结果如下:")
+    logger.info(f"最终对数似然值: {final_log_likelihood:.6f}")
+    logger.info("结构参数估计值:")
+    for param_name, param_value in estimated_params.items():
+        if param_name not in ['n_choices', 'gamma_0_type_0']:
+            logger.info(f"  {param_name}: {param_value:.6f}")
+    logger.info("类型概率:")
+    for i, prob in enumerate(type_probabilities):
+        logger.info(f"  Type {i}: {prob:.6f}")
+    logger.info("="*60)
+    
     # --- 4. 统计推断 ---
     def compute_standard_errors():
         std_errors, t_stats, p_values = {}, {}, {}
@@ -469,6 +482,21 @@ def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstr
     individual_posteriors = results["individual_posteriors"] # E-step的详细后验
     type_probabilities = results["type_probabilities"]
     log_likelihood_matrix = results.get("posterior_probs", None) # EM-with-omega返回的log_likelihood_matrix存储在posterior_probs键中
+    
+    # 输出参数估计结果到日志
+    logger.info("\n" + "="*60)
+    logger.info("参数估计完成，结果如下:")
+    logger.info(f"最终对数似然值: {final_log_likelihood:.6f}")
+    logger.info("结构参数估计值:")
+    for param_name, param_value in estimated_params.items():
+        if param_name not in ['n_choices', 'gamma_0_type_0']:
+            logger.info(f"  {param_name}: {param_value:.6f}")
+    logger.info("类型概率:")
+    for i, prob in enumerate(type_probabilities):
+        logger.info(f"  Type {i}: {prob:.6f}")
+    logger.info("="*60)
+    
+    # --- 4. 统计推断 ---
 
     # --- 4. 统计推断 ---
     std_errors, t_stats, p_values = {}, {}, {}
