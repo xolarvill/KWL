@@ -242,9 +242,9 @@ def estimate_mixture_model_standard_errors(
     method: str = "louis", # default: "louis"; other: "shared_only", "all_numerical"
     individual_posteriors: Dict[Any, np.ndarray] = None, # Louis方法需要
     support_generator: Any = None, # Louis方法需要
-    max_omega_per_individual: int = 1000, # Louis方法需要
+    max_omega_per_individual: int = 100, # Louis方法需要
     use_simplified_omega: bool = True, # Louis方法需要
-    h_step: float = 1e-4 # Louis方法需要
+    h_step: float = 1e-3 # Louis方法需要
 ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
     """
     估计混合模型参数的标准误

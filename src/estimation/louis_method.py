@@ -120,9 +120,9 @@ def louis_method_standard_errors_streaming(
     support_generator: Any,
     n_types: int,
     prov_to_idx: Dict[int, int],
-    max_omega_per_individual: int = 1000,  # 保持完整数量！
+    max_omega_per_individual: int = 100,  # 保持完整数量！
     use_simplified_omega: bool = True,
-    h_step: float = 1e-4
+    h_step: float = 1e-3
 ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
     """
     流式Louis方法 - 保持统计完整性的内存优化版本
@@ -192,7 +192,7 @@ def louis_method_standard_errors_streaming(
             for k in range(n_types):
                 weight = posterior_matrix[omega_idx, k]  # p(τ, ω | D_i)
                 
-                if weight < 1e-10:  # 忽略极小权重
+                if weight < 1e-6:  # 忽略极小权重
                     skipped_combinations += 1
                     continue
                 
@@ -285,7 +285,7 @@ def _louis_method_standard_errors_stratified_deprecated(
     prov_to_idx: Dict[int, int],
     max_omega_per_individual: int = 100,
     use_simplified_omega: bool = True,
-    h_step: float = 1e-4,
+    h_step: float = 1e-3,
     n_strata: int = 16,
     strata_size: int = 1000
 ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
@@ -581,9 +581,9 @@ def _louis_method_standard_errors_core(
     support_generator: Any, # DiscreteSupportGenerator
     n_types: int,
     prov_to_idx: Dict[int, int],
-    max_omega_per_individual: int = 1000,
+    max_omega_per_individual: int = 100,
     use_simplified_omega: bool = True,
-    h_step: float = 1e-4 # 数值微分步长
+    h_step: float = 1e-3 # 数值微分步长
 ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
     """
     使用Louis (1982)方法计算EM算法估计参数的标准误、t统计量和p值。
@@ -733,7 +733,7 @@ def _louis_method_standard_errors_core(
                 cumulative_weight += relative_weight
                 
                 # 如果累积权重已经达到99%，跳过剩余的低权重组合
-                if cumulative_weight > 0.99 and relative_weight < 0.01:
+                if cumulative_weight > 0.90 and relative_weight < 0.01:
                     skipped_combinations += 1
                     continue
 
@@ -874,9 +874,9 @@ def louis_method_standard_errors_safe(
     support_generator: Any,
     n_types: int,
     prov_to_idx: Dict[int, int],
-    max_omega_per_individual: int = 1000,
+    max_omega_per_individual: int = 100,
     use_simplified_omega: bool = True,
-    h_step: float = 1e-4,
+    h_step: float = 1e-3,
     force_standard_method: bool = False,  # 强制使用标准方法
     memory_safe_mode: bool = True,        # 内存安全模式
     large_sample_threshold: int = 1000,
@@ -998,9 +998,9 @@ def louis_method_standard_errors(
     support_generator: Any,
     n_types: int,
     prov_to_idx: Dict[int, int],
-    max_omega_per_individual: int = 1000,
+    max_omega_per_individual: int = 100,
     use_simplified_omega: bool = True,
-    h_step: float = 1e-4,
+    h_step: float = 1e-3,
     large_sample_threshold: int = 1000,
     use_stratified_sampling: bool = True,
     n_strata: int = 16,

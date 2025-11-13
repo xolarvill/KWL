@@ -415,6 +415,8 @@ def e_step_with_omega(
             
         except Exception as e:
             logger.error(f"并行处理失败，回退到串行模式: {e}")
+            import traceback
+            logger.error(f"详细错误信息: {traceback.format_exc()}")
             # 回退到串行处理
             parallel_config = ParallelConfig(n_jobs=1)
     
@@ -699,7 +701,9 @@ def m_step_with_omega(
     max_omega_per_individual: int = 1000,
     lbfgsb_maxiter: int = 15,
     bellman_cache: Dict = None,
-    parallel_config: Optional['ParallelConfig'] = None  # 新增并行配置参数
+    parallel_config: Optional['ParallelConfig'] = None,  # 新增并行配置参数
+    lbfgsb_gtol: float = None,  # 临时调整L-BFGS-B梯度容差
+    lbfgsb_ftol: float = None,  # 临时调整L-BFGS-B函数值容差
 ) -> Tuple[Dict[str, Any], np.ndarray]:
     """
     扩展的M-step：对ω进行加权求和来更新参数
@@ -1317,6 +1321,12 @@ def m_step_with_omega(
     logger.info(f"  Initial objective: {initial_neg_ll:.4f}")
     objective.call_count = 0  # 重置计数
 
+    # 使用传入的容差参数，如果没有提供则使用默认值
+    gtol = lbfgsb_gtol if lbfgsb_gtol is not None else 1e-5
+    ftol = lbfgsb_ftol if lbfgsb_ftol is not None else 1e-6
+    
+    logger.info(f"  L-BFGS-B convergence tolerances: gtol={gtol}, ftol={ftol}")
+
     try:
         result = minimize(
             objective.function,
@@ -1327,8 +1337,8 @@ def m_step_with_omega(
             options={
                 'disp': False,
                 'maxiter': lbfgsb_maxiter,
-                'gtol': 1e-5,
-                'ftol': 1e-6,
+                'gtol': gtol,
+                'ftol': ftol,
                 'eps': 1e-8,
             }
         )
@@ -1392,7 +1402,9 @@ def run_em_algorithm_with_omega(
     max_omega_per_individual: int = 1000,
     use_simplified_omega: bool = True,
     lbfgsb_maxiter: int = 15,
-    parallel_config: Optional['ParallelConfig'] = None  # 新增并行配置参数
+    parallel_config: Optional['ParallelConfig'] = None,  # 新增并行配置参数
+    lbfgsb_gtol: float = None,  # 临时调整L-BFGS-B梯度容差
+    lbfgsb_ftol: float = None,  # 临时调整L-BFGS-B函数值容差
 ) -> Dict[str, Any]:
     """
     EM-NFXP算法主循环（带离散支撑点ω）
@@ -1569,7 +1581,9 @@ def run_em_algorithm_with_omega(
             max_omega_per_individual=max_omega_per_individual,
             lbfgsb_maxiter=lbfgsb_maxiter,
             bellman_cache=bellman_cache,  # 传递E步的缓存给M步
-            parallel_config=parallel_config  # 传递并行配置给M步
+            parallel_config=parallel_config,  # 传递并行配置给M步
+            lbfgsb_gtol=lbfgsb_gtol,  # 临时收敛容差控制
+            lbfgsb_ftol=lbfgsb_ftol  # 临时收敛容差控制
         )
 
     # 汇总结果

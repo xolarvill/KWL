@@ -45,7 +45,11 @@ def run_estimation_workflow(
     enable_progress_tracking: bool = False, # 默认关闭智能进度跟踪
     auto_cleanup_progress: bool = False, # 完成后自动清理进度文件
     em_parallel_jobs: int = 1, # 新增EM算法并行任务数参数
-    em_parallel_backend: str = 'loky' # 新增EM算法并行后端参数
+    em_parallel_backend: str = 'loky', # 新增EM算法并行后端参数
+    lbfgsb_gtol: float = None, # 临时控制L-BFGS-B梯度容差（调试用）
+    lbfgsb_ftol: float = None, # 临时控制L-BFGS-B函数值容差（调试用）
+    lbfgsb_maxiter: int = None, # 临时控制L-BFGS-B最大迭代次数（调试用）
+    max_runtime_minutes: int = None # 最大运行时间限制（分钟），超时自动停止
 ):
     """
     封装了模型估计、推断和输出的完整工作流
@@ -60,6 +64,9 @@ def run_estimation_workflow(
         auto_cleanup_progress (bool): 完成后是否自动清理进度文件
         em_parallel_jobs (int): EM算法并行任务数，-1表示使用所有CPU核心，1表示禁用并行化（默认为1）
         em_parallel_backend (str): EM算法并行后端 ('loky', 'threading', 'multiprocessing')（默认为'loky'）
+        lbfgsb_gtol (float, optional): 临时调整L-BFGS-B梯度容差（如1e-4用于快速粗略估计，1e-5用于精确估计）
+        lbfgsb_ftol (float, optional): 临时调整L-BFGS-B函数值容差（如1e-5用于快速粗略估计，1e-6用于精确估计）
+        lbfgsb_maxiter (int, optional): 临时调整L-BFGS-B最大迭代次数（如10用于快速粗略估计，15用于精确估计）
     """
     
     if enable_progress_tracking:
@@ -71,17 +78,19 @@ def run_estimation_workflow(
         ) as tracker:
             _run_estimation_with_tracking(
                 tracker, sample_size, use_bootstrap, n_bootstrap, 
-                bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend
+                bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend,
+                lbfgsb_gtol, lbfgsb_ftol, lbfgsb_maxiter
             )
     else:
         # 传统模式，不使用进度跟踪
         _run_estimation_traditional(
             sample_size, use_bootstrap, n_bootstrap, 
-            bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend
+            bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend,
+            lbfgsb_gtol, lbfgsb_ftol, lbfgsb_maxiter
         )
 
 
-def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend):
+def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None):
     """使用进度跟踪的估计工作流"""
     
     # --- 1. 配置 ---
@@ -151,7 +160,10 @@ def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstr
             "n_choices": config.n_choices,
             "initial_params": initial_params,
             "initial_pi_k": data_driven_pi_k,
-            "prov_to_idx": data_loader.prov_to_idx  # 添加缺失的prov_to_idx参数
+            "prov_to_idx": data_loader.prov_to_idx,  # 添加缺失的prov_to_idx参数
+            "lbfgsb_gtol": lbfgsb_gtol,  # 临时收敛容差控制
+            "lbfgsb_ftol": lbfgsb_ftol,  # 临时收敛容差控制
+            "lbfgsb_maxiter": lbfgsb_maxiter  # 临时收敛容差控制
         }
 
         # 4. 根据配置选择EM算法
@@ -230,7 +242,7 @@ def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstr
                 support_generator=support_gen,
                 max_omega_per_individual=config.max_omega_per_individual,
                 use_simplified_omega=config.use_simplified_omega,
-                h_step=1e-5 # 使用更小的数值微分步长，提高精度并减少计算时间
+                h_step=1e-3 # 使用更小的数值微分步长，提高精度并减少计算时间
             )
             logger.info("Louis 方法标准误计算完成。" )
             
@@ -326,7 +338,7 @@ def _run_estimation_with_tracking(tracker, sample_size, use_bootstrap, n_bootstr
     )
 
 
-def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend):
+def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None):
     """传统的估计工作流（无进度跟踪）"""
     # --- 1. 配置 ---
     config = ModelConfig()
@@ -387,7 +399,10 @@ def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstr
         "n_choices": config.n_choices,
         "initial_params": initial_params,
         "initial_pi_k": data_driven_pi_k,
-        "prov_to_idx": data_loader.prov_to_idx  # 添加缺失的prov_to_idx参数
+        "prov_to_idx": data_loader.prov_to_idx,  # 添加缺失的prov_to_idx参数
+        "lbfgsb_gtol": lbfgsb_gtol,  # 临时收敛容差控制
+        "lbfgsb_ftol": lbfgsb_ftol,  # 临时收敛容差控制
+        "lbfgsb_maxiter": lbfgsb_maxiter  # 临时收敛容差控制
     }
 
     # 4. 根据配置选择EM算法
@@ -461,7 +476,7 @@ def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstr
             support_generator=support_gen,
             max_omega_per_individual=config.max_omega_per_individual,
             use_simplified_omega=config.use_simplified_omega,
-            h_step=1e-5 # 使用更小的数值微分步长，提高精度并减少计算时间
+            h_step=1e-3 # 使用更小的数值微分步长，提高精度并减少计算时间
         )
         logger.info("Louis 方法标准误计算完成。" )
         
@@ -565,6 +580,12 @@ def main():
     parser.add_argument('--em-parallel-backend', type=str, default='loky',
                         choices=['loky', 'threading', 'multiprocessing'],
                         help='EM算法并行后端 (默认为loky)')
+    parser.add_argument('--lbfgsb-gtol', type=float, default=None,
+                        help='临时调整L-BFGS-B梯度容差（如1e-4用于快速粗略估计，1e-5用于精确估计）')
+    parser.add_argument('--lbfgsb-ftol', type=float, default=None,
+                        help='临时调整L-BFGS-B函数值容差（如1e-5用于快速粗略估计，1e-6用于精确估计）')
+    parser.add_argument('--lbfgsb-maxiter', type=int, default=None,
+                        help='临时调整L-BFGS-B最大迭代次数（如10用于快速粗略估计，15用于精确估计）')
     parser.add_argument('--memory-safe', action='store_true', 
                         help='启用内存安全模式（大样本时自动启用）')
     parser.add_argument('--max-sample-size', type=int, default=None,
@@ -613,7 +634,10 @@ def main():
             enable_progress_tracking=args.enable_progress_tracking,  # 默认关闭，需要--enable-progress-tracking显式启用
             auto_cleanup_progress=args.auto_cleanup_progress,
             em_parallel_jobs=args.em_parallel_jobs,
-            em_parallel_backend=args.em_parallel_backend
+            em_parallel_backend=args.em_parallel_backend,
+            lbfgsb_gtol=args.lbfgsb_gtol,
+            lbfgsb_ftol=args.lbfgsb_ftol,
+            lbfgsb_maxiter=args.lbfgsb_maxiter
         )
         profiler.disable()
         stats = pstats.Stats(profiler).sort_stats('cumulative')
@@ -629,7 +653,10 @@ def main():
             enable_progress_tracking=args.enable_progress_tracking,  # 默认关闭，需要--enable-progress-tracking显式启用
             auto_cleanup_progress=args.auto_cleanup_progress,
             em_parallel_jobs=args.em_parallel_jobs,
-            em_parallel_backend=args.em_parallel_backend
+            em_parallel_backend=args.em_parallel_backend,
+            lbfgsb_gtol=args.lbfgsb_gtol,
+            lbfgsb_ftol=args.lbfgsb_ftol,
+            lbfgsb_maxiter=args.lbfgsb_maxiter
         )
 
 if __name__ == '__main__':
