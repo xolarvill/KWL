@@ -16,6 +16,7 @@ dependencies = [
     "numpy>=2.3.1",
     "openpyxl>=3.1.5",
     "pandas>=2.3.0",
+    "psutil>=6.1.0",
     "scikit-learn>=1.7.0",
     "scipy>=1.16.0",
     "seaborn>=0.13.0",

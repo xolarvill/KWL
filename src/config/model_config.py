@@ -116,6 +116,9 @@ class ModelConfig:
     fast_bootstrap_em_tol: float = 1e-2
     aggressive_bootstrap_em_tol: float = 1e-4
 
+    # 计算标准误的参数
+    hstep: float = 1e-3  # 1e-3是偏小的
+
     # ========================
     # 四、模型外生参数
     # ========================
