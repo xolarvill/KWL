@@ -64,7 +64,8 @@ class LightweightParallelConfig:
 
 def lightweight_parallel_processor(config_getter: Optional[Callable] = None,
                                  logger: Optional[logging.Logger] = None,
-                                 quiet_mode: bool = True):
+                                 quiet_mode: bool = True,
+                                 enable_memory_monitoring: bool = True):
     """
     轻量级个体处理并行化装饰器
     

@@ -36,7 +36,7 @@ from src.estimation.em_with_omega import run_em_algorithm_with_omega
 from src.utils.outreg2 import output_estimation_results, output_model_fit_results
 
 # 估计工作流
-def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None):
+def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, enable_progress_tracking=False, auto_cleanup_progress=False, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None):
     """传统的估计工作流（无进度跟踪）"""
     # --- 1. 配置 ---
     config = ModelConfig()

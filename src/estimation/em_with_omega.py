@@ -150,7 +150,8 @@ def e_step_with_omega(
     max_omega_per_individual: int = 1000,
     use_simplified_omega: bool = True,
     bellman_cache=None,  # 移除类型注解，支持多种缓存类型
-    parallel_config: Optional[ParallelConfig] = None  # 新增并行配置参数
+    parallel_config: Optional[ParallelConfig] = None,  # 新增并行配置参数
+    memory_safe_mode: bool = False  # 内存安全模式
 ) -> Tuple[Dict[Any, np.ndarray], np.ndarray]:
     """
     扩展的E-step：计算p(τ, ω_i | D_i)后验概率
@@ -411,7 +412,7 @@ def e_step_with_omega(
             batch_omega_dict = {ind_id: individual_omega_dict[ind_id] for ind_id in batch_individuals}
             
             # 创建批次数据包
-            from estimation.e_step_parallel_processor import create_parallel_processing_data, process_individual_with_data_package
+            from src.estimation.e_step_parallel_processor import create_parallel_processing_data, process_individual_with_data_package
             
             batch_data_package = create_parallel_processing_data(
                 individual_omega_dict=batch_omega_dict,
@@ -484,7 +485,7 @@ def e_step_with_omega(
         logger.info(f"  使用并行个体处理，{parallel_config.n_jobs} 个工作进程")
         
         # 创建并行处理数据包（v2.0轻量级版本，解决pickle问题）
-        from estimation.e_step_parallel_processor import create_parallel_processing_data, process_individual_with_data_package
+        from src.estimation.e_step_parallel_processor import create_parallel_processing_data, process_individual_with_data_package
         
         data_package = create_parallel_processing_data(
             individual_omega_dict=individual_omega_dict,
