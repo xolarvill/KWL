@@ -36,7 +36,7 @@ from src.estimation.em_with_omega import run_em_algorithm_with_omega
 from src.utils.outreg2 import output_estimation_results, output_model_fit_results
 
 # 估计工作流
-def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal"):
+def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None):
     """传统的估计工作流（无进度跟踪）"""
     # --- 1. 配置 ---
     config = ModelConfig()
@@ -49,7 +49,13 @@ def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_j
     df_individual, state_space, transition_matrices, df_region = \
         data_loader.create_estimation_dataset_and_state_space(simplified_state=True)
 
-    if sample_size:
+    # 样本大小限制（内存安全模式）
+    if max_sample_size and len(df_individual['individual_id'].unique()) > max_sample_size:
+        logger.info(f"\n--- 内存安全模式：限制样本大小为 {max_sample_size} 个个体 ---")
+        unique_ids = df_individual['individual_id'].unique()[:max_sample_size]
+        df_individual = df_individual[df_individual['individual_id'].isin(unique_ids)]
+        logger.info(f"样本数据量: {len(df_individual)} 条观测")
+    elif sample_size:
         logger.info(f"\n--- 调试模式：使用 {sample_size} 个个体的样本 ---")
         unique_ids = df_individual['individual_id'].unique()[:sample_size]
         df_individual = df_individual[df_individual['individual_id'].isin(unique_ids)]
@@ -362,7 +368,9 @@ def main():
             lbfgsb_gtol=args.lbfgsb_gtol,
             lbfgsb_ftol=args.lbfgsb_ftol,
             lbfgsb_maxiter=args.lbfgsb_maxiter,
-            strategy=args.strategy
+            strategy=args.strategy,
+            memory_safe_mode=args.memory_safe_mode or args.memory_safe,
+            max_sample_size=args.max_sample_size
         )
         profiler.disable()
         stats = pstats.Stats(profiler).sort_stats('cumulative')
@@ -382,7 +390,9 @@ def main():
             lbfgsb_gtol=args.lbfgsb_gtol,
             lbfgsb_ftol=args.lbfgsb_ftol,
             lbfgsb_maxiter=args.lbfgsb_maxiter,
-            strategy=args.strategy
+            strategy=args.strategy,
+            memory_safe_mode=args.memory_safe_mode or args.memory_safe,
+            max_sample_size=args.max_sample_size
         )
 
 if __name__ == '__main__':

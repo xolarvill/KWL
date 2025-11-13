@@ -15,6 +15,7 @@ from .lightweight_parallel_logging import (
     SimpleParallelLogger, WorkerLogData, 
     create_safe_worker_logger, log_worker_progress
 )
+from .memory_monitor import MemoryMonitor, log_memory_usage
 
 logger = logging.getLogger(__name__)
 
@@ -101,13 +102,40 @@ def lightweight_parallel_processor(config_getter: Optional[Callable] = None,
             total_individuals = len(individual_list)
             current_logger.info(f"处理 {total_individuals} 个个体，配置: n_jobs={config.n_jobs}")
             
-            # 检查内存使用情况
+            # 内存监控
+            memory_monitor = None
+            if enable_memory_monitoring:
+                memory_monitor = MemoryMonitor()
+                memory_monitor.start_monitoring(interval=10.0)  # 每10秒检查一次
+                log_memory_usage("并行处理开始前")
+            
             try:
-                memory_info = check_memory_usage()
-                current_logger.info(f"当前内存使用: 进程内存={memory_info['process_memory_mb']:.1f}MB, "
-                                  f"系统内存={memory_info['system_memory_percent']:.1f}%")
-            except Exception as e:
-                current_logger.debug(f"无法获取内存信息: {e}")
+                # 并行处理 - 子进程只返回简单数据
+                results_with_logs = Parallel(
+                    n_jobs=config.n_jobs,
+                    backend=config.backend,
+                    batch_size=config.batch_size,
+                    verbose=0,  # 禁用joblib日志
+                    max_nbytes=50*1024*1024,  # 限制在worker之间传输的数据大小为50MB（减少内存使用）
+                    mmap_mode='r',  # 使用内存映射模式读取数据
+                    timeout=None,  # 不设置超时限制
+                    temp_folder=None  # 使用系统默认临时文件夹
+                )(
+                    delayed(_safe_worker_function)(func, individual_id, *args, **kwargs)
+                    for individual_id in individual_list
+                )
+                
+                # 记录处理后的内存使用情况
+                if enable_memory_monitoring:
+                    log_memory_usage("并行处理完成后")
+                    memory_info = memory_monitor.get_memory_info()
+                    current_logger.info(f"内存使用峰值: 系统内存={memory_info['peak_memory_percent']:.1f}%, "
+                                      f"进程内存={memory_info['peak_process_memory_mb']:.1f}MB")
+                
+            finally:
+                # 停止内存监控
+                if memory_monitor:
+                    memory_monitor.stop_monitoring()
             
             if not config.is_parallel_enabled():
                 # 串行处理
@@ -128,9 +156,10 @@ def lightweight_parallel_processor(config_getter: Optional[Callable] = None,
                         backend=config.backend,
                         batch_size=config.batch_size,
                         verbose=0,  # 禁用joblib日志
-                        max_nbytes=100*1024*1024,  # 限制在worker之间传输的数据大小为100MB
+                        max_nbytes=50*1024*1024,  # 限制在worker之间传输的数据大小为50MB（减少内存使用）
                         mmap_mode='r',  # 使用内存映射模式读取数据
-                        timeout=None  # 不设置超时限制
+                        timeout=None,  # 不设置超时限制
+                        temp_folder=None  # 使用系统默认临时文件夹
                     )(
                         delayed(_safe_worker_function)(func, individual_id, *args, **kwargs)
                         for individual_id in individual_list

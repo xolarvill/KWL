@@ -11,6 +11,7 @@ import logging
 import time
 import os
 from joblib import Parallel, delayed
+from src.utils.memory_monitor import MemoryMonitor, create_memory_safe_config, log_memory_usage
 
 from src.model.discrete_support import (
     DiscreteSupportGenerator,
@@ -202,10 +203,27 @@ def e_step_with_omega(
     
     logger.info(f"  [E-step with ω] Parallel configuration: {parallel_config}")
     
-    # 如果个体数量很大，自动调整并行工作进程数以避免内存问题
-    if parallel_config.is_parallel_enabled() and N > 10000:
+    # 记录初始内存使用情况
+    log_memory_usage("E-step开始")
+    
+    # 内存安全模式：使用智能内存监控
+    if memory_safe_mode and parallel_config.is_parallel_enabled():
+        memory_config = create_memory_safe_config(parallel_config, N, memory_safe_mode=True)
+        if memory_config:
+            # 调整并行参数
+            if memory_config['n_jobs'] < parallel_config.n_jobs:
+                logger.info(f"  [E-step with ω] 内存安全模式：将工作进程数从 {parallel_config.n_jobs} 调整为 {memory_config['n_jobs']}")
+                parallel_config.n_jobs = memory_config['n_jobs']
+            
+            # 调整缓存大小
+            if hasattr(bellman_cache, 'memory_limit_mb') and bellman_cache.memory_limit_mb > memory_config.get('memory_limit_mb', 1000):
+                old_limit = bellman_cache.memory_limit_mb
+                bellman_cache.memory_limit_mb = memory_config['memory_limit_mb']
+                logger.info(f"  [E-step with ω] 内存安全模式：调整缓存内存限制从 {old_limit}MB 到 {bellman_cache.memory_limit_mb}MB")
+    
+    # 原有的内存保护逻辑（非内存安全模式）
+    elif parallel_config.is_parallel_enabled() and N > 10000:
         original_n_jobs = parallel_config.n_jobs
-        # 根据个体数量动态调整工作进程数
         suggested_n_jobs = max(1, min(parallel_config.n_jobs, os.cpu_count(), N // 1000))
         if suggested_n_jobs < original_n_jobs:
             logger.info(f"  [E-step with ω] 为避免内存问题，将工作进程数从 {original_n_jobs} 调整为 {suggested_n_jobs}")
@@ -354,9 +372,27 @@ def e_step_with_omega(
             return individual_id, np.array([]), np.full(K, -1e6)
 
     # 根据配置选择处理方式
-    # 如果个体数量过多，使用分批处理以避免内存问题
-    BATCH_SIZE = 5000  # 每批处理的个体数量
+    # 内存安全模式：动态调整批次大小
+    if memory_safe_mode:
+        import psutil
+        available_memory_gb = psutil.virtual_memory().available / (1024**3)
+        
+        if available_memory_gb < 8:
+            BATCH_SIZE = 1000
+        elif available_memory_gb < 16:
+            BATCH_SIZE = 2000
+        else:
+            BATCH_SIZE = 3000
+        
+        # 大样本时进一步减小批次
+        if N > 20000:
+            BATCH_SIZE = min(BATCH_SIZE, 1500)
+        
+        logger.info(f"  内存安全模式：批次大小调整为 {BATCH_SIZE}")
+    else:
+        BATCH_SIZE = 5000  # 默认批次大小
     
+    # 使用分批处理避免内存问题
     if parallel_config.is_parallel_enabled() and N > BATCH_SIZE:
         logger.info(f"  使用分批并行处理，{parallel_config.n_jobs} 个工作进程，每批 {BATCH_SIZE} 个个体")
         
@@ -397,7 +433,8 @@ def e_step_with_omega(
                 return create_simple_parallel_config(n_jobs=parallel_config.n_jobs)
                 
             from src.utils.lightweight_parallel_wrapper import lightweight_parallel_processor
-            @lightweight_parallel_processor(config_getter=get_parallel_config, quiet_mode=True)
+            @lightweight_parallel_processor(config_getter=get_parallel_config, quiet_mode=True, 
+                                          enable_memory_monitoring=memory_safe_mode)
             def process_batch_individuals(batch_individual_ids):
                 results = []
                 for ind_id in batch_individual_ids:
@@ -473,7 +510,8 @@ def e_step_with_omega(
         def get_parallel_config():
             return parallel_config_wrapper
             
-        @lightweight_parallel_processor(config_getter=get_parallel_config, quiet_mode=True)
+        @lightweight_parallel_processor(config_getter=get_parallel_config, quiet_mode=True,
+                                      enable_memory_monitoring=memory_safe_mode)
         def process_individuals_batch(individual_ids):
             """批量处理个体的包装函数"""
             results = []
@@ -1464,6 +1502,7 @@ def run_em_algorithm_with_omega(
     parallel_config: Optional['ParallelConfig'] = None,  # 新增并行配置参数
     lbfgsb_gtol: float = None,  # 临时调整L-BFGS-B梯度容差
     lbfgsb_ftol: float = None,  # 临时调整L-BFGS-B函数值容差
+    memory_safe_mode: bool = False,  # 内存安全模式
 ) -> Dict[str, Any]:
     """
     EM-NFXP算法主循环（带离散支撑点ω）
@@ -1583,7 +1622,8 @@ def run_em_algorithm_with_omega(
             prov_to_idx=prov_to_idx,
             max_omega_per_individual=max_omega_per_individual,
             use_simplified_omega=use_simplified_omega,
-            parallel_config=parallel_config  # 传递并行配置
+            parallel_config=parallel_config,  # 传递并行配置
+            memory_safe_mode=memory_safe_mode  # 传递内存安全模式
         )
 
         # 计算当前对数似然
