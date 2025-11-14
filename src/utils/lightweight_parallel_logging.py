@@ -42,9 +42,10 @@ class SimpleParallelLogger:
     3. 使用可pickle的简单数据结构
     """
     
-    def __init__(self, main_logger: logging.Logger, quiet_mode: bool = True):
+    def __init__(self, main_logger: logging.Logger, quiet_mode: bool = True, disable_stats_output: bool = False):
         self.main_logger = main_logger
         self.quiet_mode = quiet_mode
+        self.disable_stats_output = disable_stats_output
         self.start_time = None
         self.total_items = 0
         self.worker_data = {}  # worker_id -> WorkerLogData
@@ -109,6 +110,10 @@ class SimpleParallelLogger:
         """完成处理，输出最终统计"""
         self._output_progress(force=True)
         
+        # 【修复】如果禁用统计输出，直接返回，避免与E-step/M-step统计重复
+        if self.disable_stats_output:
+            return
+            
         # 聚合统计
         total_processed = sum(data.processed_count for data in self.worker_data.values())
         total_errors = sum(data.error_count for data in self.worker_data.values())

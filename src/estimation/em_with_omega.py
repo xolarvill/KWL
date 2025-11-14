@@ -512,7 +512,8 @@ def e_step_with_omega(
             return parallel_config_wrapper
             
         @lightweight_parallel_processor(config_getter=get_parallel_config, quiet_mode=True,
-                                      enable_memory_monitoring=memory_safe_mode)
+                                      enable_memory_monitoring=memory_safe_mode, 
+                                      disable_stats_output=True)  # 【修复】禁用统计输出，避免与E-step统计重复
         def process_individuals_batch(individual_ids):
             """批量处理个体的包装函数"""
             results = []

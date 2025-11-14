@@ -65,7 +65,8 @@ class LightweightParallelConfig:
 def lightweight_parallel_processor(config_getter: Optional[Callable] = None,
                                  logger: Optional[logging.Logger] = None,
                                  quiet_mode: bool = True,
-                                 enable_memory_monitoring: bool = True):
+                                 enable_memory_monitoring: bool = True,
+                                 disable_stats_output: bool = False):
     """
     轻量级个体处理并行化装饰器
     
@@ -78,6 +79,8 @@ def lightweight_parallel_processor(config_getter: Optional[Callable] = None,
         config_getter: 获取并行配置的函数
         logger: 主进程日志记录器
         quiet_mode: 是否使用安静模式
+        enable_memory_monitoring: 是否启用内存监控
+        disable_stats_output: 是否禁用统计输出（用于E-step/M-step避免重复统计）
     """
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
@@ -148,7 +151,8 @@ def lightweight_parallel_processor(config_getter: Optional[Callable] = None,
                 current_logger.info(f"使用并行处理模式，{config.n_jobs} 个工作进程")
                 
                 # 创建日志管理器（主进程专用）
-                parallel_logger = SimpleParallelLogger(current_logger, quiet_mode=quiet_mode)
+                parallel_logger = SimpleParallelLogger(current_logger, quiet_mode=quiet_mode, 
+                                                      disable_stats_output=disable_stats_output)
                 parallel_logger.start_processing(total_individuals)
                 
                 try:
@@ -188,9 +192,9 @@ def lightweight_parallel_processor(config_getter: Optional[Callable] = None,
                     # 完成处理
                     parallel_logger.finish_processing()
                     
-                    # 记录总体统计
-                    elapsed_time = time.time() - parallel_logger.start_time
-                    if elapsed_time > 0:
+                    # 【修复】仅在quiet_mode=False时输出总体统计，避免与E-step/M-step统计重复
+                    if not quiet_mode and elapsed_time > 0:
+                        elapsed_time = time.time() - parallel_logger.start_time
                         rate = total_individuals / elapsed_time
                         current_logger.info(f"处理完成: {total_individuals} 个体, "
                                           f"耗时: {elapsed_time:.2f}s, 速度: {rate:.2f} 个体/秒")

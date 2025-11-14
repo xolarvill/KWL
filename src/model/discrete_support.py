@@ -255,8 +255,19 @@ class SimplifiedOmegaEnumerator:
         if total_combinations <= max_combinations:
             return self._enumerate_exact(visited_regions)
         else:
-            self.logger.warning(f"Too many combinations ({total_combinations}), "
-                               f"using Monte Carlo sampling with {max_combinations} draws")
+            # 【优化】减少刷屏：只在首次或每100次个体时输出警告
+            if not hasattr(self, '_mc_warning_count'):
+                self._mc_warning_count = 0
+            self._mc_warning_count += 1
+            
+            if self._mc_warning_count <= 5 or self._mc_warning_count % 100 == 0:
+                self.logger.warning(f"Too many combinations ({total_combinations}), "
+                                   f"using Monte Carlo sampling with {max_combinations} draws "
+                                   f"(个体 #{self._mc_warning_count})")
+            else:
+                # 其余情况只记录debug日志
+                self.logger.debug(f"Monte Carlo sampling for individual #{self._mc_warning_count}")
+            
             return self._enumerate_monte_carlo(visited_regions, max_combinations)
 
     def _enumerate_exact(
