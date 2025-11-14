@@ -222,14 +222,6 @@ def e_step_with_omega(
                 bellman_cache.memory_limit_mb = memory_config['memory_limit_mb']
                 logger.info(f"  [E-step with ω] 内存安全模式：调整缓存内存限制从 {old_limit}MB 到 {bellman_cache.memory_limit_mb}MB")
     
-    # 原有的内存保护逻辑（非内存安全模式）
-    elif parallel_config.is_parallel_enabled() and N > 10000:
-        original_n_jobs = parallel_config.n_jobs
-        suggested_n_jobs = max(1, min(parallel_config.n_jobs, os.cpu_count(), N // 1000))
-        if suggested_n_jobs < original_n_jobs:
-            logger.info(f"  [E-step with ω] 为避免内存问题，将工作进程数从 {original_n_jobs} 调整为 {suggested_n_jobs}")
-            parallel_config.n_jobs = suggested_n_jobs
-    
     # 初始化缓存 - 使用增强版缓存系统（大幅提升容量和智能性）
     if bellman_cache is None:
         # 创建增强版缓存实例，容量从500提升到2000
