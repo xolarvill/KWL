@@ -268,6 +268,7 @@ def e_step_with_omega(
     individual_posteriors = {}
     log_likelihood_matrix = np.zeros((N, K))
 
+    # 初始化枚举器
     enumerator = SimplifiedOmegaEnumerator(support_generator) if use_simplified_omega else None
 
     # **性能优化**: 并行枚举ω

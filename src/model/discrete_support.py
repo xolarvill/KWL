@@ -13,6 +13,11 @@ from typing import Dict, List, Tuple, Any, Optional
 from itertools import product
 import logging
 
+# 【根治刷屏】模块级标志：确保整个运行期间只显示一次警告
+_global_mc_warning_shown = False
+_global_mc_count = 0
+_global_total_individuals = 0
+
 
 class DiscreteSupportGenerator:
     """
@@ -201,7 +206,7 @@ class SimplifiedOmegaEnumerator:
     3. 使用个体的历史轨迹信息来减少枚举空间
     """
 
-    def __init__(self, support_generator: DiscreteSupportGenerator):
+    def __init__(self, support_generator: DiscreteSupportGenerator, verbose: bool = False):
         """
         初始化枚举器
 
@@ -209,9 +214,12 @@ class SimplifiedOmegaEnumerator:
         ----
         support_generator : DiscreteSupportGenerator
             支撑点生成器实例
+        verbose : bool
+            是否输出详细日志（默认False以减少刷屏）
         """
         self.gen = support_generator
         self.logger = logging.getLogger()
+        self.verbose = verbose
 
     def enumerate_omega_for_individual(
         self,
@@ -255,18 +263,21 @@ class SimplifiedOmegaEnumerator:
         if total_combinations <= max_combinations:
             return self._enumerate_exact(visited_regions)
         else:
-            # 【优化】减少刷屏：只在首次或每100次个体时输出警告
-            if not hasattr(self, '_mc_warning_count'):
-                self._mc_warning_count = 0
-            self._mc_warning_count += 1
+            # 【绝对根治】使用模块级变量，确保整个脚本运行期间只显示一次
+            global _global_mc_warning_shown, _global_mc_count, _global_total_individuals
             
-            if self._mc_warning_count <= 5 or self._mc_warning_count % 100 == 0:
+            # 更新模块级统计
+            _global_mc_count += 1
+            _global_total_individuals += 1
+            
+            # 只在第一次显示警告
+            if not _global_mc_warning_shown:
                 self.logger.warning(f"Too many combinations ({total_combinations}), "
-                                   f"using Monte Carlo sampling with {max_combinations} draws "
-                                   f"(个体 #{self._mc_warning_count})")
+                                   f"using Monte Carlo sampling with {max_combinations} draws")
+                _global_mc_warning_shown = True
             else:
-                # 其余情况只记录debug日志
-                self.logger.debug(f"Monte Carlo sampling for individual #{self._mc_warning_count}")
+                # 其余情况只记录debug日志，不显示任何信息
+                self.logger.debug(f"Monte Carlo sampling for individual with {n_visited} regions")
             
             return self._enumerate_monte_carlo(visited_regions, max_combinations)
 
@@ -397,7 +408,8 @@ def enumerate_omega_for_all_individuals(
     observed_data: pd.DataFrame,
     support_generator: DiscreteSupportGenerator,
     individual_id_col: str = 'IID',
-    max_combinations_per_individual: int = 5000
+    max_combinations_per_individual: int = 5000,
+    verbose: bool = False
 ) -> Dict[Any, Tuple[List[Dict], np.ndarray]]:
     """
     为所有个体生成ω枚举
@@ -412,6 +424,8 @@ def enumerate_omega_for_all_individuals(
         个体ID列名
     max_combinations_per_individual : int
         每个个体的最大组合数
+    verbose : bool
+        是否输出详细日志
 
     返回:
     ----
@@ -419,16 +433,17 @@ def enumerate_omega_for_all_individuals(
         键为个体ID，值为该个体的ω组合列表和概率
     """
     logger = logging.getLogger()
-    enumerator = SimplifiedOmegaEnumerator(support_generator)
+    enumerator = SimplifiedOmegaEnumerator(support_generator, verbose=verbose)
 
     omega_dict = {}
     unique_individuals = observed_data[individual_id_col].unique()
+    total_individuals = len(unique_individuals)
 
-    logger.info(f"Enumerating omega for {len(unique_individuals)} individuals...")
+    logger.info(f"Enumerating omega for {total_individuals} individuals...")
 
     for i, individual_id in enumerate(unique_individuals):
         if i % 100 == 0:
-            logger.info(f"  Processing individual {i+1}/{len(unique_individuals)}")
+            logger.info(f"  Processing individual {i+1}/{total_individuals}")
 
         # 提取该个体的所有观测
         individual_data = observed_data[observed_data[individual_id_col] == individual_id]
@@ -440,7 +455,5 @@ def enumerate_omega_for_all_individuals(
         )
 
         omega_dict[individual_id] = (omega_list, omega_probs)
-
-    logger.info(f"Omega enumeration completed for all individuals.")
 
     return omega_dict

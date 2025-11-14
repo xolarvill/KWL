@@ -50,11 +50,20 @@ class LightweightParallelConfig:
     def _validate_n_jobs(self, n_jobs: int) -> int:
         """验证并标准化n_jobs参数"""
         import os
+        import psutil  # 【新增】用于更准确的CPU核心检测
+        
+        # 【修复】使用psutil获取更准确的CPU核心数
+        cpu_count = psutil.cpu_count(logical=True) or os.cpu_count() or 4
+        
         if n_jobs == -1:
-            return os.cpu_count() or 4
+            # 使用所有可用核心（逻辑核心）
+            return cpu_count
         elif n_jobs < -1:
-            return max(1, (os.cpu_count() or 4) + n_jobs + 1)
+            # 负值表示使用cpu_count + n_jobs + 1
+            return max(1, cpu_count + n_jobs + 1)
         else:
+            # 【重要】用户明确指定n_jobs时，直接使用，不受cpu_count限制
+            # 这允许在超线程系统上使用更多逻辑核心
             return max(1, n_jobs)
     
     def is_parallel_enabled(self) -> bool:
