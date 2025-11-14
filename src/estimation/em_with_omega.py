@@ -930,41 +930,12 @@ def m_step_with_omega(
             # 解包参数
             params = _unpack_params(param_values, param_names, initial_params['n_choices'])
             
-            # 创建共享缓存以支持多进程访问
-            # 使用字典来存储缓存数据，以便在进程间共享
-            import multiprocessing as mp
-            try:
-                manager = mp.Manager()
-                shared_cache_dict = manager.dict()
-                
-                # 将当前缓存数据复制到共享字典中（如果缓存中有数据）
-                if hasattr(self.bellman_cache, 'l1_cache') and hasattr(self.bellman_cache.l1_cache, 'cache'):
-                    # 增强版缓存
-                    for key, value in self.bellman_cache.l1_cache.cache.items():
-                        # 将键值转换为可序列化的格式
-                        try:
-                            import pickle
-                            serialized_key = pickle.dumps(key)
-                            serialized_value = pickle.dumps(value)
-                            shared_cache_dict[serialized_key] = serialized_value
-                        except Exception:
-                            # 如果无法序列化，跳过该项
-                            pass
-                elif isinstance(self.bellman_cache, dict):
-                    # 普通字典缓存
-                    for key, value in self.bellman_cache.items():
-                        try:
-                            import pickle
-                            serialized_key = pickle.dumps(key)
-                            serialized_value = pickle.dumps(value)
-                            shared_cache_dict[serialized_key] = serialized_value
-                        except Exception:
-                            pass
-            except Exception as e:
-                logger.warning(f"{log_msg_header} 创建共享缓存失败，将使用独立缓存: {e}")
-                shared_cache_dict = None
+            # 【Windows修复】使用threading后端，所有worker在同一个进程内，直接共享bellman_cache
+            # 不需要multiprocessing.Manager，避免死锁同时保留缓存加速
+            backend = 'threading'  # 强制使用threading后端
+            logger.info(f"{log_msg_header} 【Windows兼容性】使用'{backend}'后端，worker共享主进程缓存（避免死锁+保留加速）")
             
-            # 创建数据包供worker使用
+            # 创建数据包供worker使用 - 传递bellman_cache供共享
             data_package = {
                 'params': params,
                 'observed_data': observed_data,
@@ -976,8 +947,8 @@ def m_step_with_omega(
                 'distance_matrix': distance_matrix,
                 'adjacency_matrix': adjacency_matrix,
                 'prov_to_idx': prov_to_idx,
-                'bellman_cache': self.bellman_cache,  # 主进程缓存（用于类型检查）
-                'shared_cache_dict': shared_cache_dict  # 共享缓存字典
+                'bellman_cache': self.bellman_cache,  # 【关键】传递主进程缓存对象供共享
+                'shared_cache_dict': None  # 不使用multiprocessing共享字典
             }
             
             # 使用joblib进行并行处理
@@ -985,11 +956,12 @@ def m_step_with_omega(
             
             logger.info(f"{log_msg_header} Starting parallel processing with {self.parallel_config.n_jobs} jobs...")
             
-            # 并行调用worker函数
+            # 并行调用worker函数 - 使用threading后端实现缓存共享
             worker_results = Parallel(
                 n_jobs=self.parallel_config.n_jobs,
                 verbose=0,
-                backend='threading' if self.parallel_config.n_jobs == 1 else 'loky'
+                backend=backend,  # threading后端：所有worker在同一个进程，共享bellman_cache
+                timeout=3600  # 【新增】设置1小时超时防止死锁
             )(
                 delayed(_m_step_objective_worker)(
                     individual_id,

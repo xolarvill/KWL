@@ -6,10 +6,12 @@
 2. 正确使用缓存键（包含individual_id）
 3. 正确使用缓存属性遍历
 4. 保持向后兼容性
+5. 【新增】线程安全支持（Windows threading后端需要）
 """
 
 import numpy as np
 import logging
+import threading
 from typing import Dict, Any, Optional, Tuple
 from collections import defaultdict
 from src.model.likelihood import LRUCache
@@ -159,88 +161,97 @@ class EnhancedBellmanCache:
             'total_requests': 0
         }
         
+        # 【新增】线程锁，确保多线程安全（Windows threading后端需要）
+        self._lock = threading.RLock()  # 使用可重入锁
+        
         # 只在主进程初始化时记录日志，避免并行处理时日志刷屏
         # 使用环境变量来控制是否输出日志
         import os
         if os.environ.get('CACHE_QUIET_MODE', '').lower() != 'true':
-            logger.info(f"增强缓存系统初始化: L1容量={capacity}, L2容量={self.l2_capacity}, 内存限制={memory_limit_mb}MB")
+            logger.info(f"增强缓存系统初始化: L1容量={capacity}, L2容量={self.l2_capacity}, 内存限制={memory_limit_mb}MB, 线程安全=启用")
     
     def get(self, individual_id: str, params: Dict[str, Any], 
             agent_type: int, solution_shape: Tuple[int, int]) -> Optional[np.ndarray]:
-        """获取缓存解 - 三层查询策略"""
+        """获取缓存解 - 三层查询策略（线程安全）"""
         
-        self.stats['total_requests'] += 1
-        
-        # 第1层：精确匹配（智能键）
-        smart_key = self.key_generator.create_key(individual_id, params, agent_type)
-        result = self.l1_cache.get(smart_key)
-        
-        if result is not None:
-            self.stats['l1_hits'] += 1
-            logger.debug(f"L1缓存命中: {individual_id}, 类型={agent_type}")
-            return result
-        
-        self.stats['l1_misses'] += 1
-        
-        # 第2层：相似性匹配（吸取之前的教训 - 正确使用缓存属性）
-        if self.l2_cache:
-            result = self.similarity_matcher.find_similar_solution(
-                params, self.l2_cache, solution_shape
-            )
+        # 【线程安全】获取锁
+        with self._lock:
+            self.stats['total_requests'] += 1
+            
+            # 第1层：精确匹配（智能键）
+            smart_key = self.key_generator.create_key(individual_id, params, agent_type)
+            result = self.l1_cache.get(smart_key)
             
             if result is not None:
-                self.stats['l2_hits'] += 1
-                self.stats['similarity_hits'] += 1
-                logger.debug(f"L2相似性命中: {individual_id}, 类型={agent_type}")
-                
-                # 升级到L1缓存
-                self.l1_cache.put(smart_key, result)
+                self.stats['l1_hits'] += 1
+                logger.debug(f"L1缓存命中: {individual_id}, 类型={agent_type}")
                 return result
-        
-        self.stats['l2_misses'] += 1
-        logger.debug(f"缓存未命中: {individual_id}, 类型={agent_type}")
-        return None
+            
+            self.stats['l1_misses'] += 1
+            
+            # 第2层：相似性匹配（吸取之前的教训 - 正确使用缓存属性）
+            if self.l2_cache:
+                result = self.similarity_matcher.find_similar_solution(
+                    params, self.l2_cache, solution_shape
+                )
+                
+                if result is not None:
+                    self.stats['l2_hits'] += 1
+                    self.stats['similarity_hits'] += 1
+                    logger.debug(f"L2相似性命中: {individual_id}, 类型={agent_type}")
+                    
+                    # 升级到L1缓存
+                    self.l1_cache.put(smart_key, result)
+                    return result
+            
+            self.stats['l2_misses'] += 1
+            logger.debug(f"缓存未命中: {individual_id}, 类型={agent_type}")
+            return None
     
     def put(self, individual_id: str, params: Dict[str, Any], 
             agent_type: int, solution: np.ndarray) -> None:
-        """存储解到缓存"""
+        """存储解到缓存（线程安全）"""
         
-        # 存储到L1（精确缓存）
-        smart_key = self.key_generator.create_key(individual_id, params, agent_type)
-        self.l1_cache.put(smart_key, solution)
-        
-        # 存储到L2（相似性缓存）- 控制数量避免内存溢出
-        if len(self.l2_cache) < self.l2_capacity:
-            self.l2_cache[smart_key] = (params.copy(), solution.copy())
-        else:
-            # LRU策略：移除最旧的（简单实现）
-            oldest_key = next(iter(self.l2_cache.keys()))
-            del self.l2_cache[oldest_key]
-            self.l2_cache[smart_key] = (params.copy(), solution.copy())
+        # 【线程安全】获取锁
+        with self._lock:
+            # 存储到L1（精确缓存）
+            smart_key = self.key_generator.create_key(individual_id, params, agent_type)
+            self.l1_cache.put(smart_key, solution)
+            
+            # 存储到L2（相似性缓存）- 控制数量避免内存溢出
+            if len(self.l2_cache) < self.l2_capacity:
+                self.l2_cache[smart_key] = (params.copy(), solution.copy())
+            else:
+                # LRU策略：移除最旧的（简单实现）
+                oldest_key = next(iter(self.l2_cache.keys()))
+                del self.l2_cache[oldest_key]
+                self.l2_cache[smart_key] = (params.copy(), solution.copy())
     
     def get_stats(self) -> Dict[str, Any]:
-        """获取详细的缓存统计"""
-        total = self.stats['total_requests']
-        l1_total = self.stats['l1_hits'] + self.stats['l1_misses']
-        l2_total = self.stats['l2_hits'] + self.stats['l2_misses']
-        
-        l1_hit_rate = self.stats['l1_hits'] / l1_total if l1_total > 0 else 0
-        l2_hit_rate = self.stats['l2_hits'] / l2_total if l2_total > 0 else 0
-        total_hit_rate = (self.stats['l1_hits'] + self.stats['l2_hits']) / total if total > 0 else 0
-        
-        # 获取L1缓存的详细统计
-        l1_stats = self.l1_cache.get_stats() if hasattr(self.l1_cache, 'get_stats') else {}
-        
-        return {
-            'total_requests': total,
-            'l1_hit_rate': l1_hit_rate,
-            'l2_hit_rate': l2_hit_rate,
-            'total_hit_rate': total_hit_rate,
-            'similarity_hits': self.stats['similarity_hits'],
-            'l1_stats': l1_stats,
-            'l2_cache_size': len(self.l2_cache),
-            'l2_capacity': self.l2_capacity
-        }
+        """获取详细的缓存统计（线程安全）"""
+        # 【线程安全】获取锁
+        with self._lock:
+            total = self.stats['total_requests']
+            l1_total = self.stats['l1_hits'] + self.stats['l1_misses']
+            l2_total = self.stats['l2_hits'] + self.stats['l2_misses']
+            
+            l1_hit_rate = self.stats['l1_hits'] / l1_total if l1_total > 0 else 0
+            l2_hit_rate = self.stats['l2_hits'] / l2_total if l2_total > 0 else 0
+            total_hit_rate = (self.stats['l1_hits'] + self.stats['l2_hits']) / total if total > 0 else 0
+            
+            # 获取L1缓存的详细统计
+            l1_stats = self.l1_cache.get_stats() if hasattr(self.l1_cache, 'get_stats') else {}
+            
+            return {
+                'total_requests': total,
+                'l1_hit_rate': l1_hit_rate,
+                'l2_hit_rate': l2_hit_rate,
+                'total_hit_rate': total_hit_rate,
+                'similarity_hits': self.stats['similarity_hits'],
+                'l1_stats': l1_stats,
+                'l2_cache_size': len(self.l2_cache),
+                'l2_capacity': self.l2_capacity
+            }
     
     def clear_stats(self) -> None:
         """清除统计信息"""

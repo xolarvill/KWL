@@ -66,9 +66,9 @@ class MemoryMonitor:
                 
                 # 检查阈值
                 if current_percent > self.critical_threshold:
-                    logger.warning(f"严重内存警告：系统内存使用率达到 {current_percent:.1%}!")
+                    logger.warning(f"严重内存警告：系统内存使用率达到 {current_percent:.1f}%!")
                 elif current_percent > self.warning_threshold:
-                    logger.info(f"内存使用警告：系统内存使用率达到 {current_percent:.1%}")
+                    logger.info(f"内存使用警告：系统内存使用率达到 {current_percent:.1f}%")
                 
                 time.sleep(interval)
                 

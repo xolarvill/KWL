@@ -5,6 +5,7 @@ This version is refactored for performance, decoupling Bellman solution from lik
 import logging
 import numpy as np
 import pandas as pd
+import threading
 from typing import Dict, Any, Callable, Tuple, Optional
 from numba import jit, float64, int64, prange
 
@@ -41,6 +42,9 @@ class LRUCache:
         self.miss_count = 0
         self.eviction_count = 0
         self.logger = logging.getLogger(__name__)
+        
+        # 【新增】线程锁，确保多线程安全（Windows threading后端需要）
+        self._lock = threading.RLock()  # 使用可重入锁
 
     def _estimate_memory_usage(self, key, value) -> int:
         """估算键值对的内存使用"""
@@ -63,46 +67,51 @@ class LRUCache:
         return key_memory + value_memory
 
     def get(self, key):
-        self.access_count += 1
-        if key not in self.cache:
-            self.miss_count += 1
-            return None
-        
-        # 移动到末尾（LRU）并更新频率
-        self.cache.move_to_end(key)
-        self.frequency[key] = self.frequency.get(key, 0) + 1
-        self.hit_count += 1
-        return self.cache[key]
+        # 【线程安全】获取锁
+        with self._lock:
+            self.access_count += 1
+            if key not in self.cache:
+                self.miss_count += 1
+                return None
+            
+            # 移动到末尾（LRU）并更新频率
+            self.cache.move_to_end(key)
+            self.frequency[key] = self.frequency.get(key, 0) + 1
+            self.hit_count += 1
+            return self.cache[key]
 
     def put(self, key, value):
-        # 估算新条目的内存使用
-        new_memory = self._estimate_memory_usage(key, value)
-        
-        # 如果键已存在，先删除旧的
-        if key in self.cache:
-            old_value = self.cache.pop(key)
-            old_memory = self._estimate_memory_usage(key, old_value)
-            self.current_memory_bytes -= old_memory
-            # 保留频率信息
-        
-        # 检查是否需要淘汰条目（大小或内存限制）
-        while (len(self.cache) >= self.capacity or 
-               self.current_memory_bytes + new_memory > self.max_memory_bytes):
-            if not self.cache:
-                break  # 缓存为空，无法继续淘汰
-            self._remove_lfu()
-        
-        # 添加新条目
-        self.cache[key] = value
-        self.cache.move_to_end(key)  # 移到末尾（最近使用）
-        self.frequency[key] = self.frequency.get(key, 0) + 1
-        self.current_memory_bytes += new_memory
-        
-        self.logger.debug(f"缓存添加: {key}, 内存使用: {new_memory / 1024 / 1024:.2f} MB, "
-                         f"总内存: {self.current_memory_bytes / 1024 / 1024:.2f} MB")
+        # 【线程安全】获取锁
+        with self._lock:
+            # 估算新条目的内存使用
+            new_memory = self._estimate_memory_usage(key, value)
+            
+            # 如果键已存在，先删除旧的
+            if key in self.cache:
+                old_value = self.cache.pop(key)
+                old_memory = self._estimate_memory_usage(key, old_value)
+                self.current_memory_bytes -= old_memory
+                # 保留频率信息
+            
+            # 检查是否需要淘汰条目（大小或内存限制）
+            while (len(self.cache) >= self.capacity or 
+                   self.current_memory_bytes + new_memory > self.max_memory_bytes):
+                if not self.cache:
+                    break  # 缓存为空，无法继续淘汰
+                self._remove_lfu()
+            
+            # 添加新条目
+            self.cache[key] = value
+            self.cache.move_to_end(key)  # 移到末尾（最近使用）
+            self.frequency[key] = self.frequency.get(key, 0) + 1
+            self.current_memory_bytes += new_memory
+            
+            self.logger.debug(f"缓存添加: {key}, 内存使用: {new_memory / 1024 / 1024:.2f} MB, "
+                             f"总内存: {self.current_memory_bytes / 1024 / 1024:.2f} MB")
 
     def _remove_lfu(self):
         """移除最少使用的项（LFU策略）"""
+        # 【线程安全】已在put方法中获取锁，此处不需要额外锁
         if self.frequency:
             # 找到访问频率最低的键
             lfu_key = min(self.frequency.keys(), key=lambda k: self.frequency[k])

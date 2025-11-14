@@ -34,17 +34,17 @@ def check_memory_usage():
 class LightweightParallelConfig:
     """轻量级并行配置"""
     
-    def __init__(self, n_jobs: int = 1, backend: str = 'loky', batch_size: str = 'auto'):
+    def __init__(self, n_jobs: int = 1, backend: str = 'threading', batch_size: str = 'auto'):
         """
         初始化配置
         
         Args:
             n_jobs: 并行任务数，-1表示使用所有CPU核心
-            backend: 并行后端 ('loky', 'threading')
+            backend: 并行后端 ('loky', 'threading')，Windows推荐使用'threading'
             batch_size: 批处理大小
         """
         self.n_jobs = self._validate_n_jobs(n_jobs)
-        self.backend = backend if backend in ['loky', 'threading'] else 'loky'
+        self.backend = backend if backend in ['loky', 'threading'] else 'threading'
         self.batch_size = batch_size
     
     def _validate_n_jobs(self, n_jobs: int) -> int:
@@ -112,14 +112,15 @@ def lightweight_parallel_processor(config_getter: Optional[Callable] = None,
             
             try:
                 # 并行处理 - 子进程只返回简单数据
+                # 【Windows修复】移除max_nbytes限制，避免I/O瓶颈；设置超时防止死锁
                 results_with_logs = Parallel(
                     n_jobs=config.n_jobs,
                     backend=config.backend,
                     batch_size=config.batch_size,
                     verbose=0,  # 禁用joblib日志
-                    max_nbytes=50*1024*1024,  # 限制在worker之间传输的数据大小为50MB（减少内存使用）
+                    # max_nbytes=50*1024*1024,  # 【禁用】这可能导致Windows下的I/O瓶颈
                     mmap_mode='r',  # 使用内存映射模式读取数据
-                    timeout=None,  # 不设置超时限制
+                    timeout=3600,  # 【新增】设置1小时超时，防止无限死锁
                     temp_folder=None  # 使用系统默认临时文件夹
                 )(
                     delayed(_safe_worker_function)(func, individual_id, *args, **kwargs)
@@ -152,14 +153,15 @@ def lightweight_parallel_processor(config_getter: Optional[Callable] = None,
                 
                 try:
                     # 并行处理 - 子进程只返回简单数据
+                    # 【Windows修复】移除max_nbytes限制，避免I/O瓶颈；设置超时防止死锁
                     results_with_logs = Parallel(
                         n_jobs=config.n_jobs,
                         backend=config.backend,
                         batch_size=config.batch_size,
                         verbose=0,  # 禁用joblib日志
-                        max_nbytes=50*1024*1024,  # 限制在worker之间传输的数据大小为50MB（减少内存使用）
+                        # max_nbytes=50*1024*1024,  # 【禁用】这可能导致Windows下的I/O瓶颈
                         mmap_mode='r',  # 使用内存映射模式读取数据
-                        timeout=None,  # 不设置超时限制
+                        timeout=3600,  # 【新增】设置1小时超时，防止无限死锁
                         temp_folder=None  # 使用系统默认临时文件夹
                     )(
                         delayed(_safe_worker_function)(func, individual_id, *args, **kwargs)
@@ -272,4 +274,5 @@ def _safe_worker_function(func: Callable, individual_id: Any, *args, **kwargs):
 
 def create_simple_parallel_config(n_jobs: int = 1) -> LightweightParallelConfig:
     """创建简单的并行配置"""
-    return LightweightParallelConfig(n_jobs=n_jobs)
+    # 【Windows修复】默认使用threading后端，避免RLock序列化问题
+    return LightweightParallelConfig(n_jobs=n_jobs, backend='threading')
