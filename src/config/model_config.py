@@ -249,7 +249,44 @@ class ModelConfig:
     default_bounds: Tuple[float, float] = (-10.0, 10.0)
 
     # ========================
-    # 六、辅助方法
+    # 七、ABM专用参数
+    # ========================
+
+    ## ABM人口规模
+    abm_n_agents: int = 100000  # 合成人口规模（论文第1380行）
+    
+    ## ABM模拟期数
+    abm_n_periods_calibration: int = 9  # 校准期：2010-2018
+    abm_n_periods_projection: int = 12  # 预测期：2019-2030
+    
+    ## 宏观动态参数初始值（待SMM校准）
+    phi_w_initial: float = 0.08  # 工资-人口敏感度系数（表6）
+    phi_p_initial: float = 0.32  # 房价-人口弹性系数（表6）
+    g_q_initial: float = 0.02    # 公共服务投资增长率
+    
+    ## 外生增长率
+    exogenous_wage_growth: float = 0.02  # 全国平均工资年增长率
+    
+    ## SMM校准目标矩（论文表8）
+    target_population_gini: float = 0.67  # 省际人口分布基尼系数
+    target_migration_rate_std: float = 0.024  # 净迁移率标准差
+    target_wage_migration_elasticity: float = 0.12  # 工资-迁移弹性
+    target_housing_migration_elasticity: float = 0.35  # 房价-迁移弹性
+    target_hukou_wage_premium: float = 0.15  # 户籍人口工资溢价
+    
+    ## SMM优化配置
+    smm_max_iterations: int = 20
+    smm_tolerance: float = 1e-3
+    smm_bounds_phi_w: Tuple[float, float] = (0.01, 0.5)  # phi_w边界
+    smm_bounds_phi_p: Tuple[float, float] = (0.1, 1.0)   # phi_p边界
+    
+    ## 模型验证阈值
+    zipf_exponent_target_range: Tuple[float, float] = (1.05, 1.11)  # Zipf指数目标范围
+    hu_line_tolerance: float = 0.01  # 胡焕庸线误差容限
+    zipf_r_squared_min: float = 0.95  # Zipf拟合最低R²
+
+    # ========================
+    # 八、辅助方法
     # ========================
 
     def get_initial_params(self, use_type_specific: bool = True) -> Dict[str, Any]:
@@ -462,6 +499,65 @@ class ModelConfig:
     def __repr__(self) -> str:
         """字符串表示"""
         return f"ModelConfig(n_types={self.em_n_types}, n_choices={self.n_choices}, beta={self.discount_factor})"
+    
+    # ========================
+    # ABM专用辅助方法
+    # ========================
+    
+    def get_abm_config(self) -> Dict[str, Any]:
+        """
+        获取ABM配置
+        
+        Returns:
+            Dict[str, Any]: ABM配置字典
+        """
+        return {
+            "n_agents": self.abm_n_agents,
+            "n_periods_calibration": self.abm_n_periods_calibration,
+            "n_periods_projection": self.abm_n_periods_projection,
+            "macro_params_initial": {
+                "phi_w": self.phi_w_initial,
+                "phi_p": self.phi_p_initial,
+                "g_q": self.g_q_initial
+            },
+            "exogenous_wage_growth": self.exogenous_wage_growth,
+            "smm_config": {
+                "max_iterations": self.smm_max_iterations,
+                "tolerance": self.smm_tolerance,
+                "bounds": {
+                    "phi_w": self.smm_bounds_phi_w,
+                    "phi_p": self.smm_bounds_phi_p
+                }
+            }
+        }
+    
+    def get_target_moments(self) -> Dict[str, float]:
+        """
+        获取SMM校准目标矩
+        
+        Returns:
+            Dict[str, float]: 目标矩字典
+        """
+        return {
+            "population_gini": self.target_population_gini,
+            "migration_rate_std": self.target_migration_rate_std,
+            "wage_migration_elasticity": self.target_wage_migration_elasticity,
+            "housing_migration_elasticity": self.target_housing_migration_elasticity,
+            "hukou_wage_premium": self.target_hukou_wage_premium
+        }
+    
+    def get_validation_thresholds(self) -> Dict[str, Any]:
+        """
+        获取模型验证阈值
+        
+        Returns:
+            Dict[str, Any]: 验证阈值字典
+        """
+        return {
+            "zipf_exponent_range": self.zipf_exponent_target_range,
+            "hu_line_tolerance": self.hu_line_tolerance,
+            "zipf_r_squared_min": self.zipf_r_squared_min
+        }
 
 
 # -----------------------------
