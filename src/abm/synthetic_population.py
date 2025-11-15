@@ -33,8 +33,14 @@ class SyntheticPopulation:
         
     def _load_data(self):
         """加载CLDS和地区数据"""
-        # CLDS 2018截面数据
-        self.clds_data = pd.read_csv(self.config.individual_data_path)
+        # CLDS 2018截面数据（使用detailed版本，包含教育等信息）
+        detailed_path = self.config.individual_data_path.replace('.csv', '_detailed.csv')
+        if os.path.exists(detailed_path):
+            self.clds_data = pd.read_csv(detailed_path)
+            print(f"使用详细数据: {detailed_path}")
+        else:
+            self.clds_data = pd.read_csv(self.config.individual_data_path)
+            print(f"使用基础数据: {self.config.individual_data_path}")
         
         # 地区特征数据
         self.regional_data = pd.read_excel(self.config.regional_data_path)
@@ -43,7 +49,32 @@ class SyntheticPopulation:
         self.prov_to_idx = self.prov_indexer.get_prov_to_idx_map()
         self.idx_to_prov = {v: k for k, v in self.prov_to_idx.items()}
         
+        # 转换教育水平为数值
+        if 'education' in self.clds_data.columns:
+            # 将教育文本转为数值编码（简化处理）
+            education_mapping = {
+                '小学/私塾': 6,
+                '初中': 9,
+                '中专': 12,
+                '高中': 12,
+                '大专': 15,
+                '大学本科': 16,
+                '硕士': 19,
+                '博士': 22
+            }
+            # 处理可能的多余空格或其他变体
+            self.clds_data['education_numeric'] = self.clds_data['education'].map(
+                lambda x: education_mapping.get(str(x).strip(), 12)  # 默认12年
+            )
+        else:
+            # 如果没有教育数据，创建默认值
+            self.clds_data['education_numeric'] = 12
+        
         print(f"加载数据完成: CLDS {len(self.clds_data)}条记录, 地区数据 {len(self.regional_data)}个省份")
+        print(f"教育水平分布:")
+        if 'education' in self.clds_data.columns:
+            print(self.clds_data['education'].value_counts().head())
+        print(f"教育年限统计: 均值={self.clds_data['education_numeric'].mean():.1f}, 范围=[{self.clds_data['education_numeric'].min()}, {self.clds_data['education_numeric'].max()}]")
         
     def create_population(self, type_probabilities: np.ndarray) -> pd.DataFrame:
         """
@@ -116,16 +147,23 @@ class SyntheticPopulation:
         
         # 提取关键特征
         features['age'] = sampled_data['age'].values
-        features['education'] = sampled_data.get('education', 12).values  # 默认值
+        
+        # 使用数值化的教育数据（避免.get()方法的问题）
+        features['education'] = sampled_data['education_numeric'].values
         
         # 处理户籍和当前位置（使用省份代码转索引）
-        features['hukou_location'] = sampled_data['hukou_prov'].apply(
-            lambda x: self.prov_indexer.index(x, 'rank') - 1  # 转为0基索引
-        ).values
+        def safe_prov_to_idx(prov_name):
+            """安全转换省份名称到索引"""
+            try:
+                rank = self.prov_indexer.index(prov_name, 'rank')
+                if rank is not None:
+                    return max(0, rank - 1)  # 转为0基索引，确保非负
+                return np.random.randint(0, 28)  # 随机分配一个省份
+            except:
+                return np.random.randint(0, 28)  # 异常时随机分配
         
-        features['initial_location'] = sampled_data['provcd'].apply(
-            lambda x: self.prov_indexer.index(x, 'rank') - 1  # 转为0基索引
-        ).values
+        features['hukou_location'] = sampled_data['hukou_prov'].apply(safe_prov_to_idx).values
+        features['initial_location'] = sampled_data['provcd'].apply(safe_prov_to_idx).values
         
         print(f"  可观测特征抽样完成: {len(features)}条记录")
         print(f"    - 年龄范围: {features['age'].min():.0f} - {features['age'].max():.0f}")
