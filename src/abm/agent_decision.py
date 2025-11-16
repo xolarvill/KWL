@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Any, Set, Optional
 from dataclasses import dataclass, field
-from src.abm.reuse_utility_wrapper import UtilityReuser
+from src.abm.pure_python_utility import PurePythonUtility
 
 
 @dataclass
@@ -19,6 +19,7 @@ class AgentState:
     hukou_location: int
     current_location: int
     eta_i: float
+    n_regions: int  # 添加：地区数量
     
     # 动态状态
     visited_locations: Set[int] = field(default_factory=set)
@@ -41,7 +42,8 @@ class ABMAgent:
                  education: float,
                  hukou_location: int,
                  current_location: int,
-                 eta_i: float):
+                 eta_i: float,
+                 n_regions: int):
         """
         初始化Agent
         
@@ -53,6 +55,7 @@ class ABMAgent:
             hukou_location: 户籍省份索引
             current_location: 当前省份索引
             eta_i: 个体固定效应
+            n_regions: 地区数量（用于决策）
         """
         self.state = AgentState(
             agent_id=agent_id,
@@ -61,7 +64,8 @@ class ABMAgent:
             education=education,
             hukou_location=hukou_location,
             current_location=current_location,
-            eta_i=eta_i
+            eta_i=eta_i,
+            n_regions=n_regions
         )
         
         # Agent累计变量
@@ -69,7 +73,7 @@ class ABMAgent:
         self.lifetime_migrations: int = 0
         
     def make_decision(self,
-                     utility_reuser: UtilityReuser,
+                     utility_calculator: PurePythonUtility,
                      params: Dict[str, float],
                      macro_state: Dict[str, np.ndarray],
                      period: int) -> int:
@@ -77,9 +81,9 @@ class ABMAgent:
         Agent做出迁移决策
         
         Args:
-            utility_reuser: 效用函数包装器
+            utility_calculator: 效用计算器
             params: 结构参数
-            macro_state: 宏观状态
+            macro_state: 宏观状态（用于更新工资等信息）
             period: 当前时期
             
         Returns:
@@ -88,8 +92,8 @@ class ABMAgent:
         # 准备Agent数据
         agent_data = self._prepare_agent_data()
         
-        # 计算所有地区的效用（复用estimation模块）
-        utilities = utility_reuser.calculate_single_agent_utility(
+        # 计算所有地区的效用（使用纯Python实现）
+        utilities = utility_calculator.calculate_utility(
             agent_data=agent_data,
             params=params,
             eta_i=self.state.eta_i,
@@ -103,7 +107,7 @@ class ABMAgent:
         
         # Softmax选择（多项Logit）
         probs = self._softmax(utilities, temperature=params.get('logit_scale', 1.0))
-        chosen_location = np.random.choice(self.n_regions, p=probs)
+        chosen_location = np.random.choice(self.state.n_regions, p=probs)
         
         return chosen_location
     
@@ -199,19 +203,20 @@ class PopulationManager:
                 education=float(row['education']),
                 hukou_location=int(row['hukou_location']),
                 current_location=int(row['current_location']),
-                eta_i=float(row.get('eta_i', 0.0))
+                eta_i=float(row.get('eta_i', 0.0)),
+                n_regions=self.n_regions
             )
             self.agents.append(agent)
     
     def simulate_period(self,
-                       utility_reuser: UtilityReuser,
+                       utility_calculator: PurePythonUtility,
                        macro_state: Dict[str, np.ndarray],
                        period: int) -> Dict[str, Any]:
         """
         模拟一个完整时期
         
         Args:
-            utility_reuser: 效用函数
+            utility_calculator: 效用计算器
             macro_state: 宏观状态
             period: 时期
             
@@ -225,7 +230,7 @@ class PopulationManager:
         for agent in self.agents:
             # 做决策
             new_location = agent.make_decision(
-                utility_reuser=utility_reuser,
+                utility_calculator=utility_calculator,
                 params=self.params,
                 macro_state=macro_state,
                 period=period
@@ -319,13 +324,22 @@ def demo_agent_decision():
         'populations': np.random.randint(500000, 50000000, n_regions)
     }
     
-    # 2. 创建UtilityReuser
-    from src.abm.reuse_utility_wrapper import UtilityReuser
+    # 2. 创建PurePythonUtility（ABM专用，无JIT）
+    from src.abm.pure_python_utility import PurePythonUtility
     
-    reuser = UtilityReuser(
+    # 生成随机数据
+    temp_utility = PurePythonUtility(
         distance_matrix=np.random.uniform(100, 2000, (n_regions, n_regions)),
         adjacency_matrix=(np.random.rand(n_regions, n_regions) > 0.8).astype(int),
-        region_data=reuser._create_random_region_data() if 'reuser' in dir() else pd.DataFrame(),
+        region_data=None,
+        n_regions=n_regions
+    )
+    temp_utility._create_random_data()  # 创建随机测试数据
+    
+    utility_calculator = PurePythonUtility(
+        distance_matrix=temp_utility.distance_matrix,
+        adjacency_matrix=temp_utility.adjacency_matrix,
+        region_data=temp_utility.region_data,
         n_regions=n_regions
     )
     
@@ -347,11 +361,12 @@ def demo_agent_decision():
         education=16,  # 大学本科
         hukou_location=0,
         current_location=0,
-        eta_i=0.5
+        eta_i=0.5,
+        n_regions=n_regions
     )
     
     # 5. Agent做决策
-    chosen_location = agent.make_decision(reuser, params, macro_state, period=0)
+    chosen_location = agent.make_decision(utility_calculator, params, macro_state, period=0)
     
     print(f"Agent特征:")
     print(f"  ID: {agent.state.agent_id}")
@@ -396,7 +411,7 @@ def demo_agent_decision():
     manager = PopulationManager(population_df, params)
     
     # 模拟一个时期
-    results = manager.simulate_period(reuser, macro_state, period=0)
+    results = manager.simulate_period(utility_calculator, macro_state, period=0)
     
     print(f"模拟结果:")
     print(f"  总Agent数: {manager.n_agents}")
