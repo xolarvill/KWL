@@ -34,16 +34,23 @@ class MacroDynamics:
     捕捉微观决策到宏观环境的反馈效应
     """
     
-    def __init__(self, n_regions: int, macro_params: Dict[str, float]):
+    def __init__(self, n_regions: int, macro_params: Dict[str, float],
+                 distance_matrix: np.ndarray = None,
+                 adjacency_matrix: np.ndarray = None):
         """
         初始化宏观动态模型
         
         Args:
             n_regions: 地区数量（29个省份）
             macro_params: 宏观参数 {phi_w, phi_p, g_q}
+            distance_matrix: 距离矩阵（如果None则随机生成）
+            adjacency_matrix: 邻接矩阵（如果None则随机生成）
         """
         self.n_regions = n_regions
         self.macro_params = macro_params
+        
+        # 加载矩阵数据
+        self.distance_matrix, self.adjacency_matrix = self._load_matrices(distance_matrix, adjacency_matrix)
         
         # 初始化地区状态
         self.regions = self._initialize_regions()
@@ -51,6 +58,23 @@ class MacroDynamics:
         # 外生增长率
         self.exogenous_wage_growth = 0.02  # g_t，全国平均工资增长率
         self.public_service_growth = macro_params.get('g_q', 0.02)  # g_q，公共服务投资增长率
+    
+    def _load_matrices(self, distance_matrix: np.ndarray = None, adjacency_matrix: np.ndarray = None) -> tuple:
+        """加载距离和邻接矩阵（如果为None则随机生成）"""
+        if distance_matrix is not None and adjacency_matrix is not None:
+            return distance_matrix, adjacency_matrix
+        
+        print(f"  随机生成距离/邻接矩阵 ({self.n_regions}x{self.n_regions})...")
+        
+        # 随机生成距离矩阵
+        dist = np.random.uniform(100, 2000, (self.n_regions, self.n_regions))
+        np.fill_diagonal(dist, 0)
+        
+        # 随机生成邻接矩阵
+        adj = (np.random.rand(self.n_regions, self.n_regions) > 0.75).astype(int)
+        np.fill_diagonal(adj, 0)
+        
+        return dist, adj
         
     def _initialize_regions(self) -> List[RegionalState]:
         """初始化各地区状态（从数据加载）"""

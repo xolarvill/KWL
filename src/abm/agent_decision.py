@@ -190,6 +190,10 @@ class PopulationManager:
         self.n_agents = len(population_df)
         self.n_regions = params.get('n_choices', 29)
         
+        # 历史记录
+        self.period_migration_rates = []  # 每期迁移率
+        self.period_population_history = []  # 每期人口分布
+        
         # 创建所有Agent
         self._create_agents(population_df)
     
@@ -258,10 +262,15 @@ class PopulationManager:
                 period=period
             )
         
+        # 记录历史
+        migration_rate = n_migrations / self.n_agents
+        self.period_migration_rates.append(migration_rate)
+        self.period_population_history.append(self.get_regional_populations())
+        
         return {
             'migration_decisions': migration_decisions,
             'n_migrations': n_migrations,
-            'migration_rate': n_migrations / self.n_agents
+            'migration_rate': migration_rate
         }
     
     def get_regional_populations(self) -> np.ndarray:

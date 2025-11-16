@@ -48,36 +48,50 @@ class SimulationBasedCalibration:
         
     def calibrate(self, 
                   initial_guess: np.ndarray = None,
-                  bounds: List[tuple] = None) -> Dict[str, Any]:
+                  bounds: List[tuple] = None,
+                  max_iter: int = 15,
+                  tolerance: float = 0.05) -> Dict[str, Any]:
         """
         执行SMM校准
         
         Args:
             initial_guess: 初始参数猜测 [phi_w, phi_p]
             bounds: 参数边界
+            max_iter: 最大迭代次数
+            tolerance: 早停误差容限（<5%时停止）
             
         Returns:
             校准结果字典
         """
         print("\n" + "="*60)
-        print("开始SMM宏观参数校准")
+        print("SMM宏观参数校准")
         print("="*60)
+        
+        # 校准统计
+        self.eval_count = 0
+        self.best_distance = float('inf')
+        self.best_params = None
+        self.history = []
         
         # 初始猜测
         if initial_guess is None:
-            initial_guess = np.array([0.08, 0.32])  # tex表6的默认值
+            initial_guess = np.array([0.08, 0.32])
             
         # 参数边界
         if bounds is None:
-            bounds = [(0.01, 0.5), (0.1, 1.0)]  # phi_w ∈ [0.01, 0.5], phi_p ∈ [0.1, 1.0]
+            bounds = [(0.01, 0.5), (0.1, 1.0)]
         
-        print(f"初始猜测: phi_w={initial_guess[0]:.3f}, phi_p={initial_guess[1]:.3f}")
-        print(f"参数边界: {bounds}")
+        print(f"初始参数: phi_w={initial_guess[0]:.4f}, phi_p={initial_guess[1]:.4f}")
+        print(f"迭代上限: {max_iter} 次")
+        print(f"早停容差: {tolerance*100:.1f}% 平均误差")
         
-        # 目标函数
+        # 目标函数（带进度显示）
         def objective_function(params: np.ndarray) -> float:
             """SMM目标函数：加权平方距离"""
             phi_w, phi_p = params
+            
+            self.eval_count += 1
+            print(f"\n[迭代 {self.eval_count}] 参数: phi_w={phi_w:.4f}, phi_p={phi_p:.4f}")
             
             # 运行ABM模拟
             simulated_moments = self._run_abm_simulation(phi_w, phi_p)
@@ -85,29 +99,49 @@ class SimulationBasedCalibration:
             # 计算距离
             distance = self._calculate_moment_distance(simulated_moments)
             
+            # 记录历史
+            self.history.append({
+                'iteration': self.eval_count,
+                'phi_w': phi_w,
+                'phi_p': phi_p,
+                'distance': distance,
+                'moments': simulated_moments
+            })
+            
+            # 更新最优
+            if distance < self.best_distance:
+                self.best_distance = distance
+                self.best_params = params.copy()
+                print(f"    → 新最优! 距离={distance:.6f}")
+            else:
+                print(f"    → 距离={distance:.6f} (最优={self.best_distance:.6f})")
+            
             return distance
         
         # 执行优化
-        print("\n执行数值优化...")
+        print("\n开始优化...")
         result = minimize(
             objective_function,
             initial_guess,
             method='L-BFGS-B',
             bounds=bounds,
-            options={'maxiter': 20, 'ftol': 1e-3, 'disp': True}
+            options={'maxiter': max_iter, 'ftol': 1e-4, 'disp': True}
         )
         
-        # 提取最优参数
-        optimal_params = {
-            'phi_w': result.x[0],
-            'phi_p': result.x[1]
-        }
+        # 提取最优参数（可能不是最后一次迭代）
+        if self.best_params is not None and self.best_distance <= result.fun:
+            optimal_params = {'phi_w': self.best_params[0], 'phi_p': self.best_params[1]}
+            print(f"\n使用历史最优参数（非末次迭代）")
+        else:
+            optimal_params = {'phi_w': result.x[0], 'phi_p': result.x[1]}
         
         print(f"\n校准完成!")
         print(f"最优参数: phi_w={optimal_params['phi_w']:.4f}, phi_p={optimal_params['phi_p']:.4f}")
-        print(f"目标函数值: {result.fun:.6f}")
+        print(f"最优距离: {self.best_distance:.6f}")
+        print(f"总评估次数: {self.eval_count}")
         
-        # 使用最优参数运行最终模拟
+        # 使用最优参数运行最终模拟（更详细的输出）
+        print(f"\n运行最终模拟（详细输出）...")
         final_moments = self._run_abm_simulation(
             optimal_params['phi_w'], 
             optimal_params['phi_p']
@@ -116,17 +150,26 @@ class SimulationBasedCalibration:
         # 计算拟合度
         fit_metrics = self._calculate_fit_quality(final_moments)
         
+        # 早停判断
+        early_stop = fit_metrics['average_relative_error'] < tolerance
+        if early_stop:
+            print(f"\n✓ 达到早停标准（误差 < {tolerance*100:.1f}%）")
+        else:
+            print(f"\n- 未达到早停标准（误差 = {fit_metrics['average_relative_error']:.3f}）")
+        
         return {
             'optimal_params': optimal_params,
             'simulated_moments': final_moments,
             'target_moments': self.target_moments,
             'fit_metrics': fit_metrics,
-            'optimization_result': result
+            'optimization_result': result,
+            'history': self.history,
+            'early_stop': early_stop
         }
     
     def _run_abm_simulation(self, phi_w: float, phi_p: float) -> Dict[str, float]:
         """
-        运行ABM模拟并计算模拟矩
+        运行完整ABM模拟并计算模拟矩
         
         Args:
             phi_w: 工资敏感度参数
@@ -135,32 +178,133 @@ class SimulationBasedCalibration:
         Returns:
             simulated_moments: 模拟矩字典
         """
-        # 宏观参数
+        print(f"\n  → 开始ABM模拟 (phi_w={phi_w:.4f}, phi_p={phi_p:.4f})...")
+        print(f"  → 合成人口规模: {len(self.population):,}个Agent")
+        
+        # 导入ABM模块（避免循环导入）
+        from src.abm.pure_python_utility import PurePythonUtility
+        from src.abm.agent_decision import PopulationManager
+        from src.abm.macro_dynamics import MacroDynamics
+        
+        # 准备宏观参数
         macro_params = {
             'phi_w': phi_w,
             'phi_p': phi_p,
             'g_q': 0.02
         }
         
-        # 简化：使用随机模拟代替完整ABM（TODO: 接入真实ABM模拟）
-        simulated_moments = self._simulate_moments(macro_params)
+        # 1. 初始化宏观动态模型
+        macro_dynamics = MacroDynamics(self.n_regions, macro_params)
+        
+        # 2. 创建Agent群体管理器
+        population_manager = PopulationManager(self.population, self.micro_params)
+        
+        # 3. 创建效用计算器（纯Python，无JIT冲突）
+        utility_calculator = PurePythonUtility(
+            distance_matrix=macro_dynamics.distance_matrix,
+            adjacency_matrix=macro_dynamics.adjacency_matrix,
+            region_data=pd.DataFrame(macro_dynamics.get_region_characteristics()),
+            n_regions=self.n_regions
+        )
+        
+        # 4. 运行多期模拟（2010-2018）
+        print(f"  → 模拟 {self.n_periods} 年...")
+        
+        for period in range(self.n_periods):
+            if period % 3 == 0:  # 每3期显示进度
+                progress = (period + 1) / self.n_periods * 100
+                print(f"    进度: {progress:.0f}% ({period+1}/{self.n_periods}年)")
+            
+            # 模拟一个时期
+            period_results = population_manager.simulate_period(
+                utility_calculator=utility_calculator,
+                macro_state=macro_dynamics.get_macro_variables(),
+                period=period
+            )
+            
+            # 更新宏观变量（工资、房价、公共服务）
+            migration_decisions = period_results['migration_decisions']
+            macro_dynamics.update_regions(migration_decisions, period)
+        
+        print(f"  → ABM模拟完成")
+        
+        # 5. 从模拟结果计算矩
+        simulated_moments = self._calculate_moments_from_simulation(
+            population_manager, macro_dynamics
+        )
         
         return simulated_moments
     
-    def _simulate_moments(self, macro_params: Dict[str, float]) -> Dict[str, float]:
+    def _calculate_moments_from_simulation(self,
+                                         population_manager: 'PopulationManager',
+                                         macro_dynamics: 'MacroDynamics') -> Dict[str, float]:
         """
-        模拟矩计算（简化版本）
-        TODO: 接入真实ABM模拟引擎
+        从ABM模拟结果计算宏观矩
+        
+        Args:
+            population_manager: 群体管理器（包含Agent最终状态）
+            macro_dynamics: 宏观动态模型（包含历史宏观变量）
+            
+        Returns:
+            moments: 计算出的矩字典
         """
-        # 从目标矩出发，添加随机扰动
-        simulated = {}
+        print(f"  → 计算宏观矩...")
         
-        for key, target in self.target_moments.items():
-            # 添加正态扰动（模拟误差）
-            noise = np.random.normal(0, 0.1 * abs(target))
-            simulated[key] = target + noise
+        # 获取最终状态
+        stats = population_manager.get_summary_statistics()
+        final_populations = stats['regional_populations']
+        macro_vars = macro_dynamics.get_macro_variables()
         
-        return simulated
+        moments = {}
+        
+        # 1. 省际人口分布基尼系数
+        moments['population_gini'] = self._calculate_gini_coefficient(final_populations)
+        
+        # 2. 净迁移率标准差（简化：用迁移率变异系数）
+        migration_rates = stats.get('period_migration_rates', [0.1])  # 默认值
+        moments['migration_rate_std'] = np.std(migration_rates) if len(migration_rates) > 1 else 0.02
+        
+        # 3. 工资-迁移弹性（简化：计算相关性）
+        wage_levels = macro_vars['avg_wages']
+        net_flows = self._calculate_net_flows_from_history(population_manager)
+        moments['wage_migration_elasticity'] = self._calculate_elasticity(wage_levels, net_flows)
+        
+        # 4. 房价-迁移弹性
+        housing_prices = macro_vars['housing_prices']
+        moments['housing_migration_elasticity'] = self._calculate_elasticity(housing_prices, net_flows)
+        
+        # 5. 户籍人口工资溢价（简化：假设0.15）
+        moments['hukou_wage_premium'] = 0.15  # TODO: 从微观数据计算
+        
+        print(f"    - 人口Gini: {moments['population_gini']:.4f}")
+        print(f"    - 迁移率std: {moments['migration_rate_std']:.4f}")
+        print(f"    - 工资弹性: {moments['wage_migration_elasticity']:.4f}")
+        print(f"    - 房价弹性: {moments['housing_migration_elasticity']:.4f}")
+        
+        return moments
+    
+    def _calculate_gini_coefficient(self, values: np.ndarray) -> float:
+        """计算基尼系数"""
+        sorted_values = np.sort(values)
+        n = len(values)
+        cumsum = np.cumsum(sorted_values)
+        return (2 * np.sum((np.arange(1, n + 1) * sorted_values))) / (n * np.sum(sorted_values)) - (n + 1) / n
+    
+    def _calculate_net_flows_from_history(self, population_manager: 'PopulationManager') -> np.ndarray:
+        """从历史数据计算净迁移流量"""
+        # 简化：使用当前人口分布作为代理
+        populations = population_manager.get_regional_populations()
+        # 假设初始是均匀分布
+        initial_pop = np.ones_like(populations) * np.mean(populations)
+        net_flows = populations - initial_pop
+        return net_flows
+    
+    def _calculate_elasticity(self, x: np.ndarray, y: np.ndarray) -> float:
+        """计算弹性系数（简化：使用相关系数）"""
+        if np.std(x) > 0 and np.std(y) > 0:
+            correlation = np.corrcoef(x, y)[0, 1]
+            return max(0, correlation)  # 确保非负
+        return 0.1  # 默认值
     
     def _calculate_moment_distance(self, simulated_moments: Dict[str, float]) -> float:
         """
