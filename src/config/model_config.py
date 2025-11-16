@@ -126,7 +126,7 @@ class ModelConfig:
     discount_factor: float = 0.95  # β: 贴现因子
     age_min: int = 18  # 最小年龄
     age_max: int = 70  # 最大年龄
-    n_choices: int = 31  # 选择数量（31个省份）
+    n_choices: int = 29  # 选择数量（29个省份，不含西藏、海南、港澳台）
 
     # ========================
     # 五、结构参数初始值

@@ -35,7 +35,7 @@ class SimulationBasedCalibration:
         self.micro_params = micro_params
         self.target_moments = target_moments
         self.n_periods = n_periods
-        self.n_regions = 29  # 实际省份数量
+        self.n_regions = micro_params.get('n_choices', 29)  # 从参数获取ABM地区数量
         
         # 目标矩权重（可根据重要性调整）
         self.moment_weights = {
@@ -200,10 +200,23 @@ class SimulationBasedCalibration:
         population_manager = PopulationManager(self.population, self.micro_params)
         
         # 3. 创建效用计算器（纯Python，无JIT冲突）
+        # 从宏观变量创建region_data
+        macro_vars = macro_dynamics.get_macro_variables()
+        region_df = pd.DataFrame({
+            'amenity_climate': macro_vars['amenity_climate'],
+            'amenity_health': macro_vars['amenity_health'],
+            'amenity_education': macro_vars['amenity_education'],
+            'amenity_public_services': macro_vars['amenity_public'],
+            'amenity_hazard': np.zeros(self.n_regions),  # 默认无灾害
+            '房价收入比': macro_vars['housing_prices'] / np.mean(macro_vars['avg_wages']),  # 简化
+            '常住人口万': macro_vars['populations'] / 10000,  # 转换为万人
+            '户籍获取难度': np.random.randint(1, 4, self.n_regions)  # 随机生成
+        })
+        
         utility_calculator = PurePythonUtility(
             distance_matrix=macro_dynamics.distance_matrix,
             adjacency_matrix=macro_dynamics.adjacency_matrix,
-            region_data=pd.DataFrame(macro_dynamics.get_region_characteristics()),
+            region_data=region_df,
             n_regions=self.n_regions
         )
         
@@ -223,7 +236,13 @@ class SimulationBasedCalibration:
             )
             
             # 更新宏观变量（工资、房价、公共服务）
-            migration_decisions = period_results['migration_decisions']
+            # 转换格式：从 {agent_id: {'old_location': ..., 'new_location': ...}}
+            # 到 {agent_id: new_location}
+            migration_decisions_raw = period_results['migration_decisions']
+            migration_decisions = {
+                agent_id: decision['new_location'] 
+                for agent_id, decision in migration_decisions_raw.items()
+            }
             macro_dynamics.update_regions(migration_decisions, period)
         
         print(f"  → ABM模拟完成")

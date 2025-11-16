@@ -15,6 +15,7 @@ if project_root not in sys.path:
 
 from src.config.model_config import ModelConfig
 from src.utils.prov_indexer import ProvIndexer
+from src.abm.abm_filter import create_abm_prov_indexer
 
 
 class SyntheticPopulation:
@@ -26,7 +27,9 @@ class SyntheticPopulation:
     def __init__(self, config: ModelConfig):
         self.config = config
         self.n_agents = 100000  # 论文要求10万代理人
-        self.prov_indexer = ProvIndexer(config)
+        
+        # 使用ABM省份过滤器（29个省份）
+        self.prov_indexer, self.n_regions = create_abm_prov_indexer(config)
         
         # 加载数据
         self._load_data()
@@ -157,10 +160,18 @@ class SyntheticPopulation:
             try:
                 rank = self.prov_indexer.index(prov_name, 'rank')
                 if rank is not None:
-                    return max(0, rank - 1)  # 转为0基索引，确保非负
-                return np.random.randint(0, 28)  # 随机分配一个省份
+                    idx = rank - 1  # 转为0基索引
+                    # 确保索引在有效范围内 [0, n_regions-1]
+                    if idx >= self.n_regions:
+                        idx = self.n_regions - 1
+                    if idx < 0:
+                        idx = 0
+                    return idx
+                # 随机分配，但限制在有效范围内
+                return np.random.randint(0, self.n_regions)
             except:
-                return np.random.randint(0, 28)  # 异常时随机分配
+                # 异常时随机分配
+                return np.random.randint(0, self.n_regions)
         
         features['hukou_location'] = sampled_data['hukou_prov'].apply(safe_prov_to_idx).values
         features['initial_location'] = sampled_data['provcd'].apply(safe_prov_to_idx).values
