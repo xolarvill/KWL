@@ -26,7 +26,7 @@ def main():
     print("="*80)
     
     # 步骤0: 初始化配置
-    print("\n[0/4] 初始化配置...")
+    print("\n[0/6] 初始化配置...")
     config = ModelConfig()
     
     # 打印ABM配置
@@ -36,11 +36,11 @@ def main():
         print(f"  {key}: {value}")
     
     # 步骤1: 创建模拟引擎
-    print("\n[1/4] 创建ABM模拟引擎...")
+    print("\n[1/6] 创建ABM模拟引擎...")
     engine = ABMSimulationEngine(config)
     
     # 步骤2: 从估计结果初始化（或使用Config初始值）
-    print("\n[2/4] 初始化参数...")
+    print("\n[2/6] 初始化参数...")
     
     # 检查是否有02估计结果（真实路径）
     estimation_result_path = "results/estimation/structural_parameters.pkl"
@@ -53,7 +53,7 @@ def main():
         engine.initialize_from_estimation()
     
     # 步骤3: 构建合成人口（三步法）
-    print("\n[3/4] 构建合成人口（三步法）...")
+    print("\n[3/6] 构建合成人口（三步法）...")
     population = engine.build_synthetic_population()
     
     # 人口统计信息
@@ -71,7 +71,7 @@ def main():
         print(f"    省份{loc}: {count:,}人 ({count/len(population)*100:.1f}%)")
     
     # 步骤4: SMM宏观参数校准
-    print("\n[4/4] SMM宏观参数校准...")
+    print("\n[4/6] SMM宏观参数校准...")
     
     # 获取目标矩
     target_moments = config.get_target_moments()
@@ -85,14 +85,14 @@ def main():
     # 步骤5: 模型验证（可选，需要完整模拟）
     run_validation = True
     if run_validation:
-        print("\n[5/4] 模型验证（Zipf定律 + 胡焕庸线）...")
+        print("\n[5/6] 模型验证（Zipf定律 + 胡焕庸线）...")
         validation_results = engine.validate_model(plot=True)
         
         # 打印验证报告
         print_validation_report(validation_results)
     
     # 步骤6: 保存完整模型
-    print("\n[6/4] 保存校准后的模型...")
+    print("\n[6/6] 保存校准后的模型...")
     engine.save_model(save_path="results/abm/calibrated_model.pkl")
     
     # 最终总结
