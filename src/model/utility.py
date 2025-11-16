@@ -15,7 +15,10 @@ def _compute_distance_cost_jit(distance_matrix, prev_loc_indices, dest_loc_indic
     distance_cost = np.zeros((n_states, n_choices))
     for i in range(n_states):
         for j in range(n_choices):
-            dist = distance_matrix[int(prev_loc_indices[i, 0]), int(dest_loc_indices[0, j])]
+            # 安全索引：使用 np.int32() 包裹，支持标量和0维数组
+            prev_idx = np.int32(prev_loc_indices[i, 0])
+            dest_idx = np.int32(dest_loc_indices[0, j])
+            dist = distance_matrix[prev_idx, dest_idx]
             distance_cost[i, j] = np.log(max(dist, 1.0))
     return distance_cost
 
@@ -26,7 +29,10 @@ def _compute_adjacency_jit(adjacency_matrix, prev_loc_indices, dest_loc_indices)
     is_adjacent = np.zeros((n_states, n_choices))
     for i in range(n_states):
         for j in range(n_choices):
-            is_adjacent[i, j] = adjacency_matrix[int(prev_loc_indices[i, 0]), int(dest_loc_indices[0, j])]
+            # 安全索引：使用 np.int32() 包裹
+            prev_idx = np.int32(prev_loc_indices[i, 0])
+            dest_idx = np.int32(dest_loc_indices[0, j])
+            is_adjacent[i, j] = adjacency_matrix[prev_idx, dest_idx]
     return is_adjacent
 
 def calculate_flow_utility_vectorized(
