@@ -130,9 +130,12 @@ class ABMSimulationEngine:
         print(f"目标矩: {target_moments}")
         
         # 创建校准器
+        # ABM校准应始终使用29个省份，确保micro_params不包含n_choices以强制其使用默认值
+        abm_micro_params = self.micro_params.copy()
+        abm_micro_params.pop('n_choices', None) # 移除n_choices，让Calibration使用其内部的29默认值
         smm = SimulationBasedCalibration(
             synthetic_population=self.population,
-            micro_params=self.micro_params,
+            micro_params=abm_micro_params,
             target_moments=target_moments,
             n_periods=9  # 2010-2018
         )
