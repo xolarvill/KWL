@@ -46,6 +46,8 @@ from src.utils.outreg2 import output_estimation_results, output_model_fit_result
 # 估计工作流（集成进度跟踪）
 def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, enable_progress_tracking=False, auto_cleanup_progress=False, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None, resume_from_latest=False, progress_save_interval=300, m_step_backend='threading'):
     """集成进度跟踪的估计工作流"""
+    # 添加调试信息
+    logger.info(f"[Debug] run_estimation_workflow接收到的m_step_backend参数: {m_step_backend}")
     
     # 检查进度跟踪是否可用和启用
     if enable_progress_tracking and PROGRESS_AVAILABLE:
@@ -73,7 +75,7 @@ def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_j
                 tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs,
                 stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol,
                 lbfgsb_ftol, lbfgsb_maxiter, strategy, memory_safe_mode, max_sample_size,
-                em_resume_state
+                em_resume_state, m_step_backend
             )
     else:
         if enable_progress_tracking and not PROGRESS_AVAILABLE:
@@ -83,12 +85,13 @@ def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_j
             sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs,
             stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol,
             lbfgsb_ftol, lbfgsb_maxiter, strategy, memory_safe_mode, max_sample_size,
-            m_step_backend
+            m_step_backend=m_step_backend
         )
 
 
 def _run_estimation_with_pickle_tracking(tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None, em_resume_state=None, m_step_backend='threading'):
     """使用pickle进度跟踪的估计工作流"""
+    logger.info(f"[Debug] _run_estimation_with_pickle_tracking接收到的m_step_backend参数: {m_step_backend}")
     # --- 1. 配置 ---
     config = ModelConfig()
     
@@ -251,8 +254,6 @@ def _run_estimation_with_pickle_tracking(tracker, sample_size, use_bootstrap, n_
 
         # 将进度跟踪器传递给EM算法（因为已经启用了进度跟踪才会进入这个函数）
         estimation_params["progress_tracker"] = tracker
-        # 传递M步并行化后端
-        estimation_params["m_step_backend"] = m_step_backend
         # 如果有恢复的EM状态，传递起始迭代
         if em_resume_state:
             estimation_params["start_iteration"] = em_resume_state['iteration']
@@ -398,6 +399,7 @@ def _run_estimation_with_pickle_tracking(tracker, sample_size, use_bootstrap, n_
 
 def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None, m_step_backend='threading'):
     """传统估计工作流（无进度跟踪）"""
+    logger.info(f"[Debug] _run_estimation_traditional接收到的m_step_backend参数: {m_step_backend}")
     # --- 1. 配置 ---
     config = ModelConfig()
     
@@ -511,6 +513,12 @@ def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstr
             )
             estimation_params["parallel_config"] = parallel_config
             logger.info(f"启用EM算法并行化: {parallel_config}")
+
+        # 添加M步并行化后端
+        logger.info(f"[Debug] 在设置estimation_params之前的m_step_backend值: {m_step_backend}")
+        estimation_params["m_step_backend"] = m_step_backend
+        logger.info(f"设置M步并行化后端: {m_step_backend}")  # 调试输出
+        logger.info(f"[Debug] 传递给run_em_algorithm_with_omega的m_step_backend参数: {m_step_backend}")
 
         results = run_em_algorithm_with_omega(**estimation_params)
     else:

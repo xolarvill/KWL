@@ -6,12 +6,16 @@
 
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, Tuple, List, Optional
+from typing import Dict, Any, Tuple, List, Optional, TYPE_CHECKING
 import logging
 import time
 import os
 from joblib import Parallel, delayed
 from src.utils.memory_monitor import MemoryMonitor, create_memory_safe_config, log_memory_usage
+
+# Avoid runtime import cycles; make the EstimationProgressTracker type available for type checkers only
+if TYPE_CHECKING:
+    from src.utils.progress_tracker import EstimationProgressTracker
 
 from src.model.discrete_support import (
     DiscreteSupportGenerator,
@@ -876,6 +880,7 @@ def m_step_with_omega(
             self.parallel_config = parallel_config or ParallelConfig(n_jobs=1)
             # M步并行化后端
             self.m_step_backend = m_step_backend
+            logger.info(f"  [Debug] Objective.__init__中接收到的m_step_backend参数: {m_step_backend}")
             
             # 确保是增强版缓存实例
             log_msg_header = "  [M-step]"
@@ -929,15 +934,15 @@ def m_step_with_omega(
             
             # 根据参数选择并行化后端
             backend = self.m_step_backend
-            if backend == 'threading':
-                logger.info(f"{log_msg_header} 使用'{backend}'后端，worker共享主进程缓存（避免死锁+保留加速）")
-            elif backend == 'loky':
-                logger.info(f"{log_msg_header} 使用'{backend}'后端，进程间隔离但稳定性更好")
-            elif backend == 'multiprocessing':
-                logger.info(f"{log_msg_header} 使用'{backend}'后端，完全进程隔离")
+            # 【修复】当使用多进程后端时，不能传递包含锁的缓存对象。
+            # 每个worker将创建自己的缓存实例。
+            if backend in ['loky', 'multiprocessing']:
+                logger.info(f"{log_msg_header} 使用'{backend}'后端，进程间隔离但稳定性更好。缓存将在每个worker中独立创建。")
+                # 传递一个空的dict，避免序列化错误
+                worker_bellman_cache = {}
             else:
-                logger.warning(f"{log_msg_header} 未知的backend类型'{backend}'，使用默认threading")
-                backend = 'threading'
+                logger.info(f"{log_msg_header} 使用'{backend}'后端，worker共享主进程缓存（避免死锁+保留加速）")
+                worker_bellman_cache = self.bellman_cache
             
             # 创建数据包供worker使用 - 传递bellman_cache供共享
             data_package = {
@@ -951,7 +956,7 @@ def m_step_with_omega(
                 'distance_matrix': distance_matrix,
                 'adjacency_matrix': adjacency_matrix,
                 'prov_to_idx': prov_to_idx,
-                'bellman_cache': self.bellman_cache,  # 【关键】传递主进程缓存对象供共享
+                'bellman_cache': worker_bellman_cache,  # 【关键】根据后端传递合适的缓存
                 'shared_cache_dict': None  # 不使用multiprocessing共享字典
             }
             
@@ -1386,6 +1391,7 @@ def m_step_with_omega(
             return neg_ll
 
     # --- 优化执行 ---
+    logger.info(f"  [Debug] 传递给Objective的m_step_backend参数: {m_step_backend}")
     objective = Objective(shared_bellman_cache=bellman_cache, parallel_config=parallel_config, m_step_backend=m_step_backend)
     initial_param_values, param_names = _pack_params(initial_params)
     param_bounds = config.get_parameter_bounds(param_names)
@@ -1486,9 +1492,16 @@ def run_em_algorithm_with_omega(
 ) -> Dict[str, Any]:
     """
     EM-NFXP算法主循环（带离散支撑点ω）
-
+    
     这是run_em_algorithm()的扩展版本，集成了离散支撑点枚举。
-
+    EM-NFXP算法主循环（带离散支撑点ω）
+    
+    参数:
+    ----
+    # ... 其他参数 ...
+    m_step_backend : str, optional
+        M步并行化后端类型，可选值: 'threading', 'loky', 'multiprocessing'，默认'threading'
+        
     参数:
     ----
     observed_data : pd.DataFrame
@@ -1528,7 +1541,7 @@ def run_em_algorithm_with_omega(
     lbfgsb_maxiter : int
         M-step中L-BFGS-B最大迭代次数
     progress_tracker : EstimationProgressTracker, optional
-        进度跟踪器，用于定期保存EM算法中间状态
+        进度跟踪器 用于定期保存EM算法中间状态
     start_iteration : int, optional
         起始迭代次数，用于从中间状态恢复EM算法
     m_step_backend : str, optional
@@ -1544,10 +1557,14 @@ def run_em_algorithm_with_omega(
         - 'n_iterations': 迭代次数
         - 'individual_posteriors': 个体后验概率
     """
+    # 添加调试信息
     logger = logging.getLogger()
     logger.info("\n" + "="*80)
     logger.info("EM-NFXP Algorithm with Discrete Support Points (ω)")
     logger.info("="*80)
+    
+    # 添加调试信息
+    logger.info(f"[Debug] run_em_algorithm_with_omega接收到的m_step_backend参数: {m_step_backend}")
 
     # --- OPTIMIZATION: Pre-convert region data to NumPy ---
     logger.info("Pre-converting regional data to NumPy for performance...")
@@ -1682,7 +1699,8 @@ def run_em_algorithm_with_omega(
             bellman_cache=bellman_cache,  # 传递E步的缓存给M步
             parallel_config=parallel_config,  # 传递并行配置给M步
             lbfgsb_gtol=lbfgsb_gtol,  # 临时收敛容差控制
-            lbfgsb_ftol=lbfgsb_ftol  # 临时收敛容差控制
+            lbfgsb_ftol=lbfgsb_ftol,  # 临时收敛容差控制
+            m_step_backend=m_step_backend
         )
 
     # 汇总结果
