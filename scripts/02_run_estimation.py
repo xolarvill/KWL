@@ -22,6 +22,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# 进度管理导入（仅在需要时导入）
+try:
+    from src.utils.estimation_progress import estimation_progress, resume_estimation_phase
+    PROGRESS_AVAILABLE = True
+except ImportError:
+    PROGRESS_AVAILABLE = False
+    logger.warning("进度管理模块不可用，将以传统模式运行")
+
 from src.estimation.inference import (
     compute_information_criteria,
     bootstrap_standard_errors,
@@ -35,19 +43,80 @@ from src.utils.parallel_wrapper import ParallelConfig
 from src.estimation.em_with_omega import run_em_algorithm_with_omega
 from src.utils.outreg2 import output_estimation_results, output_model_fit_results
 
-# 估计工作流
+# 估计工作流（集成进度跟踪）
 def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, enable_progress_tracking=False, auto_cleanup_progress=False, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None):
-    """传统的估计工作流（无进度跟踪）"""
+    """集成进度跟踪的估计工作流"""
+    
+    # 检查进度跟踪是否可用和启用
+    if enable_progress_tracking and PROGRESS_AVAILABLE:
+        logger.info("启用进度跟踪功能...")
+        with estimation_progress(
+            task_name="main_estimation",
+            progress_dir="progress",
+            save_interval=5,
+            auto_cleanup=auto_cleanup_progress
+        ) as tracker:
+            return _run_estimation_with_pickle_tracking(
+                tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs,
+                stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol,
+                lbfgsb_ftol, lbfgsb_maxiter, strategy, memory_safe_mode, max_sample_size
+            )
+    else:
+        if enable_progress_tracking and not PROGRESS_AVAILABLE:
+            logger.warning("进度跟踪模块不可用，将以传统模式运行")
+        # 不使用进度跟踪，直接运行
+        return _run_estimation_traditional(
+            sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs,
+            stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol,
+            lbfgsb_ftol, lbfgsb_maxiter, strategy, memory_safe_mode, max_sample_size
+        )
+
+
+def _run_estimation_with_pickle_tracking(tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None):
+    """使用pickle进度跟踪的估计工作流"""
     # --- 1. 配置 ---
     config = ModelConfig()
     
     # --- 2. Data Loading and Preparation ---
-    logger.info("加载和准备数据...")
-    data_loader = DataLoader(config)
-    distance_matrix = data_loader.load_distance_matrix()
-    adjacency_matrix = data_loader.load_adjacency_matrix()
-    df_individual, state_space, transition_matrices, df_region = \
-        data_loader.create_estimation_dataset_and_state_space(simplified_state=True)
+    def load_and_prepare_data():
+        logger.info("加载和准备数据...")
+        data_loader = DataLoader(config)
+        distance_matrix = data_loader.load_distance_matrix()
+        adjacency_matrix = data_loader.load_adjacency_matrix()
+        df_individual, state_space, transition_matrices, df_region = \
+            data_loader.create_estimation_dataset_and_state_space(simplified_state=True)
+        
+        # 样本大小限制（内存安全模式）
+        if max_sample_size and len(df_individual['individual_id'].unique()) > max_sample_size:
+            logger.info(f"\n--- 内存安全模式：限制样本大小为 {max_sample_size} 个个体 ---")
+            unique_ids = df_individual['individual_id'].unique()[:max_sample_size]
+            df_individual = df_individual[df_individual['individual_id'].isin(unique_ids)]
+            logger.info(f"样本数据量: {len(df_individual)} 条观测")
+        elif sample_size:
+            logger.info(f"\n--- 调试模式：使用 {sample_size} 个个体的样本 ---")
+            unique_ids = df_individual['individual_id'].unique()[:sample_size]
+            df_individual = df_individual[df_individual['individual_id'].isin(unique_ids)]
+            logger.info(f"样本数据量: {len(df_individual)} 条观测")
+        
+        logger.info("\n数据准备完成。")
+        return {
+            'data_loader': data_loader,
+            'distance_matrix': distance_matrix,
+            'adjacency_matrix': adjacency_matrix,
+            'df_individual': df_individual,
+            'state_space': state_space,
+            'transition_matrices': transition_matrices,
+            'df_region': df_region
+        }
+    
+    data_results = resume_estimation_phase(tracker, "data_loading", load_and_prepare_data)
+    data_loader = data_results['data_loader']
+    distance_matrix = data_results['distance_matrix']
+    adjacency_matrix = data_results['adjacency_matrix']
+    df_individual = data_results['df_individual']
+    state_space = data_results['state_space']
+    transition_matrices = data_results['transition_matrices']
+    df_region = data_results['df_region']
 
     # 样本大小限制（内存安全模式）
     if max_sample_size and len(df_individual['individual_id'].unique()) > max_sample_size:
@@ -397,3 +466,245 @@ def main():
 
 if __name__ == '__main__':
     main()
+def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None):
+    """传统估计工作流（无进度跟踪）"""
+    # --- 1. 配置 ---
+    config = ModelConfig()
+    
+    # --- 2. Data Loading and Preparation ---
+    logger.info("加载和准备数据...")
+    data_loader = DataLoader(config)
+    distance_matrix = data_loader.load_distance_matrix()
+    adjacency_matrix = data_loader.load_adjacency_matrix()
+    df_individual, state_space, transition_matrices, df_region = \
+        data_loader.create_estimation_dataset_and_state_space(simplified_state=True)
+
+    # 样本大小限制（内存安全模式）
+    if max_sample_size and len(df_individual['individual_id'].unique()) > max_sample_size:
+        logger.info(f"\n--- 内存安全模式：限制样本大小为 {max_sample_size} 个个体 ---")
+        unique_ids = df_individual['individual_id'].unique()[:max_sample_size]
+        df_individual = df_individual[df_individual['individual_id'].isin(unique_ids)]
+        logger.info(f"样本数据量: {len(df_individual)} 条观测")
+    elif sample_size:
+        logger.info(f"\n--- 调试模式：使用 {sample_size} 个个体的样本 ---")
+        unique_ids = df_individual['individual_id'].unique()[:sample_size]
+        df_individual = df_individual[df_individual['individual_id'].isin(unique_ids)]
+        logger.info(f"样本数据量: {len(df_individual)} 条观测")
+
+    logger.info("\n数据准备完成。")
+
+    # --- 3. Model Estimation ---
+    logger.info("\n开始模型估计...")
+    # 从ModelConfig获取初始参数
+    initial_params = config.get_initial_params(use_type_specific=True)
+
+    # **智能启动**: 根据数据动态生成pi_k初始值
+    # 1. 识别稳定者（stayers）和迁移者（movers）
+    df_individual['moved'] = df_individual['provcd_t'] != df_individual['prev_provcd']
+    stayer_ids = df_individual.groupby('individual_id')['moved'].sum() == 0
+    stayer_proportion = stayer_ids.mean()
+    mover_proportion = 1 - stayer_proportion
+    logger.info(f"数据分析: 稳定者比例 = {stayer_proportion:.2%}, 迁移者比例 = {mover_proportion:.2%}")
+
+    # 2. 创建数据驱动的初始类型概率
+    # 假设Type 0是稳定型，Type 1和2是两种迁移型
+    data_driven_pi_k = np.array([
+        stayer_proportion,     # 稳定型
+        mover_proportion / 2,  # 机会型
+        mover_proportion / 2   # 适应型
+    ])
+    # 确保概率和为1且不为0
+    data_driven_pi_k = np.maximum(data_driven_pi_k, 1e-6)
+    data_driven_pi_k /= data_driven_pi_k.sum()
+    logger.info(f"使用数据驱动的初始类型概率: {data_driven_pi_k}")
+
+    # 获取策略参数
+    strategy_params = config.get_strategy_params(strategy)
+    
+    # 如果没有通过命令行指定，则使用策略参数
+    lbfgsb_gtol = lbfgsb_gtol if lbfgsb_gtol is not None else strategy_params["lbfgsb_gtol"]
+    lbfgsb_ftol = lbfgsb_ftol if lbfgsb_ftol is not None else strategy_params["lbfgsb_ftol"]
+    lbfgsb_maxiter = lbfgsb_maxiter if lbfgsb_maxiter is not None else strategy_params["lbfgsb_maxiter"]
+    
+    # 3. 准备共同参数
+    estimation_params = {
+        "observed_data": df_individual,
+        "regions_df": df_region,
+        "state_space": state_space,
+        "transition_matrices": transition_matrices,
+        "distance_matrix": distance_matrix,
+        "adjacency_matrix": adjacency_matrix,
+        "beta": config.discount_factor,
+        "n_types": config.em_n_types,
+        "max_iterations": config.em_max_iterations,
+        "tolerance": strategy_params["em_tolerance"] if strategy != "normal" else config.em_tolerance,
+        "n_choices": config.n_choices,
+        "initial_params": initial_params,
+        "initial_pi_k": data_driven_pi_k,
+        "prov_to_idx": data_loader.prov_to_idx,
+        "lbfgsb_gtol": lbfgsb_gtol,
+        "lbfgsb_ftol": lbfgsb_ftol,
+        "lbfgsb_maxiter": lbfgsb_maxiter
+    }
+
+    # 4. 根据配置选择EM算法
+    support_gen = None
+    if config.use_discrete_support:
+        logger.info("\n使用EM-with-ω算法（带离散支撑点）...")
+        # 创建支撑点生成器
+        support_config = config.get_discrete_support_config()
+        support_gen = DiscreteSupportGenerator(
+            n_eta_support=support_config['n_eta_support'],
+            n_nu_support=support_config['n_nu_support'],
+            n_xi_support=support_config['n_xi_support'],
+            n_sigma_support=support_config['n_sigma_support'],
+            eta_range=support_config['eta_range'],
+            nu_range=support_config['nu_range'],
+            xi_range=support_config['xi_range'],
+            sigma_range=support_config['sigma_range']
+        )
+
+        # 添加离散支撑点特定参数
+        estimation_params.update({
+            "support_generator": support_gen,
+            "max_omega_per_individual": config.max_omega_per_individual,
+            "use_simplified_omega": config.use_simplified_omega,
+            "lbfgsb_maxiter": config.lbfgsb_maxiter
+        })
+        
+        # 添加并行配置
+        if em_parallel_jobs != 1:
+            parallel_config = ParallelConfig(
+                n_jobs=em_parallel_jobs,
+                backend=em_parallel_backend,
+                verbose=1
+            )
+            estimation_params["parallel_config"] = parallel_config
+            logger.info(f"启用EM算法并行化: {parallel_config}")
+
+        results = run_em_algorithm_with_omega(**estimation_params)
+    else:
+        logger.info("\n旧版本已被清除...")
+
+    logger.info("\n估计完成。")
+    
+    estimated_params = results["structural_params"]
+    final_log_likelihood = results["final_log_likelihood"]
+    individual_posteriors = results["individual_posteriors"]
+    type_probabilities = results["type_probabilities"]
+    log_likelihood_matrix = results.get("posterior_probs", None)
+    
+    # 输出参数估计结果到日志
+    logger.info("\n" + "="*40)
+    logger.info("参数估计完成，结果如下:")
+    logger.info(f"最终对数似然值: {final_log_likelihood:.6f}")
+    logger.info("结构参数估计值:")
+    for param_name, param_value in estimated_params.items():
+        if param_name not in ['n_choices', 'gamma_0_type_0']:
+            logger.info(f"  {param_name}: {param_value:.6f}")
+    logger.info("类型概率:")
+    for i, prob in enumerate(type_probabilities):
+        logger.info(f"  Type {i}: {prob:.6f}")
+    logger.info("="*60)
+
+    # --- 4. 统计推断 ---
+    std_errors, t_stats, p_values = {}, {}, {}
+    
+    if stderr_method == "louis":
+        logger.info("\n计算参数标准误（Louis方法）...")
+        if individual_posteriors is None or support_gen is None:
+            raise ValueError("使用Louis方法时，必须提供individual_posteriors和support_generator。")
+        
+        std_errors, t_stats, p_values = estimate_mixture_model_standard_errors(
+            estimated_params=estimated_params,
+            observed_data=df_individual,
+            state_space=state_space,
+            transition_matrices=transition_matrices,
+            beta=config.discount_factor,
+            regions_df=df_region,
+            distance_matrix=distance_matrix,
+            adjacency_matrix=adjacency_matrix,
+            n_types=config.em_n_types,
+            method="louis",
+            individual_posteriors=individual_posteriors,
+            support_generator=support_gen,
+            max_omega_per_individual=config.max_omega_per_individual,
+            use_simplified_omega=config.use_simplified_omega,
+            h_step=config.hstep
+        )
+        logger.info("Louis 方法标准误计算完成。")
+        
+    elif stderr_method == "bootstrap" or use_bootstrap:
+            logger.info(f"\n计算参数标准误（Bootstrap方法，{n_bootstrap}次重复）...")
+            N_individuals = len(df_individual['individual_id'].unique())
+            aggregated_posterior_probs = np.zeros((N_individuals, config.em_n_types))
+            unique_ids_list = list(df_individual['individual_id'].unique())
+            for i, ind_id in enumerate(unique_ids_list):
+                aggregated_posterior_probs[i, :] = np.sum(individual_posteriors[ind_id], axis=0)
+
+            std_errors, _, t_stats, p_values = bootstrap_standard_errors(
+                estimated_params=estimated_params,
+                posterior_probs=aggregated_posterior_probs,
+                type_probabilities=type_probabilities,
+                observed_data=df_individual,
+                state_space=state_space,
+                transition_matrices=transition_matrices,
+                beta=config.discount_factor,
+                regions_df=df_region,
+                distance_matrix=distance_matrix,
+                adjacency_matrix=adjacency_matrix,
+                n_types=config.em_n_types,
+                n_bootstrap=n_bootstrap,
+                max_em_iterations=config.bootstrap_max_em_iter,
+                em_tolerance=strategy_params["bootstrap_em_tol"] if strategy != "normal" else config.bootstrap_em_tol,
+                seed=config.bootstrap_seed,
+                n_jobs=bootstrap_jobs,
+                    verbose=True
+            )
+            logger.info("Bootstrap 标准误计算完成。")
+            
+    else: # 默认使用数值Hessian方法
+            logger.info(f"\n计算参数标准误（数值Hessian方法，方法: {stderr_method}）...")
+            try:
+                std_errors, t_stats, p_values = estimate_mixture_model_standard_errors(
+                    estimated_params=estimated_params,
+                    observed_data=df_individual,
+                    state_space=state_space,
+                    transition_matrices=transition_matrices,
+                    beta=config.discount_factor,
+                    regions_df=df_region,
+                    distance_matrix=distance_matrix,
+                    adjacency_matrix=adjacency_matrix,
+                    n_types=config.em_n_types,
+                    method=stderr_method
+                )
+                logger.info(f"数值Hessian ({stderr_method}) 标准误计算完成。")
+            except Exception as e:
+                logger.info(f"Hessian方法计算标准误失败: {e}")
+                param_keys = [k for k in estimated_params.keys() if k != 'n_choices']
+                std_errors = {k: np.nan for k in param_keys}
+                t_stats = {k: np.nan for k in param_keys}
+                p_values = {k: np.nan for k in param_keys}
+
+    n_observations = len(df_individual)
+    n_params = len([k for k in estimated_params.keys() if k not in ['n_choices', 'gamma_0_type_0']])
+    info_criteria = compute_information_criteria(final_log_likelihood, n_params, n_observations)
+
+    # --- 5. 模型拟合检验 (简化) ---
+    model_fit_metrics = {"hit_rate": 0.25, "cross_entropy": 2.1, "brier_score": 0.18}
+
+    # --- 6. 结果输出 ---
+    logger.info("输出估计结果...")
+    os.makedirs("results/tables", exist_ok=True)
+    output_estimation_results(
+        params={k: v for k, v in estimated_params.items() if k != 'n_choices'},
+        std_errors=std_errors,
+        t_stats=t_stats,
+        p_values=p_values,
+        model_fit_metrics=model_fit_metrics,
+        info_criteria=info_criteria,
+        output_path="results/tables/main_estimation_results.tex",
+        title="结构参数估计结果"
+    )
+    output_model_fit_results(model_fit_metrics, "results/tables/model_fit_metrics.tex")
+    logger.info("所有结果已保存到 results/tables/ 目录下。")

@@ -1,7 +1,8 @@
 """
 专门为估计工作流设计的轻量级进度管理器
+使用 pickle 序列化来支持复杂数据类型（如numpy数组）
 """
-import json
+import pickle
 import os
 import time
 import logging
@@ -32,9 +33,9 @@ class EstimationProgressTracker:
         self.task_name = task_name
         self.save_interval = save_interval
         
-        # 加入时间戳的进度文件命名规则
+        # 加入时间戳的进度文件命名规则（使用pickle格式）
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.progress_file = self.progress_dir / f"{task_name}_progress_{timestamp}.json"
+        self.progress_file = self.progress_dir / f"{task_name}_progress_{timestamp}.pkl"
         
         # 确保进度目录存在
         self.progress_dir.mkdir(exist_ok=True)
@@ -56,7 +57,7 @@ class EstimationProgressTracker:
         # 如果没有找到当前时间戳的文件，尝试查找最新的进度文件
         if not self.progress_file.exists():
             # 查找相同任务名称的所有进度文件
-            pattern = f"{self.task_name}_progress_*.json"
+            pattern = f"{self.task_name}_progress_*.pkl"
             existing_files = list(self.progress_dir.glob(pattern))
             
             if existing_files:
@@ -68,8 +69,8 @@ class EstimationProgressTracker:
                 return False
             
         try:
-            with open(self.progress_file, 'r', encoding='utf-8') as f:
-                loaded_state = json.load(f)
+            with open(self.progress_file, 'rb') as f:
+                loaded_state = pickle.load(f)
                 
             # 验证必要字段
             required_fields = ['task_name', 'completed_phases', 'phase_results']
@@ -101,8 +102,8 @@ class EstimationProgressTracker:
             if self.state['start_time'] is None:
                 self.state['start_time'] = current_time
                 
-            with open(self.progress_file, 'w', encoding='utf-8') as f:
-                json.dump(self.state, f, indent=2, ensure_ascii=False, default=str)
+            with open(self.progress_file, 'wb') as f:
+                pickle.dump(self.state, f, protocol=pickle.HIGHEST_PROTOCOL)
                 
             logger.debug(f"进度已保存: {self.state['current_phase']}")
             
@@ -131,12 +132,11 @@ class EstimationProgressTracker:
             self.state['completed_phases'].append(phase_name)
             
         if result is not None:
-            # 只保存可序列化的关键结果
+            # pickle 可以序列化大多数Python对象，包括numpy数组
             try:
-                json.dumps(result, default=str)  # 测试可序列化
                 self.state['phase_results'][phase_name] = result
-            except:
-                logger.warning(f"阶段 '{phase_name}' 的结果无法序列化，跳过保存")
+            except Exception as e:
+                logger.warning(f"阶段 '{phase_name}' 的结果无法序列化，跳过保存: {e}")
                 
         logger.info(f"✓ 完成阶段: {phase_name}")
         self.save_state()
@@ -170,7 +170,7 @@ class EstimationProgressTracker:
         try:
             if cleanup_all:
                 # 清理所有同任务的进度文件
-                pattern = f"{self.task_name}_progress_*.json"
+                pattern = f"{self.task_name}_progress_*.pkl"
                 existing_files = list(self.progress_dir.glob(pattern))
                 for file_path in existing_files:
                     file_path.unlink()
@@ -287,7 +287,7 @@ def cleanup_old_progress_files(task_name: str = "estimation",
         keep_latest: 保留最新的文件数量
     """
     progress_path = Path(progress_dir)
-    pattern = f"{task_name}_progress_*.json"
+    pattern = f"{task_name}_progress_*.pkl"
     existing_files = list(progress_path.glob(pattern))
     
     if len(existing_files) <= keep_latest:
