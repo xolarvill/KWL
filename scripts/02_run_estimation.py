@@ -44,22 +44,35 @@ from src.estimation.em_with_omega import run_em_algorithm_with_omega
 from src.utils.outreg2 import output_estimation_results, output_model_fit_results
 
 # 估计工作流（集成进度跟踪）
-def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, enable_progress_tracking=False, auto_cleanup_progress=False, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None):
+def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, enable_progress_tracking=False, auto_cleanup_progress=False, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None, resume_from_latest=False, progress_save_interval=300):
     """集成进度跟踪的估计工作流"""
     
     # 检查进度跟踪是否可用和启用
     if enable_progress_tracking and PROGRESS_AVAILABLE:
         logger.info("启用进度跟踪功能...")
+        
+        # 检查是否需要从最新进度恢复
+        em_resume_state = None
+        if resume_from_latest:
+            logger.info("尝试从最新进度文件恢复EM算法...")
+            from src.utils.estimation_progress import resume_from_latest_progress
+            em_resume_state = resume_from_latest_progress(task_name="main_estimation")
+            if em_resume_state:
+                logger.info(f"成功恢复EM进度: 第{em_resume_state['iteration']}次迭代")
+            else:
+                logger.info("未找到可恢复的EM进度，将从头开始")
+        
         with estimation_progress(
             task_name="main_estimation",
             progress_dir="progress",
-            save_interval=5,
+            save_interval=progress_save_interval,  # 使用指定的时间间隔
             auto_cleanup=auto_cleanup_progress
         ) as tracker:
             return _run_estimation_with_pickle_tracking(
                 tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs,
                 stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol,
-                lbfgsb_ftol, lbfgsb_maxiter, strategy, memory_safe_mode, max_sample_size
+                lbfgsb_ftol, lbfgsb_maxiter, strategy, memory_safe_mode, max_sample_size,
+                em_resume_state
             )
     else:
         if enable_progress_tracking and not PROGRESS_AVAILABLE:
@@ -72,7 +85,7 @@ def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_j
         )
 
 
-def _run_estimation_with_pickle_tracking(tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None):
+def _run_estimation_with_pickle_tracking(tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None, em_resume_state=None):
     """使用pickle进度跟踪的估计工作流"""
     # --- 1. 配置 ---
     config = ModelConfig()
@@ -134,8 +147,17 @@ def _run_estimation_with_pickle_tracking(tracker, sample_size, use_bootstrap, n_
 
     # --- 3. Model Estimation ---
     logger.info("\n开始模型估计...")
-    # 从ModelConfig获取初始参数
-    initial_params = config.get_initial_params(use_type_specific=True)
+    
+    # 检查是否有恢复的EM状态
+    if em_resume_state:
+        logger.info("使用恢复的EM状态继续运行...")
+        initial_params = em_resume_state['current_params']
+        data_driven_pi_k = em_resume_state['current_pi_k']
+        start_iteration = em_resume_state['iteration']
+        logger.info(f"从第{start_iteration}次迭代继续")
+    else:
+        # 从ModelConfig获取初始参数
+        initial_params = config.get_initial_params(use_type_specific=True)
 
     # **智能启动**: 根据数据动态生成pi_k初始值
     # 1. 识别稳定者（stayers）和迁移者（movers）
@@ -221,6 +243,15 @@ def _run_estimation_with_pickle_tracking(tracker, sample_size, use_bootstrap, n_
             estimation_params["parallel_config"] = parallel_config
             logger.info(f"启用EM算法并行化: {parallel_config}")
 
+        # 如果使用进度跟踪，将进度跟踪器传递给EM算法
+        if enable_progress_tracking and PROGRESS_AVAILABLE:
+            estimation_params["progress_tracker"] = tracker
+            # 如果有恢复的EM状态，传递起始迭代
+            if em_resume_state:
+                estimation_params["start_iteration"] = em_resume_state['iteration']
+                estimation_params["initial_params"] = initial_params  # 使用恢复的参数
+                estimation_params["initial_pi_k"] = data_driven_pi_k  # 使用恢复的类型概率
+        
         results = run_em_algorithm_with_omega(**estimation_params)
     else:
         logger.info("\n旧版本已被清除...") # 移除旧版本的简化算法
@@ -397,6 +428,10 @@ def main():
                         help='检查当前进度状态并退出')
     parser.add_argument('--clean-progress', action='store_true',
                         help='清理所有进度文件（包括带时间戳的历史文件）')
+    parser.add_argument('--resume-from-latest', action='store_true',
+                        help='从最新的进度文件恢复EM算法（需要启用进度跟踪）')
+    parser.add_argument('--progress-save-interval', type=int, default=300,
+                        help='EM算法进度保存间隔（秒），默认300秒（5分钟）')
     args = parser.parse_args()
     
     # 处理进度管理相关命令
@@ -439,7 +474,9 @@ def main():
             lbfgsb_maxiter=args.lbfgsb_maxiter,
             strategy=args.strategy,
             memory_safe_mode=args.memory_safe_mode or args.memory_safe,
-            max_sample_size=args.max_sample_size
+            max_sample_size=args.max_sample_size,
+            resume_from_latest=args.resume_from_latest,
+            progress_save_interval=args.progress_save_interval
         )
         profiler.disable()
         stats = pstats.Stats(profiler).sort_stats('cumulative')
@@ -461,7 +498,9 @@ def main():
             lbfgsb_maxiter=args.lbfgsb_maxiter,
             strategy=args.strategy,
             memory_safe_mode=args.memory_safe_mode or args.memory_safe,
-            max_sample_size=args.max_sample_size
+            max_sample_size=args.max_sample_size,
+            resume_from_latest=args.resume_from_latest,
+            progress_save_interval=args.progress_save_interval
         )
 
 if __name__ == '__main__':

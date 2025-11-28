@@ -1470,6 +1470,8 @@ def run_em_algorithm_with_omega(
     lbfgsb_gtol: float = None,  # 临时调整L-BFGS-B梯度容差
     lbfgsb_ftol: float = None,  # 临时调整L-BFGS-B函数值容差
     memory_safe_mode: bool = False,  # 内存安全模式
+    progress_tracker: Optional['EstimationProgressTracker'] = None,  # 进度跟踪器
+    start_iteration: int = 0,  # 起始迭代次数（用于恢复）
 ) -> Dict[str, Any]:
     """
     EM-NFXP算法主循环（带离散支撑点ω）
@@ -1514,6 +1516,10 @@ def run_em_algorithm_with_omega(
         是否使用简化ω策略
     lbfgsb_maxiter : int
         M-step中L-BFGS-B最大迭代次数
+    progress_tracker : EstimationProgressTracker, optional
+        进度跟踪器，用于定期保存EM算法中间状态
+    start_iteration : int, optional
+        起始迭代次数，用于从中间状态恢复EM算法
 
     返回:
     ----
@@ -1558,9 +1564,12 @@ def run_em_algorithm_with_omega(
     converged = False
 
     # EM迭代
-    for iteration in range(max_iterations):
+    for iteration in range(start_iteration, max_iterations):
+        actual_iteration = iteration + 1
         logger.info(f"\n{'='*80}")
-        logger.info(f"EM Iteration {iteration + 1}/{max_iterations}")
+        logger.info(f"EM Iteration {actual_iteration}/{max_iterations}")
+        if start_iteration > 0 and iteration == start_iteration:
+            logger.info(f"(从保存的第{start_iteration}次迭代继续)")
         logger.info(f"{'='*80}")
 
         # E-step
@@ -1626,6 +1635,17 @@ def run_em_algorithm_with_omega(
                 logger.info(f"\n  ✓ Converged! (Δ log-likelihood < {tolerance})")
                 converged = True
                 break
+        
+        # 保存EM算法进度（如果提供了进度跟踪器）
+        if progress_tracker is not None:
+            em_state = {
+                'current_params': current_params.copy(),
+                'current_pi_k': current_pi_k.copy(),
+                'current_log_likelihood': current_log_likelihood,
+                'iteration': actual_iteration,
+                'converged': converged
+            }
+            progress_tracker.save_em_progress(em_state)
 
         prev_log_likelihood = current_log_likelihood
 
@@ -1654,13 +1674,25 @@ def run_em_algorithm_with_omega(
 
     # 汇总结果
     logger.info("\n" + "="*80)
+    total_iterations = iteration + 1 if 'iteration' in locals() else start_iteration
     if converged:
-        logger.info(f"✓ EM Algorithm Converged after {iteration + 1} iterations")
+        logger.info(f"✓ EM Algorithm Converged after {total_iterations} iterations")
     else:
         logger.info(f"⚠ EM Algorithm reached max iterations ({max_iterations})")
     logger.info(f"Final log-likelihood: {prev_log_likelihood:.4f}")
     logger.info(f"Final type probabilities: {current_pi_k}")
     logger.info("="*80)
+    
+    # 保存最终EM算法状态
+    if progress_tracker is not None:
+        final_em_state = {
+            'current_params': current_params.copy(),
+            'current_pi_k': current_pi_k.copy(),
+            'current_log_likelihood': prev_log_likelihood,
+            'iteration': total_iterations,
+            'converged': converged
+        }
+        progress_tracker.save_em_progress(final_em_state, force=True)  # 强制保存最终状态
 
     results = {
         'structural_params': current_params,

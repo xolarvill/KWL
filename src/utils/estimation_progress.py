@@ -20,14 +20,14 @@ class EstimationProgressTracker:
     def __init__(self, 
                  progress_dir: str = "progress",
                  task_name: str = "estimation",
-                 save_interval: int = 5):
+                 save_interval: int = 300):  # 默认5分钟
         """
         初始化进度跟踪器
         
         Args:
             progress_dir: 进度文件保存目录
             task_name: 任务名称
-            save_interval: 每多少步保存一次进度
+            save_interval: 保存间隔时间（秒），默认5分钟
         """
         self.progress_dir = Path(progress_dir)
         self.task_name = task_name
@@ -36,6 +36,10 @@ class EstimationProgressTracker:
         # 加入时间戳的进度文件命名规则（使用pickle格式）
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.progress_file = self.progress_dir / f"{task_name}_progress_{timestamp}.pkl"
+        
+        # 添加EM算法特定的进度保存机制
+        self.last_em_save_time = time.time()
+        self.em_save_interval = save_interval  # EM算法保存间隔
         
         # 确保进度目录存在
         self.progress_dir.mkdir(exist_ok=True)
@@ -93,6 +97,7 @@ class EstimationProgressTracker:
         """保存状态"""
         current_time = time.time()
         
+        # 检查是否应该保存（基于时间间隔）
         if not force and self.state['last_update'] and \
            (current_time - self.state['last_update']) < self.save_interval:
             return
@@ -149,6 +154,42 @@ class EstimationProgressTracker:
         """获取阶段结果"""
         return self.state['phase_results'].get(phase_name)
     
+    def should_save_em_progress(self, force: bool = False) -> bool:
+        """检查是否应该保存EM算法进度"""
+        current_time = time.time()
+        if force or (current_time - self.last_em_save_time) >= self.em_save_interval:
+            self.last_em_save_time = current_time
+            return True
+        return False
+    
+    def save_em_progress(self, em_state: Dict[str, Any], force: bool = False):
+        """保存EM算法中间状态"""
+        if self.should_save_em_progress(force):
+            try:
+                # 保存EM算法特定的状态
+                if 'em_progress' not in self.state:
+                    self.state['em_progress'] = {}
+                
+                self.state['em_progress'].update({
+                    'current_params': em_state.get('current_params'),
+                    'current_pi_k': em_state.get('current_pi_k'),
+                    'current_log_likelihood': em_state.get('current_log_likelihood'),
+                    'iteration': em_state.get('iteration'),
+                    'converged': em_state.get('converged', False),
+                    'last_update': time.time()
+                })
+                
+                self.save_state(force=True)  # 强制保存EM进度
+                logger.info(f"EM进度已保存: 第{em_state.get('iteration', 0)}次迭代, "
+                           f"对数似然: {em_state.get('current_log_likelihood', 0):.6f}")
+                
+            except Exception as e:
+                logger.error(f"保存EM进度失败: {e}")
+    
+    def get_em_progress(self) -> Optional[Dict[str, Any]]:
+        """获取保存的EM算法进度"""
+        return self.state.get('em_progress')
+    
     def get_summary(self) -> Dict[str, Any]:
         """获取进度摘要"""
         elapsed = time.time() - (self.state['start_time'] or time.time())
@@ -158,7 +199,9 @@ class EstimationProgressTracker:
             'current_phase': self.state['current_phase'],
             'elapsed_time': elapsed,
             'is_resumed': self.state['is_resumed'],
-            'completed_phases': self.state['completed_phases']
+            'completed_phases': self.state['completed_phases'],
+            'has_em_progress': 'em_progress' in self.state,
+            'last_em_iteration': self.state.get('em_progress', {}).get('iteration') if 'em_progress' in self.state else None
         }
     
     def cleanup(self, cleanup_all: bool = False):
@@ -274,6 +317,85 @@ def get_estimation_progress(task_name: str = "estimation",
     if tracker.load_state():
         return tracker.get_summary()
     return None
+
+
+def get_latest_progress_file(task_name: str = "estimation", 
+                           progress_dir: str = "progress") -> Optional[Path]:
+    """获取最新的进度文件路径
+    
+    Args:
+        task_name: 任务名称
+        progress_dir: 进度文件目录
+        
+    Returns:
+        最新的进度文件路径，如果不存在则返回None
+    """
+    progress_path = Path(progress_dir)
+    pattern = f"{task_name}_progress_*.pkl"
+    existing_files = list(progress_path.glob(pattern))
+    
+    if not existing_files:
+        return None
+    
+    # 按修改时间排序，取最新的文件
+    latest_file = max(existing_files, key=lambda x: x.stat().st_mtime)
+    return latest_file
+
+
+def load_latest_progress(task_name: str = "estimation", 
+                        progress_dir: str = "progress") -> Optional[Dict[str, Any]]:
+    """加载最新的进度数据
+    
+    Args:
+        task_name: 任务名称
+        progress_dir: 进度文件目录
+        
+    Returns:
+        最新的进度数据，如果不存在则返回None
+    """
+    latest_file = get_latest_progress_file(task_name, progress_dir)
+    if latest_file is None:
+        return None
+    
+    try:
+        with open(latest_file, 'rb') as f:
+            progress_data = pickle.load(f)
+        logger.info(f"成功加载最新进度文件: {latest_file.name}")
+        return progress_data
+    except Exception as e:
+        logger.error(f"加载进度文件失败 {latest_file.name}: {e}")
+        return None
+
+
+def resume_from_latest_progress(task_name: str = "estimation", 
+                               progress_dir: str = "progress") -> Optional[Dict[str, Any]]:
+    """从最新的进度恢复EM算法状态
+    
+    Args:
+        task_name: 任务名称
+        progress_dir: 进度文件目录
+        
+    Returns:
+        包含EM算法状态的字典，如果无法恢复则返回None
+    """
+    progress_data = load_latest_progress(task_name, progress_dir)
+    if progress_data is None:
+        return None
+    
+    em_progress = progress_data.get('em_progress')
+    if em_progress is None:
+        logger.warning("进度文件中没有EM算法状态数据")
+        return None
+    
+    # 检查是否有完整的EM状态
+    required_fields = ['current_params', 'current_pi_k', 'current_log_likelihood', 'iteration']
+    if not all(field in em_progress for field in required_fields):
+        logger.warning("EM进度数据不完整")
+        return None
+    
+    logger.info(f"可以从进度恢复: 第{em_progress['iteration']}次迭代, "
+               f"对数似然: {em_progress['current_log_likelihood']:.6f}")
+    return em_progress
 
 
 def cleanup_old_progress_files(task_name: str = "estimation", 
