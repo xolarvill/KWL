@@ -796,6 +796,7 @@ def m_step_with_omega(
     parallel_config: Optional['ParallelConfig'] = None,  # 新增并行配置参数
     lbfgsb_gtol: float = None,  # 临时调整L-BFGS-B梯度容差
     lbfgsb_ftol: float = None,  # 临时调整L-BFGS-B函数值容差
+    m_step_backend: str = 'threading',  # M步并行化后端
 ) -> Tuple[Dict[str, Any], np.ndarray]:
     """
     扩展的M-step：对ω进行加权求和来更新参数
@@ -862,7 +863,7 @@ def m_step_with_omega(
 
     # --- 目标函数类 ---
     class Objective:
-        def __init__(self, shared_bellman_cache=None, parallel_config=None):
+        def __init__(self, shared_bellman_cache=None, parallel_config=None, m_step_backend='threading'):
             self.call_count = 0
             self.last_call_end_time = time.time()
             # 在目标函数调用之间缓存Bellman解
@@ -873,6 +874,8 @@ def m_step_with_omega(
             self.hot_start_successes = 0
             # 并行配置
             self.parallel_config = parallel_config or ParallelConfig(n_jobs=1)
+            # M步并行化后端
+            self.m_step_backend = m_step_backend
             
             # 确保是增强版缓存实例
             log_msg_header = "  [M-step]"
@@ -924,10 +927,17 @@ def m_step_with_omega(
             # 解包参数
             params = _unpack_params(param_values, param_names, initial_params['n_choices'])
             
-            # 【Windows修复】使用threading后端，所有worker在同一个进程内，直接共享bellman_cache
-            # 不需要multiprocessing.Manager，避免死锁同时保留缓存加速
-            backend = 'threading'  # 强制使用threading后端
-            logger.info(f"{log_msg_header} 【Windows兼容性】使用'{backend}'后端，worker共享主进程缓存（避免死锁+保留加速）")
+            # 根据参数选择并行化后端
+            backend = self.m_step_backend
+            if backend == 'threading':
+                logger.info(f"{log_msg_header} 使用'{backend}'后端，worker共享主进程缓存（避免死锁+保留加速）")
+            elif backend == 'loky':
+                logger.info(f"{log_msg_header} 使用'{backend}'后端，进程间隔离但稳定性更好")
+            elif backend == 'multiprocessing':
+                logger.info(f"{log_msg_header} 使用'{backend}'后端，完全进程隔离")
+            else:
+                logger.warning(f"{log_msg_header} 未知的backend类型'{backend}'，使用默认threading")
+                backend = 'threading'
             
             # 创建数据包供worker使用 - 传递bellman_cache供共享
             data_package = {
@@ -1376,7 +1386,7 @@ def m_step_with_omega(
             return neg_ll
 
     # --- 优化执行 ---
-    objective = Objective(shared_bellman_cache=bellman_cache, parallel_config=parallel_config)
+    objective = Objective(shared_bellman_cache=bellman_cache, parallel_config=parallel_config, m_step_backend=m_step_backend)
     initial_param_values, param_names = _pack_params(initial_params)
     param_bounds = config.get_parameter_bounds(param_names)
 
@@ -1472,6 +1482,7 @@ def run_em_algorithm_with_omega(
     memory_safe_mode: bool = False,  # 内存安全模式
     progress_tracker: Optional['EstimationProgressTracker'] = None,  # 进度跟踪器
     start_iteration: int = 0,  # 起始迭代次数（用于恢复）
+    m_step_backend: str = 'threading',  # M步并行化后端 ('threading', 'loky', 'multiprocessing')
 ) -> Dict[str, Any]:
     """
     EM-NFXP算法主循环（带离散支撑点ω）
@@ -1520,6 +1531,8 @@ def run_em_algorithm_with_omega(
         进度跟踪器，用于定期保存EM算法中间状态
     start_iteration : int, optional
         起始迭代次数，用于从中间状态恢复EM算法
+    m_step_backend : str, optional
+        M步并行化后端类型，可选值: 'threading', 'loky', 'multiprocessing'，默认'threading'
 
     返回:
     ----

@@ -231,7 +231,8 @@ class EstimationProgressTracker:
 def estimation_progress(task_name: str = "estimation", 
                        progress_dir: str = "progress",
                        save_interval: int = 5,
-                       auto_cleanup: bool = False):
+                       auto_cleanup: bool = False,
+                       load_existing: bool = True):
     """
     估计工作流进度跟踪的上下文管理器
     
@@ -240,6 +241,7 @@ def estimation_progress(task_name: str = "estimation",
         progress_dir: 进度文件目录
         save_interval: 保存间隔（秒）
         auto_cleanup: 完成后是否自动清理进度文件
+        load_existing: 是否加载已有的进度文件
     
     Yields:
         EstimationProgressTracker: 进度跟踪器实例
@@ -250,8 +252,10 @@ def estimation_progress(task_name: str = "estimation",
         save_interval=save_interval
     )
     
-    # 加载已有进度
-    has_progress = tracker.load_state()
+    # 根据参数决定是否加载已有进度
+    has_progress = False
+    if load_existing:
+        has_progress = tracker.load_state()
     
     try:
         yield tracker

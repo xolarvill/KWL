@@ -44,14 +44,14 @@ from src.estimation.em_with_omega import run_em_algorithm_with_omega
 from src.utils.outreg2 import output_estimation_results, output_model_fit_results
 
 # 估计工作流（集成进度跟踪）
-def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, enable_progress_tracking=False, auto_cleanup_progress=False, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None, resume_from_latest=False, progress_save_interval=300):
+def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, enable_progress_tracking=False, auto_cleanup_progress=False, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None, resume_from_latest=False, progress_save_interval=300, m_step_backend='threading'):
     """集成进度跟踪的估计工作流"""
     
     # 检查进度跟踪是否可用和启用
     if enable_progress_tracking and PROGRESS_AVAILABLE:
         logger.info("启用进度跟踪功能...")
         
-        # 检查是否需要从最新进度恢复
+        # 只有在显式指定了--resume-from-latest时才尝试恢复
         em_resume_state = None
         if resume_from_latest:
             logger.info("尝试从最新进度文件恢复EM算法...")
@@ -66,7 +66,8 @@ def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_j
             task_name="main_estimation",
             progress_dir="progress",
             save_interval=progress_save_interval,  # 使用指定的时间间隔
-            auto_cleanup=auto_cleanup_progress
+            auto_cleanup=auto_cleanup_progress,
+            load_existing=resume_from_latest  # 只有在显式指定恢复时才加载已有进度
         ) as tracker:
             return _run_estimation_with_pickle_tracking(
                 tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs,
@@ -81,11 +82,12 @@ def run_estimation_workflow(sample_size, use_bootstrap, n_bootstrap, bootstrap_j
         return _run_estimation_traditional(
             sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs,
             stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol,
-            lbfgsb_ftol, lbfgsb_maxiter, strategy, memory_safe_mode, max_sample_size
+            lbfgsb_ftol, lbfgsb_maxiter, strategy, memory_safe_mode, max_sample_size,
+            m_step_backend
         )
 
 
-def _run_estimation_with_pickle_tracking(tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None, em_resume_state=None):
+def _run_estimation_with_pickle_tracking(tracker, sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None, em_resume_state=None, m_step_backend='threading'):
     """使用pickle进度跟踪的估计工作流"""
     # --- 1. 配置 ---
     config = ModelConfig()
@@ -242,15 +244,20 @@ def _run_estimation_with_pickle_tracking(tracker, sample_size, use_bootstrap, n_
             )
             estimation_params["parallel_config"] = parallel_config
             logger.info(f"启用EM算法并行化: {parallel_config}")
+        
+        # 添加M步并行化后端
+        estimation_params["m_step_backend"] = m_step_backend
+        logger.info(f"设置M步并行化后端: {m_step_backend}")  # 调试输出
 
-        # 如果使用进度跟踪，将进度跟踪器传递给EM算法
-        if enable_progress_tracking and PROGRESS_AVAILABLE:
-            estimation_params["progress_tracker"] = tracker
-            # 如果有恢复的EM状态，传递起始迭代
-            if em_resume_state:
-                estimation_params["start_iteration"] = em_resume_state['iteration']
-                estimation_params["initial_params"] = initial_params  # 使用恢复的参数
-                estimation_params["initial_pi_k"] = data_driven_pi_k  # 使用恢复的类型概率
+        # 将进度跟踪器传递给EM算法（因为已经启用了进度跟踪才会进入这个函数）
+        estimation_params["progress_tracker"] = tracker
+        # 传递M步并行化后端
+        estimation_params["m_step_backend"] = m_step_backend
+        # 如果有恢复的EM状态，传递起始迭代
+        if em_resume_state:
+            estimation_params["start_iteration"] = em_resume_state['iteration']
+            estimation_params["initial_params"] = initial_params  # 使用恢复的参数
+            estimation_params["initial_pi_k"] = data_driven_pi_k  # 使用恢复的类型概率
         
         results = run_em_algorithm_with_omega(**estimation_params)
     else:
@@ -389,123 +396,7 @@ def _run_estimation_with_pickle_tracking(tracker, sample_size, use_bootstrap, n_
     output_model_fit_results(model_fit_metrics, "results/tables/model_fit_metrics.tex")
     logger.info("所有结果已保存到 results/tables/ 目录下。" )
 
-# 接受参数的main函数
-def main():
-    parser = argparse.ArgumentParser(description="运行结构模型估计")
-    parser.add_argument('--profile', action='store_true', help='启用性能分析')
-    parser.add_argument('--debug-sample-size', type=int, default=None, help='使用指定数量的样本进行调试运行')
-    parser.add_argument('--use-bootstrap', action='store_true', help='使用Bootstrap计算标准误（慢，但更稳健）')
-    parser.add_argument('--n-bootstrap', type=int, default=100, help='Bootstrap重复次数')
-    parser.add_argument('--bootstrap-jobs', type=int, default=-1, help='Bootstrap并行任务数，-1表示使用所有CPU核心')
-    parser.add_argument('--stderr-method', type=str, default="louis",
-                        choices=["louis", "bootstrap", "shared_only", "type_0_only", "all_numerical"],
-                        help='标准误计算方法: "louis", "bootstrap", 其他方法是旧版本遗留现在被移出了"')
-    parser.add_argument('--em-parallel-jobs', type=int, default=1, 
-                        help='EM算法并行任务数，-1表示使用所有CPU核心，1表示禁用并行化（默认为1）')
-    parser.add_argument('--em-parallel-backend', type=str, default='loky',
-                        choices=['loky', 'threading', 'multiprocessing'],
-                        help='EM算法并行后端 (默认为loky)')
-    parser.add_argument('--memory-safe-mode', action='store_true',
-                        help='启用内存安全模式，自动调整并行参数以避免内存溢出')
-    parser.add_argument('--lbfgsb-gtol', type=float, default=None,
-                        help='临时调整L-BFGS-B梯度容差（如1e-4用于快速粗略估计，1e-5用于精确估计）')
-    parser.add_argument('--lbfgsb-ftol', type=float, default=None,
-                        help='临时调整L-BFGS-B函数值容差（如1e-5用于快速粗略估计，1e-6用于精确估计）')
-    parser.add_argument('--lbfgsb-maxiter', type=int, default=None,
-                        help='临时调整L-BFGS-B最大迭代次数（如10用于快速粗略估计，15用于精确估计）')
-    parser.add_argument('--strategy', type=str, default='normal',
-                        choices=['fast', 'normal', 'test'],
-                        help='运行策略: "fast"快速但精度较低, "normal"平衡模式, "test"用于快速测试的宽松容差模式')
-    parser.add_argument('--memory-safe', action='store_true', 
-                        help='启用内存安全模式（大样本时自动启用）')
-    parser.add_argument('--max-sample-size', type=int, default=None,
-                        help='最大样本大小限制（如16000）')
-    parser.add_argument('--enable-progress-tracking', action='store_true',
-                        help='启用进度跟踪和断点续跑功能（默认关闭）')
-    parser.add_argument('--auto-cleanup-progress', action='store_true',
-                        help='完成后自动清理进度文件')
-    parser.add_argument('--check-progress', action='store_true',
-                        help='检查当前进度状态并退出')
-    parser.add_argument('--clean-progress', action='store_true',
-                        help='清理所有进度文件（包括带时间戳的历史文件）')
-    parser.add_argument('--resume-from-latest', action='store_true',
-                        help='从最新的进度文件恢复EM算法（需要启用进度跟踪）')
-    parser.add_argument('--progress-save-interval', type=int, default=300,
-                        help='EM算法进度保存间隔（秒），默认300秒（5分钟）')
-    args = parser.parse_args()
-    
-    # 处理进度管理相关命令
-    if args.check_progress:
-        from src.utils.estimation_progress import get_estimation_progress
-        progress = get_estimation_progress()
-        if progress:
-            logger.info("当前进度状态:")
-            logger.info(f"  任务: {progress['task_name']}")
-            logger.info(f"  已完成阶段: {progress['total_phases']}")
-            logger.info(f"  当前阶段: {progress['current_phase']}")
-            logger.info(f"  已恢复: {'是' if progress['is_resumed'] else '否'}")
-            logger.info(f"  已完成的阶段列表: {progress['completed_phases']}")
-        else:
-            logger.info("未找到进度文件")
-        return
-    
-    if args.clean_progress:
-        from src.utils.estimation_progress import cleanup_old_progress_files
-        cleanup_old_progress_files(task_name="main_estimation", keep_latest=0)  # 清理所有进度文件
-        logger.info("所有进度文件已清理")
-        return
-
-    if args.profile:
-        logger.info("性能分析已启用。结果将保存到 'estimation_profile.prof'")
-        profiler = cProfile.Profile()
-        profiler.enable()
-        run_estimation_workflow(
-            sample_size=args.debug_sample_size,
-            use_bootstrap=args.use_bootstrap,
-            n_bootstrap=args.n_bootstrap,
-            bootstrap_jobs=args.bootstrap_jobs,
-            stderr_method=args.stderr_method,
-            enable_progress_tracking=args.enable_progress_tracking,  # 默认关闭，需要--enable-progress-tracking显式启用
-            auto_cleanup_progress=args.auto_cleanup_progress,
-            em_parallel_jobs=args.em_parallel_jobs,
-            em_parallel_backend=args.em_parallel_backend,
-            lbfgsb_gtol=args.lbfgsb_gtol,
-            lbfgsb_ftol=args.lbfgsb_ftol,
-            lbfgsb_maxiter=args.lbfgsb_maxiter,
-            strategy=args.strategy,
-            memory_safe_mode=args.memory_safe_mode or args.memory_safe,
-            max_sample_size=args.max_sample_size,
-            resume_from_latest=args.resume_from_latest,
-            progress_save_interval=args.progress_save_interval
-        )
-        profiler.disable()
-        stats = pstats.Stats(profiler).sort_stats('cumulative')
-        stats.dump_stats('estimation_profile.prof')
-        logger.info("\n性能分析报告已生成。使用 snakeviz estimation_profile.prof 查看可视化结果。" )
-    else:
-        run_estimation_workflow(
-            sample_size=args.debug_sample_size,
-            use_bootstrap=args.use_bootstrap,
-            n_bootstrap=args.n_bootstrap,
-            bootstrap_jobs=args.bootstrap_jobs,
-            stderr_method=args.stderr_method,
-            enable_progress_tracking=args.enable_progress_tracking,  # 默认关闭，需要--enable-progress-tracking显式启用
-            auto_cleanup_progress=args.auto_cleanup_progress,
-            em_parallel_jobs=args.em_parallel_jobs,
-            em_parallel_backend=args.em_parallel_backend,
-            lbfgsb_gtol=args.lbfgsb_gtol,
-            lbfgsb_ftol=args.lbfgsb_ftol,
-            lbfgsb_maxiter=args.lbfgsb_maxiter,
-            strategy=args.strategy,
-            memory_safe_mode=args.memory_safe_mode or args.memory_safe,
-            max_sample_size=args.max_sample_size,
-            resume_from_latest=args.resume_from_latest,
-            progress_save_interval=args.progress_save_interval
-        )
-
-if __name__ == '__main__':
-    main()
-def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None):
+def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstrap_jobs, stderr_method, em_parallel_jobs, em_parallel_backend, lbfgsb_gtol=None, lbfgsb_ftol=None, lbfgsb_maxiter=None, strategy="normal", memory_safe_mode=False, max_sample_size=None, m_step_backend='threading'):
     """传统估计工作流（无进度跟踪）"""
     # --- 1. 配置 ---
     config = ModelConfig()
@@ -747,3 +638,126 @@ def _run_estimation_traditional(sample_size, use_bootstrap, n_bootstrap, bootstr
     )
     output_model_fit_results(model_fit_metrics, "results/tables/model_fit_metrics.tex")
     logger.info("所有结果已保存到 results/tables/ 目录下。")
+
+
+# 接受参数的main函数
+def main():
+    parser = argparse.ArgumentParser(description="运行结构模型估计")
+    parser.add_argument('--profile', action='store_true', help='启用性能分析')
+    parser.add_argument('--debug-sample-size', type=int, default=None, help='使用指定数量的样本进行调试运行')
+    parser.add_argument('--use-bootstrap', action='store_true', help='使用Bootstrap计算标准误（慢，但更稳健）')
+    parser.add_argument('--n-bootstrap', type=int, default=100, help='Bootstrap重复次数')
+    parser.add_argument('--bootstrap-jobs', type=int, default=-1, help='Bootstrap并行任务数，-1表示使用所有CPU核心')
+    parser.add_argument('--stderr-method', type=str, default="louis",
+                        choices=["louis", "bootstrap", "shared_only", "type_0_only", "all_numerical"],
+                        help='标准误计算方法: "louis", "bootstrap", 其他方法是旧版本遗留现在被移出了"')
+    parser.add_argument('--em-parallel-jobs', type=int, default=1, 
+                        help='EM算法并行任务数，-1表示使用所有CPU核心，1表示禁用并行化（默认为1）')
+    parser.add_argument('--em-parallel-backend', type=str, default='loky',
+                        choices=['loky', 'threading', 'multiprocessing'],
+                        help='EM算法并行后端 (默认为loky)')
+    parser.add_argument('--m-step-backend', type=str, default='threading',
+                        choices=['threading', 'loky', 'multiprocessing'],
+                        help='M步并行化后端类型 (默认为threading，适合Windows环境)')
+    parser.add_argument('--memory-safe-mode', action='store_true',
+                        help='启用内存安全模式，自动调整并行参数以避免内存溢出')
+    parser.add_argument('--lbfgsb-gtol', type=float, default=None,
+                        help='临时调整L-BFGS-B梯度容差（如1e-4用于快速粗略估计，1e-5用于精确估计）')
+    parser.add_argument('--lbfgsb-ftol', type=float, default=None,
+                        help='临时调整L-BFGS-B函数值容差（如1e-5用于快速粗略估计，1e-6用于精确估计）')
+    parser.add_argument('--lbfgsb-maxiter', type=int, default=None,
+                        help='临时调整L-BFGS-B最大迭代次数（如10用于快速粗略估计，15用于精确估计）')
+    parser.add_argument('--strategy', type=str, default='normal',
+                        choices=['fast', 'normal', 'test'],
+                        help='运行策略: "fast"快速但精度较低, "normal"平衡模式, "test"用于快速测试的宽松容差模式')
+    parser.add_argument('--memory-safe', action='store_true', 
+                        help='启用内存安全模式（大样本时自动启用）')
+    parser.add_argument('--max-sample-size', type=int, default=None,
+                        help='最大样本大小限制（如16000）')
+    parser.add_argument('--enable-progress-tracking', action='store_true',
+                        help='启用进度跟踪和断点续跑功能（默认关闭）')
+    parser.add_argument('--auto-cleanup-progress', action='store_true',
+                        help='完成后自动清理进度文件')
+    parser.add_argument('--check-progress', action='store_true',
+                        help='检查当前进度状态并退出')
+    parser.add_argument('--clean-progress', action='store_true',
+                        help='清理所有进度文件（包括带时间戳的历史文件）')
+    parser.add_argument('--resume-from-latest', action='store_true',
+                        help='从最新的进度文件恢复EM算法（需要启用进度跟踪）')
+    parser.add_argument('--progress-save-interval', type=int, default=300,
+                        help='EM算法进度保存间隔（秒），默认300秒（5分钟）')
+    args = parser.parse_args()
+    
+    # 处理进度管理相关命令
+    if args.check_progress:
+        from src.utils.estimation_progress import get_estimation_progress
+        progress = get_estimation_progress()
+        if progress:
+            logger.info("当前进度状态:")
+            logger.info(f"  任务: {progress['task_name']}")
+            logger.info(f"  已完成阶段: {progress['total_phases']}")
+            logger.info(f"  当前阶段: {progress['current_phase']}")
+            logger.info(f"  已恢复: {'是' if progress['is_resumed'] else '否'}")
+            logger.info(f"  已完成的阶段列表: {progress['completed_phases']}")
+        else:
+            logger.info("未找到进度文件")
+        return
+    
+    if args.clean_progress:
+        from src.utils.estimation_progress import cleanup_old_progress_files
+        cleanup_old_progress_files(task_name="main_estimation", keep_latest=0)  # 清理所有进度文件
+        logger.info("所有进度文件已清理")
+        return
+
+    if args.profile:
+        logger.info("性能分析已启用。结果将保存到 'estimation_profile.prof'")
+        profiler = cProfile.Profile()
+        profiler.enable()
+        run_estimation_workflow(
+            sample_size=args.debug_sample_size,
+            use_bootstrap=args.use_bootstrap,
+            n_bootstrap=args.n_bootstrap,
+            bootstrap_jobs=args.bootstrap_jobs,
+            stderr_method=args.stderr_method,
+            enable_progress_tracking=args.enable_progress_tracking,  # 默认关闭，需要--enable-progress-tracking显式启用
+            auto_cleanup_progress=args.auto_cleanup_progress,
+            em_parallel_jobs=args.em_parallel_jobs,
+            em_parallel_backend=args.em_parallel_backend,
+            lbfgsb_gtol=args.lbfgsb_gtol,
+            lbfgsb_ftol=args.lbfgsb_ftol,
+            lbfgsb_maxiter=args.lbfgsb_maxiter,
+            strategy=args.strategy,
+            memory_safe_mode=args.memory_safe_mode or args.memory_safe,
+            max_sample_size=args.max_sample_size,
+            resume_from_latest=args.resume_from_latest,
+            progress_save_interval=args.progress_save_interval,
+            m_step_backend=args.m_step_backend
+        )
+        profiler.disable()
+        stats = pstats.Stats(profiler).sort_stats('cumulative')
+        stats.dump_stats('estimation_profile.prof')
+        logger.info("\n性能分析报告已生成。使用 snakeviz estimation_profile.prof 查看可视化结果。" )
+    else:
+        run_estimation_workflow(
+            sample_size=args.debug_sample_size,
+            use_bootstrap=args.use_bootstrap,
+            n_bootstrap=args.n_bootstrap,
+            bootstrap_jobs=args.bootstrap_jobs,
+            stderr_method=args.stderr_method,
+            enable_progress_tracking=args.enable_progress_tracking,  # 默认关闭，需要--enable-progress-tracking显式启用
+            auto_cleanup_progress=args.auto_cleanup_progress,
+            em_parallel_jobs=args.em_parallel_jobs,
+            em_parallel_backend=args.em_parallel_backend,
+            lbfgsb_gtol=args.lbfgsb_gtol,
+            lbfgsb_ftol=args.lbfgsb_ftol,
+            lbfgsb_maxiter=args.lbfgsb_maxiter,
+            strategy=args.strategy,
+            memory_safe_mode=args.memory_safe_mode or args.memory_safe,
+            max_sample_size=args.max_sample_size,
+            resume_from_latest=args.resume_from_latest,
+            progress_save_interval=args.progress_save_interval,
+            m_step_backend=args.m_step_backend
+        )
+        
+if __name__ == '__main__':
+    main()
